@@ -147,6 +147,7 @@ if (APPLE)
          cocoabridge STATIC
          macos/cocoabridge.mm
          )
+      target_link_libraries(cocoabridge ${QT_LIBRARIES})
 else (APPLE)
       set(INCS "")
       set(COCOABRIDGE "")
@@ -581,7 +582,6 @@ if (BUILD_PCH)
       target_use_pch(mscoreapp)
       target_use_pch(inspectorplugin)
 
-      if (APPLE)
-            target_use_pch(cocoabridge)
-      endif (APPLE)
+      # cocoabridge is Objective-C++: the C++ precompiled header cannot be used there
+      # (Ninja and Makefile generators refuse it); its header includes what it needs
 endif (BUILD_PCH)

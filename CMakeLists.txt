@@ -251,11 +251,8 @@ if (NOT MSVC)
 endif (NOT MSVC)
 
 if (APPLE)
-   if (XCODE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
-   else (XCODE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
-   endif (XCODE)
+   # C++20 with every generator (Xcode, Ninja, Makefiles): the sources need it
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
    # This is necessary for genManual to be executed during the build phase,
    # it needs to be able to get the Qt libs.
    # TODO: is it still needed? genManual is removed.

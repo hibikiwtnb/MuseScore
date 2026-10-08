@@ -20,6 +20,9 @@
 #ifndef __COCOABRIDGE_H__
 #define __COCOABRIDGE_H__
 
+#include <functional>
+#include <QString>
+
 class CocoaBridge {
       CocoaBridge() {};
    public:
