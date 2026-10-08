@@ -1081,23 +1081,49 @@ void Score::updateVelo()
 //   renderStaffSegment
 //---------------------------------------------------------
 
+//---------------------------------------------------------
+//   repeatSource
+//    the measure whose notes a repeat measure plays: the one as many measures
+//    back as its pattern is long (1, 2 or 4), followed back through other
+//    repeat measures; nullptr if m is not a repeat measure or nothing is there
+//---------------------------------------------------------
+
+static const Measure* repeatSource(const Measure* m, const Staff* staff)
+      {
+      for (int guard = 0; m && guard < 1000; ++guard) {
+            const Segment* s = m->first(SegmentType::ChordRest);
+            const RepeatMeasure* rm = nullptr;
+            if (s) {
+                  const int strack = staff->idx() * VOICES;
+                  for (int track = strack; track < strack + VOICES && !rm; ++track) {
+                        const Element* e = s->element(track);
+                        if (e && e->isRepeatMeasure())
+                              rm = toRepeatMeasure(e);
+                        }
+                  }
+            if (!rm)
+                  return guard ? m : nullptr;
+            for (int i = 0; m && i < rm->numMeasures(); ++i)
+                  m = m->prevMeasure();
+            }
+      return nullptr;
+      }
+
 void MidiRenderer::renderStaffChunk(const Chunk& chunk, EventMap* events, const StaffContext& sctx)
       {
       Measure const * const start = chunk.startMeasure();
       Measure const * const end = chunk.endMeasure();
       const int tickOffset = chunk.tickOffset();
 
-      Measure const * lastMeasure = start->prevMeasure();
-
       for (Measure const * m = start; m != end; m = m->nextMeasure()) {
-            if (lastMeasure && m->isRepeatMeasure(sctx.staff)) {
-                  int offset = (m->tick() - lastMeasure->tick()).ticks();
-                  collectMeasureEvents(events, lastMeasure, sctx, tickOffset + offset);
+            if (m->isRepeatMeasure(sctx.staff)) {
+                  if (const Measure* source = repeatSource(m, sctx.staff)) {
+                        int offset = (m->tick() - source->tick()).ticks();
+                        collectMeasureEvents(events, source, sctx, tickOffset + offset);
+                        }
                   }
-            else {
-                  lastMeasure = m;
-                  collectMeasureEvents(events, lastMeasure, sctx, tickOffset);
-                  }
+            else
+                  collectMeasureEvents(events, m, sctx, tickOffset);
             }
       }
 

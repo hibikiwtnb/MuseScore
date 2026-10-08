@@ -14,7 +14,9 @@
 #include "repeat.h"
 #include "score.h"
 #include "staff.h"
+#include "sym.h"
 #include "system.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -33,9 +35,30 @@ RepeatMeasure::RepeatMeasure(Score* score)
 
 void RepeatMeasure::draw(QPainter* painter) const
       {
+      if (_numMeasures > 1) {
+            if (drawsSymbol()) {
+                  painter->setPen(curColor());
+                  drawSymbol(_numMeasures == 2 ? SymId::repeat2Bars : SymId::repeat4Bars, painter);
+                  }
+            return;
+            }
       painter->setBrush(QBrush(curColor()));
       painter->setPen(Qt::NoPen);
       painter->drawPath(path);
+      }
+
+//---------------------------------------------------------
+//   drawsSymbol
+//---------------------------------------------------------
+
+/**
+ A group of 2 or 4 measures shows one symbol, over the barline in the middle of the group:
+ the one before the 2nd measure of 2, before the 3rd of 4. That measure draws it.
+ */
+
+bool RepeatMeasure::drawsSymbol() const
+      {
+      return _numMeasures == 1 || _measureInGroup == _numMeasures / 2 + 1;
       }
 
 //---------------------------------------------------------
@@ -48,6 +71,21 @@ void RepeatMeasure::layout()
             e->layout();
 
       Staff* st = staff();
+      if (_numMeasures > 1) {
+            // centered vertically on the staff; horizontally on the barline, see Measure::layoutX
+            path = QPainterPath();
+            if (drawsSymbol()) {
+                  const QRectF b = symBbox(_numMeasures == 2 ? SymId::repeat2Bars : SymId::repeat4Bars);
+                  setPos(0.0, (st ? st->height() * .5 : spatium() * 2.0) - (b.y() + b.height() * .5));
+                  setbbox(b);
+                  }
+            else {
+                  setPos(0.0, 0.0);
+                  setbbox(QRectF());
+                  }
+            return;
+            }
+
       qreal ld = st ? st->lineDistance(tick()) : 1.0;
       qreal sp  = spatium();
 
@@ -82,6 +120,35 @@ Fraction RepeatMeasure::ticks() const
       if (measure())
             return measure()->stretchedLen(staff());
       return Fraction(0, 1);
+      }
+
+//---------------------------------------------------------
+//   writeProperties
+//---------------------------------------------------------
+
+void RepeatMeasure::writeProperties(XmlWriter& xml) const
+      {
+      Rest::writeProperties(xml);
+      if (_numMeasures > 1) {
+            xml.tag("numMeasures", _numMeasures);
+            xml.tag("measureInGroup", _measureInGroup);
+            }
+      }
+
+//---------------------------------------------------------
+//   readProperties
+//---------------------------------------------------------
+
+bool RepeatMeasure::readProperties(XmlReader& e)
+      {
+      const QStringRef& tag(e.name());
+      if (tag == "numMeasures")
+            _numMeasures = e.readInt();
+      else if (tag == "measureInGroup")
+            _measureInGroup = e.readInt();
+      else
+            return Rest::readProperties(e);
+      return true;
       }
 
 //---------------------------------------------------------

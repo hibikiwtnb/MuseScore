@@ -3759,7 +3759,15 @@ void Measure::stretchMeasure(qreal targetWidth)
                         continue;
                   ElementType t = e->type();
                   int staffIdx    = e->staffIdx();
-                  if (t == ElementType::REPEAT_MEASURE || (t == ElementType::REST && (isMMRest() || toRest(e)->isFullMeasureRest()))) {
+                  if (t == ElementType::REPEAT_MEASURE && toRepeatMeasure(e)->numMeasures() > 1) {
+                        //
+                        // repeat of 2 or 4 measures: the symbol stands on this measure's barline
+                        // (the middle of its group), the other measures of the group stay empty
+                        //
+                        e->rxpos() = -s.x() - e->bbox().x() - e->width() * .5;
+                        s.createShape(staffIdx);
+                        }
+                  else if (t == ElementType::REPEAT_MEASURE || (t == ElementType::REST && (isMMRest() || toRest(e)->isFullMeasureRest()))) {
                         //
                         // element has to be centered in free space
                         //    x1 - left measure position of free space

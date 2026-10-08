@@ -964,7 +964,7 @@ void Rest::write(XmlWriter& xml) const
       writeBeam(xml);
       xml.stag(this);
       writeStyledProperties(xml);
-      ChordRest::writeProperties(xml);
+      writeProperties(xml);         // virtual: RepeatMeasure adds its own
       el().write(xml);
       bool write_dots = false;
       for (NoteDot* dot : _dots)
@@ -1009,7 +1009,7 @@ void Rest::read(XmlReader& e)
                   }
             else if (readStyledProperty(e, tag))
                   ;
-            else if (ChordRest::readProperties(e))
+            else if (readProperties(e))   // virtual: RepeatMeasure reads its own
                   ;
             else
                   e.unknown();

@@ -27,6 +27,8 @@ class Segment;
 
 class RepeatMeasure final : public Rest {
       QPainterPath path;
+      int _numMeasures    { 1 };      ///< length of the repeated pattern: 1, 2 or 4 measures
+      int _measureInGroup { 1 };      ///< 1-based place of this measure in its group of _numMeasures
 
    public:
       RepeatMeasure(Score*);
@@ -41,6 +43,15 @@ class RepeatMeasure final : public Rest {
       Fraction actualTicks() const { return Rest::ticks(); }
 
       QString accessibleInfo() const override;
+
+      int numMeasures() const             { return _numMeasures;    }
+      void setNumMeasures(int n)          { _numMeasures = n;       }
+      int measureInGroup() const          { return _measureInGroup; }
+      void setMeasureInGroup(int n)       { _measureInGroup = n;    }
+      bool drawsSymbol() const;
+
+      void writeProperties(XmlWriter& xml) const override;
+      bool readProperties(XmlReader& e) override;
       };
 
 

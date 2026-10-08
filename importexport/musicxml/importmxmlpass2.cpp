@@ -3325,11 +3325,18 @@ static QVector<QVector<int>> staffContent(const Measure* measure, const int staf
 //---------------------------------------------------------
 
 /**
- Replace measures inside a one-measure measure-repeat by a RepeatMeasure ("%").
- A measure carrying the start mark is always replaced. Following measures are
- replaced until a stop mark, as long as their content is a copy of the previous
- measure (exporters write the repeated notes, which also protects against a missing stop).
- Multi-measure repeats are not supported by MuseScore 3 and are left as notes.
+ Replace measures inside a measure-repeat by RepeatMeasures ("%").
+
+ One-measure repeats: a measure carrying the start mark is always replaced. Following
+ measures are replaced until a stop mark, as long as their content is a copy of the
+ previous measure (exporters write the repeated notes, which also protects against a
+ missing stop).
+
+ Repeats of 2 or 4 measures: from the start mark, groups of that many measures are
+ replaced, each group showing one symbol over its middle barline and playing the
+ measures just before it. The range runs to the stop mark when it holds a whole number
+ of groups, otherwise one group. The content is not compared: OMR leaves these
+ measures empty or with rests. Other lengths are logged and left as they are.
  */
 
 void MusicXMLParserPass2::applyMeasureRepeats()
@@ -3339,6 +3346,7 @@ void MusicXMLParserPass2::applyMeasureRepeats()
 
       struct Marks {
             bool start = false;
+            bool stop = false;
             int measures = 0;
             };
       // a stop and a start in the same measure: the old repeat ends, a new one starts
@@ -3349,10 +3357,19 @@ void MusicXMLParserPass2::applyMeasureRepeats()
                   m.start = true;
                   m.measures = mark.measures;
                   }
+            else
+                  m.stop = true;
             }
 
+      struct Replacement {
+            Measure* measure;
+            int staffIdx;
+            int numMeasures;
+            int measureInGroup;
+            };
+
       // decide first, on the original content, then replace
-      std::vector<std::pair<Measure*, int>> toReplace;
+      std::vector<Replacement> toReplace;
       for (const auto& staffMarks : marksPerStaff) {
             const int staffIdx = staffMarks.first;
             const auto& marks = staffMarks.second;
@@ -3366,6 +3383,33 @@ void MusicXMLParserPass2::applyMeasureRepeats()
                         if (mark.start) {
                               if (mark.measures == 1)
                                     active = explicitStart = true;
+                              else if (mark.measures == 2 || mark.measures == 4) {
+                                    const int n = mark.measures;
+                                    // the pattern: n measures before the start
+                                    const Measure* source = m;
+                                    for (int i = 0; source && i < n; ++i)
+                                          source = source->prevMeasure();
+                                    // the range: to the stop mark (at most 8 groups), if a whole number of groups
+                                    std::vector<Measure*> range;
+                                    bool stopped = false;
+                                    for (Measure* r = m; r && range.size() < size_t(8 * n); r = r->nextMeasure()) {
+                                          auto rt = marks.find(r->tick());
+                                          if (r != m && rt != marks.end() && rt->second.start)
+                                                break;
+                                          range.push_back(r);
+                                          if (rt != marks.end() && rt->second.stop) {
+                                                stopped = true;
+                                                break;
+                                                }
+                                          }
+                                    size_t count = (stopped && range.size() % n == 0) ? range.size() : size_t(n);
+                                    if (!source || range.size() < size_t(n))
+                                          _logger->logError(QString("measure-repeat of %1 measures without room (measure at tick %2)")
+                                                            .arg(n).arg(m->tick().ticks()));
+                                    else
+                                          for (size_t i = 0; i < count; ++i)
+                                                toReplace.push_back({ range[i], staffIdx, n, int(i % n) + 1 });
+                                    }
                               else
                                     _logger->logError(QString("measure-repeat of %1 measures not supported (measure at tick %2)")
                                                       .arg(mark.measures).arg(m->tick().ticks()));
@@ -3382,13 +3426,16 @@ void MusicXMLParserPass2::applyMeasureRepeats()
                         active = false;
                         continue;
                         }
-                  toReplace.push_back({ m, staffIdx });
+                  toReplace.push_back({ m, staffIdx, 1, 1 });
                   }
             }
 
       ScoreLoad sl;     // no undo during import
-      for (const auto& r : toReplace)
-            r.first->cmdInsertRepeatMeasure(r.second);
+      for (const Replacement& r : toReplace) {
+            RepeatMeasure* rm = r.measure->cmdInsertRepeatMeasure(r.staffIdx);
+            rm->setNumMeasures(r.numMeasures);
+            rm->setMeasureInGroup(r.measureInGroup);
+            }
       }
 
 //---------------------------------------------------------
