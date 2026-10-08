@@ -87,6 +87,7 @@ set (SOURCE_LIB
       )
 
 add_library(testutils STATIC ${SOURCE_LIB})
+target_link_libraries(testutils freetype) # for its include directories (ft2build.h)
 
 # testutils version that is linked to a full mscoreapp target
 add_library(testutils_mscoreapp STATIC
