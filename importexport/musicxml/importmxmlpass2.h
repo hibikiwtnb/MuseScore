@@ -260,7 +260,8 @@ private:
       void measChordFlush( /*, ChordRest& currChord */);
       void measure(const QString& partId, const Fraction time);
       void attributes(const QString& partId, Measure* measure, const Fraction& tick);
-      void measureStyle(Measure* measure);
+      void measureStyle(const QString& partId, Measure* measure);
+      void applyMeasureRepeats();
       void barline(const QString& partId, Measure* measure, const Fraction& tick);
       void key(const QString& partId, Measure* measure, const Fraction& tick);
       void clef(const QString& partId, Measure* measure, const Fraction& tick);
@@ -330,6 +331,14 @@ private:
       MusicXmlLyricsExtend _extendedLyrics;       ///< Lyrics with "extend" requiring fixup
 
       MusicXmlSlash _measureStyleSlash;           ///< Are we inside a measure to be displayed as slashes?
+
+      struct MeasureRepeatMark {
+            Fraction tick;                            ///< tick of the measure carrying the mark
+            int staffIdx;                             ///< score staff index
+            bool start;                               ///< start (true) or stop (false)
+            int measures;                             ///< pattern length in measures (start only)
+            };
+      std::vector<MeasureRepeatMark> _measureRepeatMarks; ///< measure-repeat marks, applied after parsing
       };
 
 //---------------------------------------------------------

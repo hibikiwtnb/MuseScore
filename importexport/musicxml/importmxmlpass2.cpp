@@ -45,6 +45,7 @@
 #include "libmscore/measure.h"
 #include "libmscore/mscore.h"
 #include "libmscore/note.h"
+#include "libmscore/repeat.h"
 #include "libmscore/part.h"
 #include "libmscore/pedal.h"
 #include "libmscore/rest.h"
@@ -1538,6 +1539,7 @@ Score::FileError MusicXMLParserPass2::parse()
             if (_e.name() == "score-partwise") {
                   found = true;
                   scorePartwise();
+                  applyMeasureRepeats();
                   }
             else {
                   _logger->logError("this is not a MusicXML score-partwise file", &_e);
@@ -2170,7 +2172,7 @@ void MusicXMLParserPass2::attributes(const QString& partId, Measure* measure, co
             else if (_e.name() == "key")
                   key(partId, measure, tick);
             else if (_e.name() == "measure-style")
-                  measureStyle(measure);
+                  measureStyle(partId, measure);
             else if (_e.name() == "staff-details")
                   staffDetails(partId);
             else if (_e.name() == "time")
@@ -2328,9 +2330,12 @@ void MusicXMLParserPass2::staffTuning(StringData* t)
  - Set/reset the "rhythmic/slash notation" state
  */
 
-void MusicXMLParserPass2::measureStyle(Measure* measure)
+void MusicXMLParserPass2::measureStyle(const QString& partId, Measure* measure)
       {
       Q_ASSERT(_e.isStartElement() && _e.name() == "measure-style");
+
+      // the optional "number" attribute selects one staff of the part, default is all staves
+      const int staffNumber = _e.attributes().value("number").toInt();
 
       while (_e.readNextStartElement()) {
             if (_e.name() == "multiple-rest") {
@@ -2349,9 +2354,127 @@ void MusicXMLParserPass2::measureStyle(Measure* measure)
                   _measureStyleSlash = type == "start" ? (stems == "yes" ? MusicXmlSlash::RHYTHM : MusicXmlSlash::SLASH) : MusicXmlSlash::NONE;
                   _e.skipCurrentElement();
                   }
+            else if (_e.name() == "measure-repeat") {
+                  const bool start = _e.attributes().value("type") == "start";
+                  const int measures = _e.readElementText().toInt();
+                  const Part* part = _pass1.getPart(partId);
+                  const int firstStaff = _pass1.trackForPart(partId) / VOICES;
+                  for (int i = 0; i < part->nstaves(); ++i) {
+                        if (staffNumber > 0 && i != staffNumber - 1)
+                              continue;
+                        _measureRepeatMarks.push_back({ measure->tick(), firstStaff + i, start, measures });
+                        }
+                  }
             else
                   skipLogCurrElem();
             }
+      }
+
+//---------------------------------------------------------
+//   staffContent
+//---------------------------------------------------------
+
+/**
+ Describe the chords and rests of one staff in one measure,
+ used to check whether a measure is a copy of the previous one.
+ */
+
+static QVector<QVector<int>> staffContent(const Measure* measure, const int staffIdx)
+      {
+      QVector<QVector<int>> content;
+      const int strack = staffIdx * VOICES;
+      const int etrack = strack + VOICES;
+      for (const Segment* s = measure->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+            for (int track = strack; track < etrack; ++track) {
+                  const Element* e = s->element(track);
+                  if (!e || !e->isChordRest())
+                        continue;
+                  const ChordRest* cr = toChordRest(e);
+                  const Fraction rt = s->rtick();
+                  const Fraction len = cr->ticks();
+                  QVector<int> item { track, rt.numerator(), rt.denominator(), len.numerator(), len.denominator(), e->isChord() ? 1 : 0 };
+                  if (e->isChord()) {
+                        QVector<int> pitches;
+                        for (const Note* n : toChord(e)->notes())
+                              pitches.append(n->pitch());
+                        std::sort(pitches.begin(), pitches.end());
+                        item += pitches;
+                        }
+                  content.append(item);
+                  }
+            }
+      return content;
+      }
+
+//---------------------------------------------------------
+//   applyMeasureRepeats
+//---------------------------------------------------------
+
+/**
+ Replace measures inside a one-measure measure-repeat by a RepeatMeasure ("%").
+ A measure carrying the start mark is always replaced. Following measures are
+ replaced until a stop mark, as long as their content is a copy of the previous
+ measure (exporters write the repeated notes, which also protects against a missing stop).
+ Multi-measure repeats are not supported by MuseScore 3 and are left as notes.
+ */
+
+void MusicXMLParserPass2::applyMeasureRepeats()
+      {
+      if (_measureRepeatMarks.empty())
+            return;
+
+      struct Marks {
+            bool start = false;
+            int measures = 0;
+            };
+      // a stop and a start in the same measure: the old repeat ends, a new one starts
+      std::map<int, std::map<Fraction, Marks>> marksPerStaff;
+      for (const MeasureRepeatMark& mark : _measureRepeatMarks) {
+            Marks& m = marksPerStaff[mark.staffIdx][mark.tick];
+            if (mark.start) {
+                  m.start = true;
+                  m.measures = mark.measures;
+                  }
+            }
+
+      // decide first, on the original content, then replace
+      std::vector<std::pair<Measure*, int>> toReplace;
+      for (const auto& staffMarks : marksPerStaff) {
+            const int staffIdx = staffMarks.first;
+            const auto& marks = staffMarks.second;
+            bool active = false;
+            for (Measure* m = _score->firstMeasure(); m; m = m->nextMeasure()) {
+                  bool explicitStart = false;
+                  auto it = marks.find(m->tick());
+                  if (it != marks.end()) {
+                        const Marks& mark = it->second;
+                        active = false;
+                        if (mark.start) {
+                              if (mark.measures == 1)
+                                    active = explicitStart = true;
+                              else
+                                    _logger->logError(QString("measure-repeat of %1 measures not supported (measure at tick %2)")
+                                                      .arg(mark.measures).arg(m->tick().ticks()));
+                              }
+                        }
+                  if (!active)
+                        continue;
+                  Measure* prev = m->prevMeasure();
+                  if (!prev) {
+                        active = false;
+                        continue;
+                        }
+                  if (!explicitStart && (prev->ticks() != m->ticks() || staffContent(prev, staffIdx) != staffContent(m, staffIdx))) {
+                        active = false;
+                        continue;
+                        }
+                  toReplace.push_back({ m, staffIdx });
+                  }
+            }
+
+      ScoreLoad sl;     // no undo during import
+      for (const auto& r : toReplace)
+            r.first->cmdInsertRepeatMeasure(r.second);
       }
 
 //---------------------------------------------------------

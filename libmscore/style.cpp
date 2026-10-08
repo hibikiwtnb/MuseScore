@@ -299,7 +299,7 @@ static const StyleType styleTypes[] {
       { Sid::harmonyPlacement,         "harmonyPlacement",           int(Placement::ABOVE) },
       { Sid::romanNumeralPlacement,    "romanNumeralPlacement",      int(Placement::BELOW) },
       { Sid::nashvilleNumberPlacement, "nashvilleNumberPlacement",   int(Placement::ABOVE) },
-      { Sid::harmonyPlay,              "harmonyPlay",                true },
+      { Sid::harmonyPlay,              "harmonyPlay",                false },
       { Sid::harmonyVoiceLiteral,      "harmonyVoiceLiteral",        true },
       { Sid::harmonyVoicing,           "harmonyVoicing",             int(Voicing::AUTO) },
       { Sid::harmonyDuration,          "harmonyDuration",            int(HDuration::UNTIL_NEXT_CHORD_SYMBOL) },
