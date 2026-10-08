@@ -10,17 +10,17 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "trill.h"
-#include "style.h"
-#include "system.h"
-#include "measure.h"
-#include "xml.h"
-#include "utils.h"
-#include "sym.h"
-#include "score.h"
 #include "accidental.h"
+#include "measure.h"
+#include "score.h"
 #include "segment.h"
 #include "staff.h"
+#include "style.h"
+#include "sym.h"
+#include "system.h"
+#include "trill.h"
+#include "utils.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -101,7 +101,7 @@ void TrillSegment::symbolLine(SymId start, SymId fill)
       _symbols.push_back(start);
       qreal w1 = f->advance(start, mag);
       qreal w2 = f->advance(fill, mag);
-      int n    = lrint((w - w1) / w2);
+      int n    = (int)lrint((w - w1) / w2);
       for (int i = 0; i < n; ++i)
            _symbols.push_back(fill);
       QRectF r(f->bbox(_symbols, mag));
@@ -121,7 +121,7 @@ void TrillSegment::symbolLine(SymId start, SymId fill, SymId end)
       qreal w1 = f->advance(start, mag);
       qreal w2 = f->advance(fill, mag);
       qreal w3 = f->advance(end, mag);
-      int n    = lrint((w - w1 - w3) / w2);
+      int n    = (int)lrint((w - w1 - w3) / w2);
       for (int i = 0; i < n; ++i)
            _symbols.push_back(fill);
       _symbols.push_back(end);
@@ -158,16 +158,28 @@ void TrillSegment::layout()
                         break;
                   case Trill::Type::UPPRALL_LINE:
                               symbolLine(SymId::ornamentBottomLeftConcaveStroke,
-                                 SymId::ornamentZigZagLineNoRightEnd, SymId::ornamentZigZagLineWithRightEnd);
+                                         SymId::ornamentZigZagLineNoRightEnd, SymId::ornamentZigZagLineWithRightEnd);
                         break;
                   case Trill::Type::DOWNPRALL_LINE:
                               symbolLine(SymId::ornamentLeftVerticalStroke,
-                                 SymId::ornamentZigZagLineNoRightEnd, SymId::ornamentZigZagLineWithRightEnd);
+                                         SymId::ornamentZigZagLineNoRightEnd, SymId::ornamentZigZagLineWithRightEnd);
                         break;
                   }
             }
-      else
-            symbolLine(SymId::wiggleTrill, SymId::wiggleTrill);
+      else {
+            switch (trill()->trillType()) {
+                  case Trill::Type::TRILL_LINE:
+                  case Trill::Type::PRALLPRALL_LINE:
+                        symbolLine(SymId::wiggleTrill, SymId::wiggleTrill);
+                        break;
+                  case Trill::Type::UPPRALL_LINE:
+                  case Trill::Type::DOWNPRALL_LINE:
+                        symbolLine(SymId::ornamentZigZagLineNoRightEnd,
+                                   SymId::ornamentZigZagLineNoRightEnd, SymId::ornamentZigZagLineWithRightEnd);
+                        break;
+                  }
+            }
+
       if (isStyled(Pid::OFFSET))
             roffset() = trill()->propertyDefault(Pid::OFFSET).toPointF();
 
@@ -221,8 +233,14 @@ Element* TrillSegment::drop(EditData& data)
 
 Element* TrillSegment::propertyDelegate(Pid pid)
       {
-      if (pid == Pid::TRILL_TYPE || pid == Pid::ORNAMENT_STYLE || pid == Pid::PLACEMENT || pid == Pid::PLAY)
-            return spanner();
+      switch (pid) {
+            case Pid::ORNAMENT_STYLE:
+            case Pid::PLACEMENT:
+            case Pid::PLAY:
+            case Pid::TRILL_TYPE:
+                  return spanner();
+            default: break;
+            }
       return LineSegment::propertyDelegate(pid);
       }
 
@@ -332,7 +350,7 @@ LineSegment* Trill::createLineSegment()
       {
       TrillSegment* seg = new TrillSegment(this, score());
       seg->setTrack(track());
-      seg->setColor(color());
+      seg->setColor(lineColor());
       seg->initElementStyle(&trillSegmentStyle);
       return seg;
       }
@@ -489,7 +507,7 @@ bool Trill::setProperty(Pid propertyId, const QVariant& val)
                         return false;
                   break;
             }
-      triggerLayoutAll();
+      triggerLayout();
       return true;
       }
 

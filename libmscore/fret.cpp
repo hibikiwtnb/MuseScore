@@ -10,17 +10,18 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "fret.h"
-#include "measure.h"
-#include "system.h"
-#include "score.h"
-#include "stringdata.h"
 #include "chord.h"
-#include "note.h"
-#include "segment.h"
-#include "mscore.h"
+#include "fret.h"
 #include "harmony.h"
+#include "measure.h"
+#include "mscore.h"
+#include "note.h"
+#include "rest.h"
+#include "score.h"
+#include "segment.h"
 #include "staff.h"
+#include "stringdata.h"
+#include "system.h"
 #include "undo.h"
 
 namespace Ms {
@@ -273,7 +274,7 @@ void FretDiagram::init(StringData* stringData, Chord* chord)
                   if (stringData->convertPitch(note->pitch(), chord->staff(), chord->segment()->tick(), &string, &fret))
                         setDot(string, fret);
                   }
-            _maxFrets = stringData->frets();
+            _frets = stringData->frets();
             }
       else
             _maxFrets = 6;
@@ -433,7 +434,7 @@ void FretDiagram::draw(QPainter* painter) const
                   painter->rotate(90);
                   if (_numPos == 0) {
                         painter->drawText(QRectF(.0, stringDist * (_strings - 1), .0, .0),
-                           Qt::AlignLeft|Qt::TextDontClip, text);
+                           static_cast<int>(Qt::AlignLeft)|static_cast<int>(Qt::TextDontClip), text);
                         }
                   else {
                         painter->drawText(QRectF(.0, .0, .0, .0),
@@ -452,10 +453,10 @@ void FretDiagram::draw(QPainter* painter) const
       }
 
 //---------------------------------------------------------
-//   layout
+//   calculateBoundingRect()
 //---------------------------------------------------------
 
-void FretDiagram::layout()
+void FretDiagram::calculateBoundingRect()
       {
       qreal _spatium  = spatium() * _userMag;
       stringLw        = _spatium * 0.08;
@@ -492,7 +493,20 @@ void FretDiagram::layout()
             }
 
       bbox().setRect(x, y, w, h);
+      }
 
+//---------------------------------------------------------
+//   layoutHorizontal
+//    Do initial setPos().
+//    This takes place before autoplaceSegmentElement() but
+//    reliably sets the x-value before the system has been
+//    created. This is useful for creating a horizontal
+//    spacer in ChordRest::shape().
+//---------------------------------------------------------
+
+void FretDiagram::layoutHorizontal()
+      {
+      calculateBoundingRect();
       if (!parent() || !parent()->isSegment()) {
             setPos(QPointF());
             return;
@@ -500,7 +514,7 @@ void FretDiagram::layout()
 
       // We need to get the width of the notehead/rest in order to position the fret diagram correctly
       Segment* pSeg = toSegment(parent());
-      qreal noteheadWidth = 0;
+      qreal noteheadWidth = 0.0;
       if (pSeg->isChordRestType()) {
             int idx = staff()->idx();
             for (Element* e = pSeg->firstElementOfSegment(pSeg, idx); e; e = pSeg->nextElementOfSegment(pSeg, e, idx)) {
@@ -522,8 +536,22 @@ void FretDiagram::layout()
             mainWidth = stringDist * (_strings - 1);
       else if (_orientation == Orientation::HORIZONTAL)
             mainWidth = fretDist * (_frets + 0.5);
-      setPos((noteheadWidth - mainWidth)/2, -(h + styleP(Sid::fretY)));
 
+      if (qFuzzyIsNull(noteheadWidth)) {
+            // If note or rest not found, use standard notehead width
+            noteheadWidth = symWidth(SymId::noteheadBlack);
+            }
+
+      setPos((noteheadWidth - mainWidth)/2, -(bbox().height() + styleP(Sid::fretY)));
+      }
+
+//---------------------------------------------------------
+//   layout
+//---------------------------------------------------------
+
+void FretDiagram::layout()
+      {
+      layoutHorizontal();
       autoplaceSegmentElement();
 
       // don't display harmony in palette
@@ -979,7 +1007,7 @@ void FretDiagram::setBarre(int string, int fret, bool add /*= false*/)
 
 void FretDiagram::undoSetFretDot(int _string, int _fret, bool _add /*= true*/, FretDotType _dtype /*= FretDotType::NORMAl*/)
       {
-      for (ScoreElement* e : linkList()) {
+      for (ScoreElement*& e : linkList()) {
             FretDiagram* fd = toFretDiagram(e);
             fd->score()->undo(new FretDot(fd, _string, _fret, _add, _dtype));
             }
@@ -991,7 +1019,7 @@ void FretDiagram::undoSetFretDot(int _string, int _fret, bool _add /*= true*/, F
 
 void FretDiagram::undoSetFretMarker(int _string, FretMarkerType _mtype)
       {
-      for (ScoreElement* e : linkList()) {
+      for (ScoreElement*& e : linkList()) {
             FretDiagram* fd = toFretDiagram(e);
             fd->score()->undo(new FretMarker(fd, _string, _mtype));
             }
@@ -1004,7 +1032,7 @@ void FretDiagram::undoSetFretMarker(int _string, FretMarkerType _mtype)
 
 void FretDiagram::undoSetFretBarre(int _string, int _fret, bool _add /*= false*/)
       {
-      for (ScoreElement* e : linkList()) {
+      for (ScoreElement*& e : linkList()) {
             FretDiagram* fd = toFretDiagram(e);
             fd->score()->undo(new FretBarre(fd, _string, _fret, _add));
             }
@@ -1116,7 +1144,7 @@ void FretDiagram::clear()
 
 void FretDiagram::undoFretClear()
       {
-      for (ScoreElement* e : linkList()) {
+      for (ScoreElement*& e : linkList()) {
             FretDiagram* fd = toFretDiagram(e);
             fd->score()->undo(new FretClear(fd));
             }
@@ -1197,7 +1225,7 @@ void FretDiagram::add(Element* e)
             _harmony->setPropertyFlags(Pid::ALIGN, PropertyFlags::UNSTYLED);
             }
       else {
-            qWarning("FretDiagram: cannot add <%s>\n", e->name());
+            qDebug("FretDiagram: cannot add <%s>\n", e->name());
             }
       }
 
@@ -1210,7 +1238,7 @@ void FretDiagram::remove(Element* e)
       if (e == _harmony)
             _harmony = 0;
       else
-            qWarning("FretDiagram: cannot remove <%s>\n", e->name());
+            qDebug("FretDiagram: cannot remove <%s>\n", e->name());
       }
 
 //---------------------------------------------------------
@@ -1236,7 +1264,7 @@ Element* FretDiagram::drop(EditData& data)
             score()->undoAddElement(h);
             }
       else {
-            qWarning("FretDiagram: cannot drop <%s>\n", e->name());
+            qDebug("FretDiagram: cannot drop <%s>\n", e->name());
             delete e;
             e = 0;
             }
@@ -1256,83 +1284,6 @@ void FretDiagram::scanElements(void* data, void (*func)(void*, Element*), bool a
             func(data, _harmony);
       }
 
-//---------------------------------------------------------
-//   Write MusicXML
-//---------------------------------------------------------
-
-void FretDiagram::writeMusicXML(XmlWriter& xml) const
-      {
-      qDebug("FretDiagram::writeMusicXML() this %p harmony %p", this, _harmony);
-      xml.stag("frame");
-      xml.tag("frame-strings", _strings);
-      xml.tag("frame-frets", frets());
-
-      for (int i = 0; i < _strings; ++i) {
-            int mxmlString = _strings - i;
-
-            std::vector<int> bStarts;
-            std::vector<int> bEnds;
-            for (auto const& j : _barres) {
-                  FretItem::Barre b = j.second;
-                  int fret = j.first;
-                  if (!b.exists())
-                        continue;
-
-                  if (b.startString == i)
-                        bStarts.push_back(fret);
-                  else if (b.endString == i || (b.endString == -1 && mxmlString == 1))
-                        bEnds.push_back(fret);
-                  }
-
-            if (marker(i).exists() && marker(i).mtype == FretMarkerType::CIRCLE) {
-                  xml.stag("frame-note");
-                  xml.tag("string", mxmlString);
-                  xml.tag("fret", "0");
-                  xml.etag();
-                  }
-            else {
-                  // Write dots
-                  for (auto const& d : dot(i)) {
-                        if (!d.exists())
-                              continue;
-                        xml.stag("frame-note");
-                        xml.tag("string", mxmlString);
-                        xml.tag("fret", d.fret);
-                        // TODO: write fingerings
-
-                        // Also write barre if it starts at this dot
-                        if (std::find(bStarts.begin(), bStarts.end(), d.fret) != bStarts.end()) {
-                              xml.tagE("barre type=\"start\"");
-                              bStarts.erase(std::remove(bStarts.begin(), bStarts.end(), d.fret), bStarts.end());
-                              }
-                        if (std::find(bEnds.begin(), bEnds.end(), d.fret) != bEnds.end()) {
-                              xml.tagE("barre type=\"stop\"");
-                              bEnds.erase(std::remove(bEnds.begin(), bEnds.end(), d.fret), bEnds.end());
-                              }
-                        xml.etag();
-                        }
-                  }
-
-            // Write unwritten barres
-            for (int j : bStarts) {
-                  xml.stag("frame-note");
-                  xml.tag("string", mxmlString);
-                  xml.tag("fret", j);
-                  xml.tagE("barre type=\"start\"");
-                  xml.etag();
-                  }
-
-            for (int j : bEnds) {
-                  xml.stag("frame-note");
-                  xml.tag("string", mxmlString);
-                  xml.tag("fret", j);
-                  xml.tagE("barre type=\"stop\"");
-                  xml.etag();
-                  }
-            }
-
-      xml.etag();
-      }
 
 //---------------------------------------------------------
 //   getProperty
@@ -1415,6 +1366,15 @@ QVariant FretDiagram::propertyDefault(Pid pid) const
                   }
             }
       return Element::propertyDefault(pid);
+      }
+
+void FretDiagram::setTrack(int val)
+      {
+      Element::setTrack(val);
+
+      if (_harmony) {
+            _harmony->setTrack(val);
+            }
       }
 
 //---------------------------------------------------------
@@ -1584,7 +1544,7 @@ FretMarkerType FretItem::nameToMarkerType(QString n)
             if (i.name == n)
                   return i.mtype;
             }
-      qWarning("Unrecognised marker name!");
+      qDebug("Unrecognised marker name!");
       return FretMarkerType::NONE;       // default
       }
 
@@ -1619,7 +1579,7 @@ FretDotType FretItem::nameToDotType(QString n)
             if (i.name == n)
                   return i.dtype;
             }
-      qWarning("Unrecognised dot name!");
+      qDebug("Unrecognised dot name!");
       return FretDotType::NORMAL;       // default
       }
 

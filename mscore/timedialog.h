@@ -10,17 +10,16 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#ifndef __TIMEDIALOG_H__
-#define __TIMEDIALOG_H__
+#pragma once
 
 #include "ui_timedialog.h"
-#include "libmscore/fraction.h"
+
+#include "libmscore/timesig.h"
 
 namespace Ms {
 
 class Palette;
 class PaletteScrollArea;
-class TimeSig;
 class Score;
 class Chord;
 
@@ -40,7 +39,7 @@ class TimeDialog : public QWidget, Ui::TimeDialogBase {
 
    private slots:
       void addClicked();
-      void zChanged(int);
+      void zChanged();
       void nChanged(int);
       void paletteChanged(int idx);
       void textChanged();
@@ -56,5 +55,3 @@ class TimeDialog : public QWidget, Ui::TimeDialogBase {
       void save();
       };
 }
-
-#endif

@@ -10,20 +10,21 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "tuplet.h"
-#include "score.h"
-#include "chord.h"
-#include "note.h"
-#include "xml.h"
-#include "staff.h"
-#include "style.h"
-#include "text.h"
-#include "element.h"
-#include "undo.h"
-#include "stem.h"
 #include "beam.h"
+#include "chord.h"
+#include "element.h"
 #include "measure.h"
+#include "note.h"
+#include "rest.h"
+#include "score.h"
+#include "staff.h"
+#include "stem.h"
+#include "style.h"
 #include "system.h"
+#include "text.h"
+#include "tuplet.h"
+#include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -119,6 +120,17 @@ void Tuplet::setVisible(bool f)
             _number->setVisible(f);
       }
 
+//---------------------------------------------------------
+//   setColor
+//---------------------------------------------------------
+
+void Tuplet::setColor(const QColor& col)
+      {
+      Element::setColor(col);
+      if (_number)
+            _number->setColor(col);
+      }
+
 #if 0
 //---------------------------------------------------------
 //   tick
@@ -180,27 +192,34 @@ void Tuplet::layout()
       //
       qreal _spatium = spatium();
       if (_numberType != TupletNumberType::NO_TEXT) {
-            if (_number == 0) {
+            if (_number == nullptr) {
                   _number = new Text(score(), Tid::TUPLET);
                   _number->setComposition(true);
                   _number->setTrack(track());
                   _number->setParent(this);
                   _number->setVisible(visible());
+                  _number->setColor(color());
                   resetNumberProperty();
                   }
+            // tuplet properties are propagated to number automatically by setProperty()
+            // but we need to make sure flags are as well
+            _number->setPropertyFlags(Pid::FONT_FACE, propertyFlags(Pid::FONT_FACE));
+            _number->setPropertyFlags(Pid::FONT_SIZE, propertyFlags(Pid::FONT_SIZE));
+            _number->setPropertyFlags(Pid::FONT_STYLE, propertyFlags(Pid::FONT_STYLE));
+            _number->setPropertyFlags(Pid::ALIGN, propertyFlags(Pid::ALIGN));
             if (_numberType == TupletNumberType::SHOW_NUMBER)
                   _number->setXmlText(QString("%1").arg(_ratio.numerator()));
             else
                   _number->setXmlText(QString("%1:%2").arg(_ratio.numerator()).arg(_ratio.denominator()));
 
-            bool small = true;
+            _isSmall = true;
             for (const DurationElement* e : _elements) {
-                  if (e->isChordRest() && !toChordRest(e)->small()) {
-                        small = false;
+                  if ((e->isChordRest() && !toChordRest(e)->isSmall()) || (e->isTuplet() && !toTuplet(e)->isSmall())) {
+                        _isSmall = false;
                         break;
                         }
                   }
-            _number->setMag(small ? score()->styleD(Sid::smallNoteMag) : 1.0);
+            _number->setMag(_isSmall ? score()->styleD(Sid::smallNoteMag) : 1.0);
 
             }
       else {
@@ -286,7 +305,7 @@ void Tuplet::layout()
       //    calculate bracket start and end point p1 p2
       //
       qreal maxSlope      = score()->styleD(Sid::tupletMaxSlope);
-      bool outOfStaff     = score()->styleB(Sid::tupletOufOfStaff);
+      bool outOfStaff     = score()->styleB(Sid::tupletOutOfStaff);
       qreal vHeadDistance = score()->styleP(Sid::tupletVHeadDistance);
       qreal vStemDistance = score()->styleP(Sid::tupletVStemDistance);
       qreal stemLeft      = score()->styleP(Sid::tupletStemLeftDistance);
@@ -697,7 +716,10 @@ void Tuplet::draw(QPainter* painter) const
             painter->translate(-pos);
             }
       if (_hasBracket) {
-            painter->setPen(QPen(color, _bracketWidth.val()));
+            QPen pen(color, _bracketWidth.val());
+            pen.setJoinStyle(Qt::PenJoinStyle::MiterJoin);
+            pen.setCapStyle(Qt::PenCapStyle::FlatCap);
+            painter->setPen(pen);
             if (!_number)
                   painter->drawPolyline(bracketL, 4);
             else {
@@ -783,7 +805,8 @@ void Tuplet::write(XmlWriter& xml) const
 
       if (_number) {
             xml.stag("Number", _number);
-            _number->writeProperties(xml);
+            _number->writeProperty(xml, Pid::SUB_STYLE);
+            _number->writeProperty(xml, Pid::TEXT);
             xml.etag();
             }
 
@@ -821,19 +844,29 @@ bool Tuplet::readProperties(XmlReader& e)
             ;
       else if (tag == "bold") { //important that these properties are read after number is created
             bool val = e.readInt();
-            _number->setBold(val);
+            if (_number)
+                  _number->setBold(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
       else if (tag == "italic") {
             bool val = e.readInt();
-            _number->setItalic(val);
+            if (_number)
+                  _number->setItalic(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
       else if (tag == "underline") {
             bool val = e.readInt();
-            _number->setUnderline(val);
+            if (_number)
+                  _number->setUnderline(val);
+            if (isStyled(Pid::FONT_STYLE))
+                  setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
+            }
+      else if (tag == "strike") {
+            bool val = e.readInt();
+            if (_number)
+                  _number->setStrike(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
@@ -856,6 +889,7 @@ bool Tuplet::readProperties(XmlReader& e)
             resetNumberProperty();
             _number->read(e);
             _number->setVisible(visible());     //?? override saved property
+            _number->setColor(color());
             _number->setTrack(track());
             // move property flags from _number back to tuplet
             for (auto p : { Pid::FONT_FACE, Pid::FONT_SIZE, Pid::FONT_STYLE, Pid::ALIGN })
@@ -1220,7 +1254,7 @@ void Tuplet::sanitizeTuplet()
 
       Fraction testDuration(0,1);
       for (DurationElement* de : elements()) {
-            if (de == 0)
+            if (!de)
                   continue;
             Fraction elementDuration(0,1);
             if (de->isTuplet()){
@@ -1292,14 +1326,20 @@ void Tuplet::addMissingElements()
       {
       if (tuplet())
             return;     // do not correct nested tuplets
+
       if (voice() == 0)
             return;     // nothing to do for tuplets in voice 1
+
       Fraction missingElementsDuration = ticks() * ratio() - elementsDuration();
       if (missingElementsDuration.isZero())
             return;
       // first, fill in any holes in the middle of the tuplet
       Fraction expectedTick = elements().front()->tick();
-      for (DurationElement* de : elements()) {
+
+      const std::vector<DurationElement*> elementsCopy = elements(); // mofified during loop
+      for (const DurationElement* de : elementsCopy) {
+            if (!de)
+                  continue;
             if (de->tick() != expectedTick) {
                   missingElementsDuration -= addMissingElement(expectedTick, de->tick());
                   if (missingElementsDuration.isZero())
@@ -1307,6 +1347,7 @@ void Tuplet::addMissingElements()
                   }
             expectedTick += de->actualTicks();
             }
+
       // calculate the tick where we would expect a tuplet of this duration to start
       // TODO: check:
       expectedTick = elements().front()->tick() - Fraction::fromTicks(elements().front()->tick().ticks() % ticks().ticks());
@@ -1340,6 +1381,24 @@ void Tuplet::addMissingElements()
       missingElementsDuration -= addMissingElement(startTick, endTick);
       if (!missingElementsDuration.isZero())
             qDebug("Tuplet::addMissingElements(): still missing duration of %d/%d", missingElementsDuration.numerator(), missingElementsDuration.denominator());
+      }
+
+Element* Tuplet::nextElement()
+      {
+      ChordRest* firstElement = toChordRest(elements().front());
+      if (firstElement->type() == ElementType::CHORD) {
+            Chord* chord = toChord(firstElement);
+            return chord->firstGraceOrNote();
+            }
+      return firstElement;
+      }
+
+Element* Tuplet::prevElement()
+      {
+      ChordRest* firstElement = toChordRest(elements().front());
+      int staffId = firstElement->staffIdx();
+      Element* prevItem = firstElement->segment()->prevElement(staffId);
+      return prevItem;
       }
 }  // namespace Ms
 

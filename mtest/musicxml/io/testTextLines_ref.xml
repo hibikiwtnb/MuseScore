@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <identification>
     <encoding>
       <software>MuseScore 0.7.0</software>
@@ -28,8 +28,18 @@
         </midi-instrument>
       </score-part>
     <score-part id="P2">
-      <part-name>B♭ Clarinet</part-name>
-      <part-abbreviation>B♭ Cl.</part-abbreviation>
+      <part-name>Bb Clarinet</part-name>
+      <part-name-display>
+        <display-text>B</display-text>
+        <accidental-text>flat</accidental-text>
+        <display-text> Clarinet</display-text>
+        </part-name-display>
+      <part-abbreviation>Bb Cl.</part-abbreviation>
+      <part-abbreviation-display>
+        <display-text>B</display-text>
+        <accidental-text>flat</accidental-text>
+        <display-text> Cl.</display-text>
+        </part-abbreviation-display>
       <score-instrument id="P2-I1">
         <instrument-name>B♭ Clarinet</instrument-name>
         </score-instrument>
@@ -129,7 +139,7 @@
         </note>
       </measure>
     <measure number="5">
-      <direction placement="above">
+      <direction placement="above" system="only-top">
         <direction-type>
           <words>System</words>
           </direction-type>
@@ -157,7 +167,7 @@
         <voice>1</voice>
         <type>whole</type>
         </note>
-      <direction placement="above">
+      <direction placement="above" system="only-top">
         <direction-type>
           <bracket type="stop" number="1" line-end="down" end-length="15"/>
           </direction-type>
@@ -165,7 +175,7 @@
       </measure>
     <measure number="7">
       <barline location="left">
-        <ending number="1" type="start"/>
+        <ending number="1" type="start">1.</ending>
         </barline>
       <note>
         <pitch>
@@ -184,7 +194,7 @@
       </measure>
     <measure number="8">
       <barline location="left">
-        <ending number="2" type="start"/>
+        <ending number="2" type="start">2.</ending>
         </barline>
       <note>
         <pitch>
@@ -292,6 +302,11 @@
         </direction>
       </measure>
     <measure number="5">
+      <direction placement="below">
+        <direction-type>
+          <words font-family="Edwin" font-size="10" font-style="italic">cresc.</words>
+          </direction-type>
+        </direction>
       <note>
         <pitch>
           <step>F</step>
@@ -315,9 +330,14 @@
         </note>
       </measure>
     <measure number="7">
-      <barline location="left">
-        <ending number="1" type="start"/>
-        </barline>
+      <direction placement="below">
+        <direction-type>
+          <dynamics>
+            <f/>
+            </dynamics>
+          </direction-type>
+        <sound dynamics="106.67"/>
+        </direction>
       <note>
         <pitch>
           <step>F</step>
@@ -330,14 +350,10 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
-        <ending number="1" type="stop"/>
         <repeat direction="backward"/>
         </barline>
       </measure>
     <measure number="8">
-      <barline location="left">
-        <ending number="2" type="start"/>
-        </barline>
       <note>
         <pitch>
           <step>G</step>
@@ -349,7 +365,6 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
-        <ending number="2" type="discontinue"/>
         </barline>
       </measure>
     </part>

@@ -10,37 +10,13 @@
 #  the file LICENSE.GPL
 #=============================================================================
 
-# MSVC does not depend on copying all.h to the binary directory
-if (NOT MSVC)
-   add_custom_command(
-      OUTPUT ${PROJECT_BINARY_DIR}/all.h
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${PROJECT_SOURCE_DIR}/all.h ${PROJECT_BINARY_DIR}/all.h
-      DEPENDS ${PROJECT_SOURCE_DIR}/all.h
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-      )
-endif (NOT MSVC)
-
 if (APPLE)
         file(GLOB_RECURSE INCS "*.h")
 else (APPLE)
         set(INCS "")
 endif (APPLE)
 
-if (NOT MSVC)
-   set(_all_h_file "${PROJECT_BINARY_DIR}/all.h")
-else (NOT MSVC)
-   set(_all_h_file "${PROJECT_SOURCE_DIR}/all.h")
-endif (NOT MSVC)
-
-include_directories(
-      ${PROJECT_SOURCE_DIR}/thirdparty/dtl
-      ${PROJECT_SOURCE_DIR}/global
-      )
-
-add_library (
-      libmscore STATIC
-      ${_all_h_file}
+add_library (libmscore STATIC
       ${INCS}
 
       types.h accidental.h ambitus.h arpeggio.h articulation.h audio.h bagpembell.h barline.h beam.h bend.h
@@ -50,7 +26,7 @@ add_library (
       harmony.h hook.h icon.h image.h imageStore.h iname.h input.h instrchange.h instrtemplate.h instrument.h interval.h
       jump.h key.h keylist.h keysig.h lasso.h layout.h layoutbreak.h ledgerline.h letring.h line.h location.h
       lyrics.h marker.h mcursor.h measure.h measurebase.h mscore.h mscoreview.h musescoreCore.h navigate.h note.h notedot.h
-      noteevent.h noteline.h ossia.h ottava.h page.h palmmute.h part.h pedal.h pitch.h pitchspelling.h pitchvalue.h
+      noteevent.h ossia.h ottava.h page.h palmmute.h part.h pedal.h pitch.h pitchspelling.h pitchvalue.h
       pos.h property.h range.h read206.h realizedharmony.h rehearsalmark.h repeat.h repeatlist.h rest.h revisions.h score.h scoreOrder.h scoreElement.h segment.h
       segmentlist.h select.h sequencer.h shadownote.h shape.h sig.h slur.h slurtie.h spacer.h spanner.h spannermap.h spatium.h
       staff.h stafflines.h staffstate.h stafftext.h stafftextbase.h stafftype.h stafftypechange.h stafftypelist.h stem.h
@@ -89,7 +65,7 @@ add_library (
       paste.cpp
       bsymbol.cpp marker.cpp jump.cpp stemslash.cpp ledgerline.cpp
       synthesizerstate.cpp mcursor.cpp groups.cpp mscoreview.cpp
-      noteline.cpp spannermap.cpp
+      spannermap.cpp
       bagpembell.cpp ambitus.cpp keylist.cpp scoreElement.cpp scoreOrder.cpp
       shape.cpp systemdivider.cpp midimapping.cpp stafflines.cpp
       sticking.cpp
@@ -104,6 +80,14 @@ add_library (
       unrollrepeats.cpp
       )
 
+target_include_directories(libmscore
+   PRIVATE
+      ${PROJECT_SOURCE_DIR}/thirdparty/dtl
+      ${PROJECT_SOURCE_DIR}/global
+   )
+
+target_link_libraries(libmscore ${FREETYPE_LIBRARIES} preferences)
+
 if (AVSOMR)
     target_link_libraries(libmscore avsomr)
 endif (AVSOMR)
@@ -112,38 +96,21 @@ endif (AVSOMR)
 ## Code coverage. Only affects DEBUG builds.
 ##
 
-set(COVERAGE_OPTIONS "")
 if (NOT APPLE AND NOT MINGW AND NOT MSVC AND CMAKE_BUILD_TYPE MATCHES "DEBUG")
    if (COVERAGE)
-      set(COVERAGE_OPTIONS "-O0 --coverage")
       set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE 1)
       target_link_libraries(libmscore gcov)
+      target_compile_options(libmscore PRIVATE -O0 --coverage)
    endif (COVERAGE)
 endif (NOT APPLE AND NOT MINGW AND NOT MSVC AND CMAKE_BUILD_TYPE MATCHES "DEBUG")
 
+if (BUILD_PCH)
+    target_use_pch(libmscore)
+endif (BUILD_PCH)
 
-
-if (NOT MSVC)
-   set_target_properties (
-      libmscore
-      PROPERTIES
-         COMPILE_FLAGS "-g ${PCH_INCLUDE} -Wall -Wextra -Winvalid-pch -Woverloaded-virtual ${COVERAGE_OPTIONS}"
-      )
-else (NOT MSVC)
-   set_target_properties (
-      libmscore
-      PROPERTIES
-         COMPILE_FLAGS "${PCH_INCLUDE}"
-      )
-endif (NOT MSVC)
-
-xcode_pch(libmscore all)
-
-# Use MSVC pre-compiled headers
-vstudio_pch( libmscore )
-
-# MSVC does not depend on mops1 & mops2 for PCH
-if (NOT MSVC)
-   ADD_DEPENDENCIES(libmscore mops1)
-   ADD_DEPENDENCIES(libmscore mops2)
-endif (NOT MSVC)
+if (APPLE)
+  # silence some 150+ annoying warnings from qvector.h
+  set_target_properties( libmscore PROPERTIES
+    COMPILE_FLAGS "-Wno-shorten-64-to-32"
+  )
+endif (APPLE)

@@ -18,27 +18,26 @@
 //=============================================================================
 
 #include "musedata.h"
-#include "libmscore/score.h"
-#include "libmscore/part.h"
-#include "libmscore/staff.h"
-#include "libmscore/barline.h"
-#include "libmscore/clef.h"
-#include "libmscore/key.h"
-#include "libmscore/note.h"
-#include "libmscore/chord.h"
-#include "libmscore/rest.h"
-#include "libmscore/text.h"
-#include "libmscore/bracket.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/slur.h"
-#include "libmscore/dynamic.h"
-#include "libmscore/lyrics.h"
+
 #include "libmscore/articulation.h"
-#include "libmscore/sig.h"
+#include "libmscore/barline.h"
+#include "libmscore/bracket.h"
+#include "libmscore/chord.h"
+#include "libmscore/clef.h"
+#include "libmscore/dynamic.h"
+#include "libmscore/key.h"
+#include "libmscore/lyrics.h"
 #include "libmscore/measure.h"
-#include "libmscore/timesig.h"
+#include "libmscore/note.h"
+#include "libmscore/part.h"
+#include "libmscore/rest.h"
+#include "libmscore/score.h"
 #include "libmscore/segment.h"
+#include "libmscore/slur.h"
+#include "libmscore/staff.h"
 #include "libmscore/sym.h"
+#include "libmscore/timesig.h"
+#include "libmscore/tuplet.h"
 
 namespace Ms {
 
@@ -48,7 +47,11 @@ namespace Ms {
 
 void MuseData::musicalAttribute(QString s, Part* part)
       {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      QStringList al = s.mid(3).split(" ", Qt::SkipEmptyParts);
+#else
       QStringList al = s.mid(3).split(" ", QString::SkipEmptyParts);
+#endif
       foreach(QString item, al) {
             if (item.startsWith("K:")) {
                   int key = item.midRef(2).toInt();
@@ -63,18 +66,18 @@ void MuseData::musicalAttribute(QString s, Part* part)
             else if (item.startsWith("T:")) {
                   QStringList tl = item.mid(2).split("/");
                   if (tl.size() != 2) {
-                        qDebug("bad time sig <%s>", qPrintable(item));
+                        qDebug("bad time sig: %s", qPrintable(item));
                         continue;
                         }
                   int z = tl[0].toInt();
                   int n = tl[1].toInt();
                   if ((z > 0) && (n > 0)) {
-//TODO                        score->sigmap()->add(curTick, Fraction(z, n));
                         TimeSig* ts = new TimeSig(score);
                         Staff* staff = part->staff(0);
                         ts->setTrack(staff->idx() * VOICES);
                         Measure* mes = score->tick2measure(curTick);
                         Segment* seg = mes->getSegment(SegmentType::TimeSig, curTick);
+                        ts->setSig(Fraction(z, n));
                         seg->add(ts);
                         }
                   }
@@ -82,30 +85,54 @@ void MuseData::musicalAttribute(QString s, Part* part)
                   ;
             else if (item[0] == 'C') {
                   int staffIdx = 1;
-//                  int col = 2;
+                  int col = 2;
                   if (item[1].isDigit()) {
                         staffIdx = item.midRef(1,1).toInt();
-//                        col = 3;
+                        col = 3;
                         }
                   staffIdx -= 1;
-/*                  int clef = item.mid(col).toInt();
-                  ClefType mscoreClef = ClefType::G;
-                  switch(clef) {
-                        case 4:  mscoreClef = ClefType::G; break;
-                        case 22: mscoreClef = ClefType::F; break;
-                        case 13: mscoreClef = ClefType::C3; break;
-                        case 14: mscoreClef = ClefType::C2; break;
-                        case 15: mscoreClef = ClefType::C1; break;
+                  int clefCode = item.midRef(col).toInt();
+                  ClefType clefType = ClefType::G;
+                  switch (clefCode) {
+                        // G clef
+                        case 04: clefType = ClefType::G; break;
+                        case 05: clefType = ClefType::G_1; break;
+
+                        // C clef
+                        case 11: clefType = ClefType::C5; break;
+                        case 12: clefType = ClefType::C4; break;
+                        case 13: clefType = ClefType::C3; break;
+                        case 14: clefType = ClefType::C2; break;
+                        case 15: clefType = ClefType::C1; break;
+
+                        // F clef
+                        case 21: clefType = ClefType::F_C; break;
+                        case 22: clefType = ClefType::F; break;
+                        case 23: clefType = ClefType::F_B; break;
+
+                        // G clef 8vb
+                        case 34: clefType = ClefType::G8_VB; break;
+
+                        // G clef 8va
+                        case 64: clefType = ClefType::G8_VA; break;
+
+                        // F clef 8va
+                        case 82: clefType = ClefType::F_8VA; break;
+
                         default:
-                              qDebug("unknown clef %d", clef);
+                              qDebug("unknown clef code: %d", clefCode);
                               break;
                         }
-                  */
-//                  Staff* staff = part->staff(staffIdx);
-//                  staff->setClef(curTick, mscoreClef);
+                  Measure* mes = score->tick2measure(curTick);
+                  Segment* seg = mes->getSegment(SegmentType::Clef, curTick);
+                  Staff* staff = part->staff(staffIdx);
+                  Clef* clef = new Clef(staff->score());
+                  clef->setTrack(staff->idx() * VOICES);
+                  clef->setClefType(clefType);
+                  seg->add(clef);
                   }
             else
-                  qDebug("unknown $key <%s>", qPrintable(item));
+                  qDebug("unknown $key: %s", qPrintable(item));
             }
       }
 
@@ -226,7 +253,7 @@ void MuseData::readNote(Part* part, const QString& s)
             pitch = 0;
       if (pitch > 127)
             pitch = 127;
-      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * MScore::division + _division/2) / _division);
+      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * DIVISION + _division/2) / _division);
       Fraction tick  = curTick;
       curTick  += ticks;
 
@@ -443,7 +470,7 @@ QString MuseData::diacritical(QString s)
 
 void MuseData::readRest(Part* part, const QString& s)
       {
-      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * MScore::division + _division/2) / _division);
+      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * DIVISION + _division/2) / _division);
 
       Fraction tick  = curTick;
       curTick  += ticks;
@@ -486,7 +513,7 @@ void MuseData::readRest(Part* part, const QString& s)
 
 void MuseData::readBackup(const QString& s)
       {
-      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * MScore::division + _division/2) / _division);
+      Fraction ticks = Fraction::fromTicks((s.midRef(5, 3).toInt() * DIVISION + _division/2) / _division);
       if (s[0] == 'b')
             curTick  -= ticks;
       else
@@ -749,4 +776,3 @@ Score::FileError importMuseData(MasterScore* score, const QString& name)
       return Score::FileError::FILE_NO_ERROR;
       }
 }
-

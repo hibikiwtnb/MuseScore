@@ -20,13 +20,16 @@
 #ifndef __WORKSPACE_H__
 #define __WORKSPACE_H__
 
-#include <unordered_map>
-
 namespace Ms {
 
 struct PaletteTree;
 class XmlReader;
 class XmlWriter;
+
+enum class InsertPosition {
+      BEFORE,
+      AFTER
+      };
 
 //---------------------------------------------------------
 //   Workspace
@@ -42,6 +45,25 @@ class Workspace : public QObject {
       static void addRemainingFromMenu(QMenu* menu);
 
       void readMenu(XmlReader& e, QMenu* menu);
+
+      void migrate(int uiVersion);
+
+      static void ensureMenuAction(
+            const QString& menuId,
+            const QString& actionId,
+            const QString& beforeActionId = QString(),
+            InsertPosition position = InsertPosition::BEFORE);
+
+      static void ensureToolbarEntry(
+            std::list<const char*>& entries,
+            const char* actionId,
+            const char* anchorActionId = nullptr,
+            InsertPosition position = InsertPosition::BEFORE);
+
+      static void ensureToolbarSeparator(
+            std::list<const char*>& entries,
+            const char* anchorId,
+            InsertPosition position);
 
       static QString findStringFromAction(QAction* action);
       static QAction* findActionFromString(QString string);

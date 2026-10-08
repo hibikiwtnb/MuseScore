@@ -19,11 +19,8 @@
 
 #include "exportmp3.h"
 
-#include "libmscore/score.h"
-#include "libmscore/note.h"
-#include "libmscore/part.h"
+#include "libmscore/mscore.h"
 
-#include "audio/midi/msynthesizer.h"
 #include "mscore/preferences.h"
 
 namespace Ms {
@@ -578,7 +575,11 @@ QString MP3Exporter::getLibraryPath()
 
 QString MP3Exporter::getLibraryName()
       {
+#ifdef __ARM_ARCH
+      return QString("libmp3lame.0.dylib");
+#else // Intel
       return QString("libmp3lame.dylib");
+#endif
       }
 
 QString MP3Exporter::getLibraryTypeString()

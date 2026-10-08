@@ -19,11 +19,11 @@
 */
 
 #include "element.h"
-#include "symbol.h"
+#include "key.h"
 #include "noteevent.h"
 #include "pitchspelling.h"
 #include "shape.h"
-#include "key.h"
+#include "symbol.h"
 #include "sym.h"
 
 namespace Ms {
@@ -59,7 +59,9 @@ class NoteHead final : public Symbol {
             HEAD_AUTO = -1,
             HEAD_NORMAL,
             HEAD_PITCHNAME,
+            HEAD_PITCHNAME_NO_ACCIDENTALS,
             HEAD_PITCHNAME_GERMAN,
+            HEAD_PITCHNAME_GERMAN_NO_ACCIDENTALS,
             HEAD_SOLFEGE,
             HEAD_SOLFEGE_FIXED,
             HEAD_SHAPE_NOTE_4,
@@ -89,6 +91,7 @@ class NoteHead final : public Symbol {
             HEAD_BREVIS_ALT,
 
             HEAD_SLASH,
+            HEAD_LARGE_DIAMOND,
 
             HEAD_SOL,
             HEAD_LA,
@@ -97,6 +100,10 @@ class NoteHead final : public Symbol {
             HEAD_DO,
             HEAD_RE,
             HEAD_TI,
+
+            HEAD_HEAVY_CROSS,
+            HEAD_HEAVY_CROSS_HAT,
+
             // not exposed from here
             HEAD_DO_WALKER,
             HEAD_RE_WALKER,
@@ -106,11 +113,20 @@ class NoteHead final : public Symbol {
             HEAD_TI_FUNK,
 
             HEAD_DO_NAME,
+            HEAD_DI_NAME,
+            HEAD_RA_NAME,
             HEAD_RE_NAME,
+            HEAD_RI_NAME,
+            HEAD_ME_NAME,
             HEAD_MI_NAME,
             HEAD_FA_NAME,
+            HEAD_FI_NAME,
+            HEAD_SE_NAME,
             HEAD_SOL_NAME,
+            HEAD_LE_NAME,
             HEAD_LA_NAME,
+            HEAD_LI_NAME,
+            HEAD_TE_NAME,
             HEAD_TI_NAME,
             HEAD_SI_NAME,
 
@@ -138,6 +154,9 @@ class NoteHead final : public Symbol {
             HEAD_H,
             HEAD_H_SHARP,
 
+            HEAD_SWISS_RUDIMENTS_FLAM,
+            HEAD_SWISS_RUDIMENTS_DOUBLE,
+
             HEAD_CUSTOM,
             HEAD_GROUPS,
             HEAD_INVALID = -1
@@ -160,6 +179,7 @@ class NoteHead final : public Symbol {
       Q_ENUM(Type);
 
       NoteHead(Score* s = 0) : Symbol(s) {}
+      NoteHead(const NoteHead&) = default;
       NoteHead &operator=(const NoteHead&) = delete;
       NoteHead* clone() const override    { return new NoteHead(*this); }
       ElementType type() const override { return ElementType::NOTEHEAD; }
@@ -187,8 +207,8 @@ struct NoteVal {
       int pitch                 { -1 };
       int tpc1                  { Tpc::TPC_INVALID };
       int tpc2                  { Tpc::TPC_INVALID };
-      int fret                  { FRET_NONE };
-      int string                { STRING_NONE };
+      int fret                  { INVALID_FRET_INDEX };
+      int string                { INVALID_STRING_INDEX };
       NoteHead::Group headGroup { NoteHead::Group::HEAD_NORMAL };
 
       NoteVal() {}
@@ -208,7 +228,7 @@ static const int INVALID_LINE = -10000;
 //   @P elements         array[Element]   list of elements attached to notehead
 //   @P fret             int              fret number in tablature
 //   @P ghost            bool             ghost note (guitar: death note)
-//   @P headScheme       enum (NoteHeadScheme.HEAD_AUTO, .HEAD_NORMAL, .HEAD_PITCHNAME, .HEAD_PITCHNAME_GERMAN, .HEAD_SHAPE_NOTE_4, .HEAD_SHAPE_NOTE_7_AIKIN, .HEAD_SHAPE_NOTE_7_FUNK, .HEAD_SHAPE_NOTE_7_WALKER, .HEAD_SOLFEGE, .HEAD_SOLFEGE_FIXED)
+//   @P headScheme       enum (NoteHeadScheme.HEAD_AUTO, .HEAD_NORMAL, .HEAD_PITCHNAME, .HEAD_PITCHNAME_NO_ACCIDENTALS, .HEAD_PITCHNAME_GERMAN, .HEAD_PITCHNAME_GERMAN_NO_ACCIDENTALS, .HEAD_SHAPE_NOTE_4, .HEAD_SHAPE_NOTE_7_AIKIN, .HEAD_SHAPE_NOTE_7_FUNK, .HEAD_SHAPE_NOTE_7_WALKER, .HEAD_SOLFEGE, .HEAD_SOLFEGE_FIXED)
 //   @P headGroup        enum (NoteHeadGroup.HEAD_NORMAL, .HEAD_BREVIS_ALT, .HEAD_CROSS, .HEAD_DIAMOND, .HEAD_DO, .HEAD_FA, .HEAD_LA, .HEAD_MI, .HEAD_RE, .HEAD_SLASH, .HEAD_SOL, .HEAD_TI, .HEAD_XCIRCLE, .HEAD_TRIANGLE)
 //   @P headType         enum (NoteHeadType.HEAD_AUTO, .HEAD_BREVIS, .HEAD_HALF, .HEAD_QUARTER, .HEAD_WHOLE)
 //   @P hidden           bool             hidden, not played note (read only)
@@ -217,7 +237,7 @@ static const int INVALID_LINE = -10000;
 //   @P pitch            int              midi pitch
 //   @P play             bool             play note
 //   @P ppitch           int              actual played midi pitch (honoring ottavas) (read only)
-//   @P small            bool             small notehead
+//   @P isSmall          bool             small notehead
 //   @P string           int              string number in tablature
 //   @P subchannel       int              midi subchannel (for midi articulation) (read only)
 //   @P tieBack          Tie              note backward tie (null if none, read only)
@@ -249,7 +269,7 @@ class Note final : public Element {
                                           ///< two or more notes on the same string
       bool dragMode       { false };
       bool _mirror        { false };      ///< True if note is mirrored at stem.
-      bool _small         { false };
+      bool m_isSmall      { false };
       bool _play          { true  };      // note is not played if false
       mutable bool _mark  { false };      // for use in sequencer
       bool _fixed         { false };      // for slash notation
@@ -304,9 +324,8 @@ class Note final : public Element {
       void addSpanner(Spanner*);
       void removeSpanner(Spanner*);
       int concertPitchIdx() const;
-      void updateRelLine(int relLine, bool undoable);
+      void updateRelLine(int absLine, bool undoable);
       bool isNoteName() const;
-      SymId noteHead() const;
 
       void normalizeLeftDragDelta(Segment* seg, EditData &ed, NoteEditData* ned);
 
@@ -392,7 +411,6 @@ class Note final : public Element {
 
       int line() const;
       void setLine(int n)             { _line = n;      }
-      int physicalLine() const;
 
       int fret() const                { return _fret;   }
       void setFret(int val)           { _fret = val;    }
@@ -409,7 +427,7 @@ class Note final : public Element {
       bool mirror() const             { return _mirror;  }
       void setMirror(bool val)        { _mirror = val;   }
 
-      bool small() const              { return _small;   }
+      bool isSmall() const            { return m_isSmall; }
       void setSmall(bool val);
 
       bool play() const               { return _play;    }
@@ -507,6 +525,7 @@ class Note final : public Element {
 
       void addParentheses();
 
+      SymId noteHead() const;
       static SymId noteHead(int direction, NoteHead::Group, NoteHead::Type, int tpc, Key key, NoteHead::Scheme scheme);
       static SymId noteHead(int direction, NoteHead::Group, NoteHead::Type);
       NoteVal noteVal() const;
@@ -515,7 +534,7 @@ class Note final : public Element {
       Element* prevInEl(Element* e);
       Element* nextElement() override;
       Element* prevElement() override;
-      virtual Element* lastElementBeforeSegment();
+      Element* lastElementBeforeSegment();
       Element* nextSegmentElement() override;
       Element* prevSegmentElement() override;
 

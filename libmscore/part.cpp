@@ -10,21 +10,18 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "part.h"
-#include "staff.h"
-#include "xml.h"
-#include "score.h"
-#include "style.h"
-#include "note.h"
-#include "drumset.h"
-#include "instrtemplate.h"
-#include "text.h"
-#include "measure.h"
-#include "stringdata.h"
-#include "stafftype.h"
-#include "sym.h"
 #include "chordrest.h"
+#include "drumset.h"
 #include "fret.h"
+#include "measure.h"
+#include "note.h"
+#include "part.h"
+#include "score.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "style.h"
+#include "xml.h"
+#include "instrtemplate.h"
 
 namespace Ms {
 
@@ -77,7 +74,7 @@ const Part* Part::masterPart() const
       if (!links)
             return this;
 
-      for (ScoreElement* le : *links) {
+      for (ScoreElement*& le : *links) {
             if (le->isStaff() && toStaff(le)->score()->isMaster()) {
                   if (Part* p = toStaff(le)->part())
                         return p;
@@ -411,6 +408,26 @@ void Part::setShortName(const QString& s)
       }
 
 //---------------------------------------------------------
+//   setLongNameAll
+//---------------------------------------------------------
+
+void Part::setLongNameAll(const QString& s)
+      {
+      for (auto instrument : _instruments)
+            instrument.second->setLongName(s);
+      }
+
+//---------------------------------------------------------
+//   setShortNameAll
+//---------------------------------------------------------
+
+void Part::setShortNameAll(const QString& s)
+      {
+      for (auto instrument : _instruments)
+            instrument.second->setShortName(s);
+      }
+
+//---------------------------------------------------------
 //   setPlainLongName
 //---------------------------------------------------------
 
@@ -426,6 +443,24 @@ void Part::setPlainLongName(const QString& s)
 void Part::setPlainShortName(const QString& s)
       {
       setShortName(XmlWriter::xmlString(s));
+      }
+
+//---------------------------------------------------------
+//   setPlainLongNameAll
+//---------------------------------------------------------
+
+void Part::setPlainLongNameAll(const QString& s)
+      {
+      setLongNameAll(XmlWriter::xmlString(s));
+      }
+
+//---------------------------------------------------------
+//   setPlainShortNameAll
+//---------------------------------------------------------
+
+void Part::setPlainShortNameAll(const QString& s)
+      {
+      setShortNameAll(XmlWriter::xmlString(s));
       }
 
 //---------------------------------------------------------
@@ -476,6 +511,8 @@ bool Part::setProperty(Pid id, const QVariant& property)
 
 int Part::startTrack() const
       {
+      if (_staves.empty())
+            return -1;
       return _staves.front()->idx() * VOICES;
       }
 
@@ -485,6 +522,8 @@ int Part::startTrack() const
 
 int Part::endTrack() const
       {
+      if (_staves.empty())
+            return -1;
       return _staves.back()->idx() * VOICES + VOICES;
       }
 

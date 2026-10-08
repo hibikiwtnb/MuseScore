@@ -17,6 +17,7 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
+#include "icons.h"
 #include "exportdialog.h"
 #include "musescore.h"
 #include "preferences.h"
@@ -60,37 +61,52 @@ ExportDialog::ExportDialog(Score* s, QWidget* parent)
       setObjectName("ExportDialog");
       setupUi(this);
       setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
-            
+
       connect(listWidget, &QListWidget::itemChanged, this, &ExportDialog::setOkButtonEnabled);
       connect(fileTypeComboBox, SIGNAL(currentIndexChanged(int)), SLOT(fileTypeChosen(int)));
-      
+
+      connect(pdfDirectoryButton, &QToolButton::clicked, this, &ExportDialog::selectPdfDirectory);
+      connect(pdfDirectoryEnabled, &QToolButton::clicked, this, &ExportDialog::enablePdfDirectory);
+      pdfDirectoryButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
+
       pdfSeparateOrSingleFiles = new QButtonGroup(this);
       pdfSeparateOrSingleFiles->addButton(pdfSeparateFilesRadioButton, 0);
       pdfSeparateOrSingleFiles->addButton(pdfOneFileRadioButton, 1);
+
+      exportBackgroundOption = new QButtonGroup(this);
+      exportBackgroundOption->addButton(transparentBackgroundRadioButton, 0);
+      exportBackgroundOption->addButton(scoreBackgroundRadioButton, 1);
+      exportBackgroundOption->addButton(customBackgroundRadioButton, 2);
 
 #if !defined(HAS_AUDIOFILE) || !defined(USE_LAME)
       // Disable audio options that are unavailable
       // Source: https://stackoverflow.com/a/38915478
       QStandardItemModel* fileTypeComboBoxModel = qobject_cast<QStandardItemModel*>(fileTypeComboBox->model());
       Q_ASSERT(fileTypeComboBoxModel != nullptr);
+      QStandardItem* audioItem;
 # ifndef USE_LAME
       // Disable .mp3 option if unavailable
-      QStandardItem* mp3Item = fileTypeComboBoxModel->item(3);
+      audioItem = fileTypeComboBoxModel->item(3);
       mp3Item->setFlags(audioItem->flags() & ~Qt::ItemIsEnabled);
 # endif
 # ifndef HAS_AUDIOFILE
       // Disable .wav, .flac and .ogg options if unavailable
       for (int i = 4; i < 7; i++) {
-            QStandardItem* audioItem = fileTypeComboBoxModel->item(i);
+            audioItem = fileTypeComboBoxModel->item(i);
             audioItem->setFlags(audioItem->flags() & ~Qt::ItemIsEnabled);
             }
 # endif
 #endif
-      
+
       fileTypeComboBox->setCurrentIndex(0);
       pageStack->setCurrentIndex(0);
-      
+      pngDpiWidget->setVisible(false);
+      pngFileOptionWidget->setVisible(false);
+      svgFileOptionWidget->setVisible(false);
+
       pdfSeparateFilesRadioButton->setChecked(true);
+      transparentBackgroundRadioButton->setChecked(true);
+      customBackgroundColorLabel->setDisabled(true);
 
       audioSampleRate->clear();
       audioSampleRate->addItem(tr("32000"), 32000);
@@ -156,8 +172,20 @@ void ExportDialog::loadValues()
       pdfDpiSpinbox->setValue(preferences.getInt(PREF_EXPORT_PDF_DPI));
       
       pngDpiSpinbox->setValue(preferences.getDouble(PREF_EXPORT_PNG_RESOLUTION));
-      pngTransparentBackgroundCheckBox->setChecked(preferences.getBool(PREF_EXPORT_PNG_USETRANSPARENCY));
-      
+
+      switch (preferences.getInt(PREF_EXPORT_BG_STYLE)) {
+            case 0:
+                  transparentBackgroundRadioButton->setChecked(true);
+                  break;
+            case 1:
+                  scoreBackgroundRadioButton->setChecked(true);
+                  break;
+            case 2:
+                  customBackgroundRadioButton->setChecked(true);
+                  break;
+            }
+      customBackgroundColorLabel->setColor(preferences.getColor(PREF_EXPORT_BG_CUSTOM_COLOR));
+
       audioNormaliseCheckBox->setChecked(preferences.getBool(PREF_EXPORT_AUDIO_NORMALIZE));
       int audioSampleRateIndex = audioSampleRate->findData(preferences.getInt(PREF_EXPORT_AUDIO_SAMPLERATE));
       if (audioSampleRateIndex == -1)
@@ -186,6 +214,9 @@ void ExportDialog::loadValues()
                         break;
                   }
             }
+
+      pdfDirectoryEnabled->setChecked(preferences.getBool(PREF_EXPORT_PDF_DIRECTORY_ENABLED));
+      pdfDirectory->setText(preferences.getString(PREF_EXPORT_PDF_DIRECTORY));
       }
 
 //---------------------------------------------------------
@@ -199,7 +230,7 @@ void ExportDialog::loadScoreAndPartsList()
       ExportScoreItem* scoreItem = new ExportScoreItem(cs->masterScore()->score());
       listWidget->addItem(scoreItem);
       
-      for (Excerpt* e : cs->masterScore()->excerpts()) {
+      for (Excerpt*& e : cs->masterScore()->excerpts()) {
             Score* s = e->partScore();
             ExportScoreItem* item = new ExportScoreItem(s);
             item->setChecked(s == cs);
@@ -258,6 +289,33 @@ void ExportDialog::clearSelection()
       }
 
 //---------------------------------------------------------
+//   selectPdfDirectory
+//---------------------------------------------------------
+
+void ExportDialog::selectPdfDirectory()
+      {
+      QString s = QFileDialog::getExistingDirectory(
+            this,
+            tr("Choose Score Folder"),
+            pdfDirectory->text(),
+            QFileDialog::ShowDirsOnly | (preferences.getBool(PREF_UI_APP_USENATIVEDIALOGS)
+                  ? QFileDialog::Options()
+                  : QFileDialog::DontUseNativeDialog));
+
+      if (!s.isNull())
+            pdfDirectory->setText(s);
+      }
+
+//---------------------------------------------------------
+//   enablePdfDirectory
+//---------------------------------------------------------
+
+void ExportDialog::enablePdfDirectory()
+      {
+      pdfDirectory->setEnabled(pdfDirectoryEnabled->isChecked());
+      }
+
+//---------------------------------------------------------
 //   setOkButtonEnabled
 //---------------------------------------------------------
 
@@ -280,8 +338,16 @@ void ExportDialog::setOkButtonEnabled()
 
 void ExportDialog::fileTypeChosen(int index)
       {
-      if (index <= 2) // Pdf, png and svg
-            pageStack->setCurrentIndex(index);
+      if (index <= 2) { // Pdf, png and svg
+            pageStack->setCurrentWidget(visualPage);
+            pdfDpiWidget->setVisible(index == 0);
+            pdfFileOptionWidget->setVisible(index == 0);
+
+            pngDpiWidget->setVisible(index == 1);
+            pngFileOptionWidget->setVisible(index == 1);
+
+            svgFileOptionWidget->setVisible(index == 2);
+            }
       else if (index <= 6) { // Audio formats share their page (because they share many settings)
             pageStack->setCurrentWidget(audioPage);
             mp3BitRateLabel->setVisible(index == 3);
@@ -289,7 +355,7 @@ void ExportDialog::fileTypeChosen(int index)
             mp3kBitSLabel->setVisible(index == 3);
             }
       else // And others have their own page again
-            pageStack->setCurrentIndex(index - 3);
+            pageStack->setCurrentIndex(index - 5);
       }
 
 //---------------------------------------------------------
@@ -364,7 +430,14 @@ void ExportDialog::accept()
       
       // Ask for save name and location
       QString saveDirectory;
-      if (cs->masterScore()->fileInfo()->exists())
+
+      const bool useDirPref = pdfDirectoryEnabled->isChecked();
+      preferences.setPreference(PREF_EXPORT_PDF_DIRECTORY_ENABLED, useDirPref);
+      if (useDirPref) {
+            preferences.setPreference(PREF_EXPORT_PDF_DIRECTORY, pdfDirectory->text());
+            saveDirectory = pdfDirectory->text();
+            }
+      else if (cs->masterScore()->fileInfo()->exists())
             saveDirectory = cs->masterScore()->fileInfo()->dir().path();
       else {
             QSettings set;
@@ -377,6 +450,14 @@ void ExportDialog::accept()
       
       QString saveFormat;
       int currentIndex = fileTypeComboBox->currentIndex();
+
+      if (currentIndex <= 2) {
+          if (exportBackgroundOption->checkedId() != preferences.getInt(PREF_EXPORT_BG_STYLE))
+                preferences.setPreference(PREF_EXPORT_BG_STYLE, exportBackgroundOption->checkedId());
+          if (customBackgroundColorLabel->color() != preferences.getColor(PREF_EXPORT_BG_CUSTOM_COLOR))
+                preferences.setPreference(PREF_EXPORT_BG_CUSTOM_COLOR, customBackgroundColorLabel->color());
+      }
+
       if (currentIndex == 0) {
             saveFormat = "pdf";
             if (pdfDpiSpinbox->value() != preferences.getInt(PREF_EXPORT_PDF_DPI))
@@ -385,8 +466,6 @@ void ExportDialog::accept()
             saveFormat = "png";
             if (pngDpiSpinbox->value() != preferences.getDouble(PREF_EXPORT_PNG_RESOLUTION))
                   preferences.setPreference(PREF_EXPORT_PNG_RESOLUTION, pngDpiSpinbox->value());
-            if (pngTransparentBackgroundCheckBox->isChecked() != preferences.getBool(PREF_EXPORT_PNG_USETRANSPARENCY))
-                  preferences.setPreference(PREF_EXPORT_PNG_USETRANSPARENCY, pngTransparentBackgroundCheckBox->isChecked());
       } else if (currentIndex == 2) {
             saveFormat = "svg";
       } else if (currentIndex <= 6) { // The audio formats share some settings
@@ -418,14 +497,22 @@ void ExportDialog::accept()
                   saveFormat = "xml";
             else
                   saveFormat = "mxl";
-            if (musicxmlExportAllLayout->isChecked() && !preferences.getBool(PREF_EXPORT_MUSICXML_EXPORTLAYOUT))
+            if (musicxmlExportAllLayout->isChecked() && !preferences.getBool(PREF_EXPORT_MUSICXML_EXPORTLAYOUT)) {
                   preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTLAYOUT, true);
-            else if (musicxmlExportAllBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::ALL)
                   preferences.setCustomPreference<MusicxmlExportBreaks>(PREF_EXPORT_MUSICXML_EXPORTBREAKS, MusicxmlExportBreaks::ALL);
-            else if (musicxmlExportManualBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::MANUAL)
+            }
+            else if (musicxmlExportAllBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::ALL) {
+                  preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTLAYOUT, false);
+                  preferences.setCustomPreference<MusicxmlExportBreaks>(PREF_EXPORT_MUSICXML_EXPORTBREAKS, MusicxmlExportBreaks::ALL);
+                  }
+            else if (musicxmlExportManualBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::MANUAL) {
+                  preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTLAYOUT, false);
                   preferences.setCustomPreference<MusicxmlExportBreaks>(PREF_EXPORT_MUSICXML_EXPORTBREAKS, MusicxmlExportBreaks::MANUAL);
-            else if (musicxmlExportNoBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::NO)
+                  }
+            else if (musicxmlExportNoBreaks->isChecked() && preferences.musicxmlExportBreaks() != MusicxmlExportBreaks::NO) {
+                  preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTLAYOUT, false);
                   preferences.setCustomPreference<MusicxmlExportBreaks>(PREF_EXPORT_MUSICXML_EXPORTBREAKS, MusicxmlExportBreaks::NO);
+                  }
       } else if (currentIndex == 9)
             saveFormat = "mscx";
 
@@ -439,7 +526,7 @@ void ExportDialog::accept()
 
       QString filter;
       if (saveFormat == "mid")
-            filter = "*.mid;*.midi";
+            filter = "*.mid;*.midi;*.kar";
       else
             filter = QString("*.%1").arg(saveFormat);
 
@@ -483,13 +570,13 @@ void ExportDialog::accept()
             // Export the selected scores as separate files, appending the part names to the filename
             SaveReplacePolicy replacePolicy = SaveReplacePolicy::NO_CHOICE;
 
-            for (Score* score : scores) {
+            for (Score*& score : scores) {
                   QString definitiveFilename = QString("%1/%2%3.%4")
                         .arg(fileinfo.absolutePath(),
                              fileinfo.completeBaseName(),
                              score->isMaster() ? "" : "-" + mscore->saveFilename(score->title()),
                              suffix);
-                  if (saveFormat != "png" && saveFormat != "svg" && QFileInfo(definitiveFilename).exists()) {
+                  if (saveFormat != "png" && saveFormat != "svg" && QFileInfo::exists(definitiveFilename)) {
                         // Png and Svg export functions change the filename, so they
                         // are responsible for asking the user about overwriting.
                         switch (replacePolicy) {

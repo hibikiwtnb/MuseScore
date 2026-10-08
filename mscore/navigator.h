@@ -39,7 +39,7 @@ class NScrollArea : public QScrollArea {
 
    public:
       NScrollArea(QWidget* w = 0);
-      void orientationChanged();
+      void orientationChanged(bool vertical);
       };
 
 //---------------------------------------------------------
@@ -72,6 +72,7 @@ class Navigator : public QWidget {
       QTransform matrix;
       bool _previewOnly;
 
+      bool verticalNavigation() const;
       void rescale();
 
       virtual void paintEvent(QPaintEvent*);

@@ -97,7 +97,6 @@ class PedalSegment;
 class LedgerLine;
 class Icon;
 class VoltaSegment;
-class NoteLine;
 class Trill;
 class TrillSegment;
 class Symbol;
@@ -136,7 +135,7 @@ class MMRestRange;
 
 class StaffTextBase;
 
-enum class Pid : int;
+enum class Pid : short;
 enum class PropertyFlags : char;
 
 //---------------------------------------------------------
@@ -217,6 +216,7 @@ class ScoreElement {
       virtual PropertyFlags propertyFlags(Pid) const;
       bool isStyled(Pid pid) const;
       QVariant styleValue(Pid, Sid) const;
+      QVariant safePropertyStyleValue(Pid) const;
 
       void setPropertyFlags(Pid, PropertyFlags);
 
@@ -234,14 +234,14 @@ class ScoreElement {
       void undoResetProperty(Pid id);
 
       void undoPushProperty(Pid);
-      void writeProperty(XmlWriter& xml, Pid id) const;
+      void writeProperty(XmlWriter& xml, Pid id, bool force = false) const;
       void writeStyledProperties(XmlWriter&) const;
 
       QList<ScoreElement*> linkList() const;
 
       void linkTo(ScoreElement*);
       void unlink();
-      bool isLinked(ScoreElement*);
+      bool isLinked(ScoreElement* se = nullptr) const;
 
       virtual void undoUnlink();
       int lid() const                         { return _links ? _links->lid() : 0; }
@@ -322,7 +322,6 @@ class ScoreElement {
       CONVERT(LedgerLine,    LEDGER_LINE)
       CONVERT(Icon,          ICON)
       CONVERT(VoltaSegment,  VOLTA_SEGMENT)
-      CONVERT(NoteLine,      NOTELINE)
       CONVERT(Trill,         TRILL)
       CONVERT(TrillSegment,  TRILL_SEGMENT)
       CONVERT(LetRing,       LET_RING)
@@ -390,7 +389,6 @@ class ScoreElement {
       bool isTextLineBase() const {
             return isHairpin()
             || isLetRing()
-            || isNoteLine()
             || isOttava()
             || isPalmMute()
             || isPedal()
@@ -577,7 +575,6 @@ static inline const a* to##a(const ScoreElement* e) { Q_ASSERT(e == 0 || e->is##
       CONVERT(LedgerLine)
       CONVERT(Icon)
       CONVERT(VoltaSegment)
-      CONVERT(NoteLine)
       CONVERT(Trill)
       CONVERT(TrillSegment)
       CONVERT(LetRing)

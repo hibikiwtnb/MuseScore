@@ -36,6 +36,7 @@ NICE-TO-HAVE TODO:
 #include "sym.h"
 #include "xml.h"
 #include "accidental.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -81,9 +82,9 @@ void GlissandoSegment::draw(QPainter* painter) const
       painter->save();
       qreal _spatium = spatium();
 
-      QPen pen(curColor(visible(), glissando()->lineColor()));
+      QPen pen(curColor(getProperty(Pid::VISIBLE).toBool(), getProperty(Pid::COLOR).value<QColor>()));
       pen.setWidthF(glissando()->lineWidth());
-      pen.setCapStyle(Qt::RoundCap);
+      pen.setCapStyle(Qt::FlatCap);
       painter->setPen(pen);
 
       // rotate painter so that the line become horizontal
@@ -118,6 +119,7 @@ void GlissandoSegment::draw(QPainter* painter) const
             f.setBold(glissando()->fontStyle() & FontStyle::Bold);
             f.setItalic(glissando()->fontStyle() & FontStyle::Italic);
             f.setUnderline(glissando()->fontStyle() & FontStyle::Underline);
+            f.setStrikeOut(glissando()->fontStyle() & FontStyle::Strike);
             QFontMetricsF fm(f, painter->device()); // use the QPaintDevice, otherwise calculations will be done in screen metrics
             QRectF r = fm.boundingRect(glissando()->text());
 
@@ -141,17 +143,17 @@ void GlissandoSegment::draw(QPainter* painter) const
 Element* GlissandoSegment::propertyDelegate(Pid pid)
       {
       switch (pid) {
-            case Pid::GLISS_TYPE:
-            case Pid::GLISS_TEXT:
-            case Pid::GLISS_SHOW_TEXT:
-            case Pid::GLISS_STYLE:
-            case Pid::GLISS_EASEIN:
-            case Pid::GLISS_EASEOUT:
-            case Pid::PLAY:
             case Pid::FONT_FACE:
             case Pid::FONT_SIZE:
             case Pid::FONT_STYLE:
+            case Pid::GLISS_EASEIN:
+            case Pid::GLISS_EASEOUT:
+            case Pid::GLISS_SHOW_TEXT:
+            case Pid::GLISS_STYLE:
+            case Pid::GLISS_TYPE:
+            case Pid::GLISS_TEXT:
             case Pid::LINE_WIDTH:
+            case Pid::PLAY:
                   return glissando();
             default:
                   return LineSegment::propertyDelegate(pid);
@@ -314,6 +316,7 @@ void Glissando::layout()
             xTot += segm->ipos2().x();
       qreal y0   = segm1->ipos().y();
       qreal yTot = segm2->ipos().y() + segm2->ipos2().y() - y0;
+      yTot -= yStaffDifference(segm2->system(), track2staff(track2()), segm1->system(), track2staff(track()));
       qreal ratio = yTot / xTot;
       // interpolate y-coord of intermediate points across total width and height
       qreal xCurr = 0.0;
@@ -323,8 +326,10 @@ void Glissando::layout()
             xCurr += segm->ipos2().x();
             yCurr = y0 + ratio * xCurr;
             segm->rypos2() = yCurr - segm->ipos().y();       // position segm. end point at yCurr
-            // next segment shall start where this segment stopped
-            segm = segmentAt(i+1);
+            // next segment shall start where this segment stopped, corrected for the staff y-difference
+            SpannerSegment* nextSeg = segmentAt(i + 1);
+            yCurr += yStaffDifference(nextSeg->system(), track2staff(track2()), segm->system(), track2staff(track()));
+            segm = nextSeg;
             segm->rypos2() += segm->ipos().y() - yCurr;      // adjust next segm. vertical length
             segm->rypos() = yCurr;                           // position next segm. start point at yCurr
             }
@@ -667,7 +672,7 @@ bool Glissando::setProperty(Pid propertyId, const QVariant& v)
       {
       switch (propertyId) {
             case Pid::GLISS_TYPE:
-                  setGlissandoType(GlissandoType(v.toInt()));
+                  setGlissandoType(v.value<GlissandoType>());
                   break;
             case Pid::GLISS_TEXT:
                   setText(v.toString());
@@ -676,7 +681,7 @@ bool Glissando::setProperty(Pid propertyId, const QVariant& v)
                   setShowText(v.toBool());
                   break;
             case Pid::GLISS_STYLE:
-                  setGlissandoStyle(GlissandoStyle(v.toInt()));
+                  setGlissandoStyle(v.value<GlissandoStyle>());
                   break;
             case Pid::GLISS_EASEIN:
                   setEaseIn(v.toInt());
@@ -701,7 +706,7 @@ bool Glissando::setProperty(Pid propertyId, const QVariant& v)
                         return false;
                   break;
             }
-      triggerLayoutAll();
+      triggerLayout();
       return true;
       }
 

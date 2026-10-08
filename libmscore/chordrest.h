@@ -14,11 +14,12 @@
 #define __CHORDREST_H__
 
 #include <functional>
-#include "symbol.h"
-#include "duration.h"
+
 #include "beam.h"
-#include "shape.h"
+#include "duration.h"
 #include "measure.h"
+#include "shape.h"
+#include "symbol.h"
 
 namespace Ms {
 
@@ -38,7 +39,7 @@ class Articulation;
 class Lyrics;
 class TabDurationSymbol;
 class Spanner;
-enum class SegmentType;
+enum class SegmentType : short;
 
 //-------------------------------------------------------------------
 //   ChordRest
@@ -60,7 +61,7 @@ class ChordRest : public DurationElement {
       Beam* _beam;
       Beam::Mode _beamMode;
       bool _up;                           // actual stem direction
-      bool _small;
+      bool m_isSmall;
       bool _melismaEnd;
 
       // CrossMeasure: combine 2 tied notes if across a bar line and can be combined in a single duration
@@ -73,16 +74,16 @@ class ChordRest : public DurationElement {
       ChordRest &operator=(const ChordRest&) = delete;
       ~ChordRest();
 
-      virtual ElementType type() const = 0;
+      virtual ElementType type() const override = 0;
 
       virtual Element* drop(EditData&) override;
       virtual void undoUnlink() override;
 
       virtual Segment* segment() const  { return (Segment*)parent(); }
-      virtual Measure* measure() const = 0;
+      virtual Measure* measure() const override = 0;
 
-      virtual void writeProperties(XmlWriter& xml) const;
-      virtual bool readProperties(XmlReader&);
+      virtual void writeProperties(XmlWriter& xml) const override;
+      virtual bool readProperties(XmlReader&) override;
       virtual void readAddConnector(ConnectorInfoReader* info, bool pasteMode) override;
       virtual void scanElements(void* data, void (*func)(void*, Element*), bool all=true) override;
 
@@ -109,7 +110,7 @@ class ChordRest : public DurationElement {
       void setUp(bool val)                      { _up = val; }
 
 
-      bool small() const                        { return _small; }
+      bool isSmall() const                      { return m_isSmall; }
       void setSmall(bool val);
       void undoSetSmall(bool val);
 
@@ -136,15 +137,19 @@ class ChordRest : public DurationElement {
 
       const std::vector<Lyrics*>& lyrics() const { return _lyrics; }
       std::vector<Lyrics*>& lyrics()             { return _lyrics; }
+      Lyrics* lyrics(int verse) const;
       Lyrics* lyrics(int verse, Placement) const;
       int lastVerse(Placement) const;
       bool isMelismaEnd() const;
       void setMelismaEnd(bool v);
 
-      virtual void add(Element*);
-      virtual void remove(Element*);
+      virtual void add(Element*) override;
+      virtual void remove(Element*) override;
       void removeDeleteBeam(bool beamed);
       void replaceBeam(Beam* newBeam);
+
+      void getNotesAtPosition(std::vector<Note*>&, bool onlyOne=true);
+      void getChordRestsAtPosition(std::vector<ChordRest*>& chordRestsAtPosition, bool onlyOne=true);
 
       ElementList& el()                            { return _el; }
       const ElementList& el() const                { return _el; }

@@ -21,13 +21,11 @@
  * 02111-1307, USA
  */
 
-#include "sfont.h"
 #include "fluid.h"
+#include "sfont.h"
 #include "voice.h"
 
 // #define DEBUG_SFONT
-
-#include "libmscore/xml.h"
 
 static bool debugMode = false;
 
@@ -614,6 +612,7 @@ Sample::Sample(SFont* s)
       data        = 0;
       amplitude_that_reaches_noise_floor_is_valid = false;
       amplitude_that_reaches_noise_floor = 0.0;
+      name[0]     = 0;
       }
 
 //---------------------------------------------------------
@@ -651,18 +650,22 @@ void Sample::load()
             std::vector<char> p;
             p.resize(size);
             if (fd.read(p.data(), size) != size) {
-                  qDebug("read %d failed", size);
+                  qDebug("SoundFont(%s) Sample(%s) read %u bytes failed", qPrintable(sf->get_name()), name, size);
+                  setValid(false);
                   return;
                   }
-            decompressOggVorbis(p.data(), size);
+            setValid(decompressOggVorbis(p.data(), size));
 #endif
             }
       else {
             data = new short[size];
             size *= sizeof(short);
 
-            if (fd.read((char*)data, size) != size)
+            if (fd.read((char*)data, size) != size) {
+                  qDebug("SoundFont(%s) Sample(%s) read %u bytes failed", qPrintable(sf->get_name()), name, size);
+                  setValid(false);
                   return;
+                  }
 
             if (QSysInfo::ByteOrder == QSysInfo::BigEndian) {
                   unsigned char hi, lo;
@@ -676,11 +679,34 @@ void Sample::load()
                         data[i] = s;
                         }
                   }
-            end       -= (start + 1);       // marks last sample, contrary to SF spec.
+            end       -= start;
             loopstart -= start;
             loopend   -= start;
             start      = 0;
             }
+
+      // sanity checks:
+      // - start < end in SFont::load_shdr(int)
+      // - start < loopstart < loopend < end for !SF3 ibidem
+      // - … for SF3 in Sample::decompressOggVorbis(char *, unsigned int) in sfont3.cpp
+      // - most importantly, they are done *before* start is normalised to 0, which it is at this point
+      //
+      // now add some extra sanity checks from the SF2 spec (biased so they work with unsigned int);
+      // just a warning, they probably work with Fluid, possibly with audible artefacts though...
+      if (!(start + 7 < loopstart) || !(loopstart + 31 < loopend) || !(loopend + 7 < end))
+            qDebug("SoundFont(%s) Sample(%s) start(%u) startloop(%u) endloop(%u) end(%u) smaller than SoundFont 2.04 spec chapter 7.10 recommendation",
+                     qPrintable(sf->get_name()), name, start, loopstart, loopend, end);
+
+      // this used to cause a crash
+      if (!data) {
+            qDebug("SoundFont(%s) Sample(%s) data is nil", qPrintable(sf->get_name()), name);
+            setValid(false);
+            }
+
+      // from here, end marks the last sample, not one past as in the SF2 spec
+      if (end > 0)
+            end -= 1;
+
       optimize();
       }
 
@@ -749,6 +775,8 @@ bool SFont::load()
             }
       SFChunk chunk;
 
+      // so that any subsequent errors can be attributed to the right file
+      qDebug("Loading soundfont: %s", qPrintable(f.fileName()));
       try {
             readchunk(&chunk);
             if (chunkid(chunk.id) != RIFF_ID)
@@ -948,7 +976,7 @@ void SFont::process_sdta (unsigned int size)
       if (chunk.size > size)
             throw(QString("SDTA chunk size mismatch %1 != %2").arg(size).arg(chunk.size));
       /* sample data follows */
-      setSamplepos(f.pos());
+      setSamplepos((unsigned int)f.pos());
       setSamplesize(chunk.size);
       FSKIP(size);
       }
@@ -1372,7 +1400,7 @@ void SFont::load_ihdr(int size)
                         pr->zones.prepend(0);
                   }
             else if (zndx > 0) {	/* 1st inst, warn if ofs >0 */
-	            qWarning("%d instrument zones not referenced, discarding", zndx);
+                  qWarning("%d instrument zones not referenced, discarding", zndx);
                   }
             pzndx = zndx;
             pr = p;			/* update instrument ptr */
@@ -1435,7 +1463,7 @@ void SFont::load_ibag(int size)
 
       if (!pz) {  /* in case that all are no zoners */
             if (genndx > 0)
-	            qWarning("No instrument generators and terminal index not 0");
+                  qWarning("No instrument generators and terminal index not 0");
             if (modndx > 0)
                   qWarning("No instrument modulators and terminal index not 0");
             return;
@@ -1628,9 +1656,7 @@ void SFont::load_shdr (int size)
       for (int i = 0; i < size; i++) {
             Sample* p = new Sample(this);
             sample.append(p);
-            char buffer[21];
-            READSTR (buffer);
-            // READSTR (p->name);
+            READSTR (p->name);
             READD (p->start);
             READD (p->end);	      /* - end, loopstart and loopend */
             READD (p->loopstart);	/* - will be checked and turned into */
@@ -1645,16 +1671,19 @@ void SFont::load_shdr (int size)
                   continue;
                   }
             if ((p->end > getSamplesize()) || (p->start > (p->end - 4))) {
-                  qWarning("Sample start/end file positions are invalid, disabling");
+                  qDebug("Sample(%s) start/end file positions are invalid, disabling", p->name);
                   p->setValid(false);
                   continue;
                   }
             p->setValid(true);
             if (p->sampletype & FLUID_SAMPLETYPE_OGG_VORBIS) {
+                  // done in Sample::decompressOggVorbis in sfont3.cpp
                   }
             else {
                   // loop is fowled?? (cluck cluck :)
                   if (p->loopend > p->end || p->loopstart >= p->loopend || p->loopstart <= p->start) {
+                        qDebug("Sample(%s) start(%u) startloop(%u) endloop(%u) end(%u) fowled (broken soundfont?), fixing up",
+                               p->name, p->start, p->loopstart, p->loopend, p->end);
                         /* can pad loop by 8 samples and ensure at least 4 for loop (2*8+4) */
                         if ((p->end - p->start) >= 20) {
                               p->loopstart = p->start + 8;
@@ -1665,8 +1694,10 @@ void SFont::load_shdr (int size)
                               p->loopend   = p->end - 1;
                               }
                         }
-                  if ((p->end - p->start) < 8)
+                  if ((p->end - p->start) < 8) {
+                        qDebug("Sample(%s) too small, disabling", p->name);
                         p->setValid(false);
+                        }
                   }
             }
       FSKIP (SFSHDRSIZE);	/* skip terminal shdr */

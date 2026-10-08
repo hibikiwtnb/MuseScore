@@ -57,11 +57,13 @@ class Slur final : public SlurTie {
 
    public:
       Slur(Score* = 0);
+      Slur(const Slur&);
       ~Slur() {}
 
       Slur* clone() const override        { return new Slur(*this); }
       ElementType type() const override { return ElementType::SLUR; }
       void write(XmlWriter& xml) const override;
+      bool readProperties(XmlReader&) override;
       void layout() override;
       SpannerSegment* layoutSystem(System*) override;
       void setTrack(int val) override;

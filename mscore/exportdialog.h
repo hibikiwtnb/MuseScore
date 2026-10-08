@@ -23,7 +23,6 @@
 #include "ui_exportdialog.h"
 #include "abstractdialog.h"
 #include "libmscore/excerpt.h"
-#include "libmscore/mscore.h"
 #include "libmscore/score.h"
 
 namespace Ms {
@@ -54,7 +53,8 @@ class ExportDialog : public AbstractDialog, public Ui::ExportDialog {
       Q_OBJECT
       
       QButtonGroup* pdfSeparateOrSingleFiles;
-      
+      QButtonGroup* exportBackgroundOption;
+
       Score* cs = nullptr;
       
       void loadValues();
@@ -71,6 +71,8 @@ class ExportDialog : public AbstractDialog, public Ui::ExportDialog {
       void selectParts();
       void clearSelection();
       void setOkButtonEnabled();
+      void selectPdfDirectory();
+      void enablePdfDirectory();
 
    protected:
       virtual void retranslate();

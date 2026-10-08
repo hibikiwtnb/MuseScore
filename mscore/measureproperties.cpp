@@ -18,15 +18,16 @@
 //=============================================================================
 
 #include "measureproperties.h"
-#include "libmscore/measure.h"
-#include "libmscore/sig.h"
-#include "libmscore/score.h"
-#include "libmscore/repeat.h"
-#include "libmscore/undo.h"
-#include "libmscore/range.h"
 #include "musescore.h"
-#include "timeline.h"
 #include "icons.h"
+#include "timeline.h"
+
+#include "libmscore/measure.h"
+#include "libmscore/measurebase.h"
+#include "libmscore/range.h"
+#include "libmscore/repeat.h"
+#include "libmscore/score.h"
+#include "libmscore/undo.h"
 
 namespace Ms {
 
@@ -93,6 +94,7 @@ Measure* getPrevMeasure(Measure* m)
 
 void MeasureProperties::gotoNextMeasure()
       {
+      apply();
       if (getNextMeasure(m))
             setMeasure(getNextMeasure(m));
       nextButton->setEnabled(getNextMeasure(m));
@@ -106,6 +108,7 @@ void MeasureProperties::gotoNextMeasure()
 
 void MeasureProperties::gotoPreviousMeasure()
       {
+      apply();
       if (getPrevMeasure(m))
             setMeasure(getPrevMeasure(m));
       nextButton->setEnabled(getNextMeasure(m));
@@ -257,12 +260,13 @@ void MeasureProperties::apply()
                   propertiesChanged = true;
                   }
             }
-
+      int measureOffset = measureNumberOffset->value();
+      bool offsetChanged = (measureOffset != m->noOffset()) ? true : false;
       m->undoChangeProperty(Pid::REPEAT_COUNT, repeatCount());
       m->undoChangeProperty(Pid::BREAK_MMR, breakMultiMeasureRest->isChecked());
       m->undoChangeProperty(Pid::USER_STRETCH, layoutStretch->value());
       m->undoChangeProperty(Pid::MEASURE_NUMBER_MODE, measureNumberMode->currentIndex());
-      m->undoChangeProperty(Pid::NO_OFFSET, measureNumberOffset->value());
+      m->undoChangeProperty(Pid::NO_OFFSET, measureOffset);
       m->undoChangeProperty(Pid::IRREGULAR, isIrregular());
 
       if (m->ticks() != len()) {
@@ -283,6 +287,9 @@ void MeasureProperties::apply()
 
       if (propertiesChanged) {
             m->triggerLayout();
+            }
+      if (offsetChanged) {
+            score->doLayoutRange(m->tick(), score->lastMeasure()->tick());
             }
 
       score->select(m, SelectType::SINGLE, 0);

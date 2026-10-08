@@ -5,6 +5,13 @@
     <currentLayer>0</currentLayer>
     <Division>480</Division>
     <Style>
+      <pagePrintableWidth>7.48032</pagePrintableWidth>
+      <pageEvenLeftMargin>0.393701</pageEvenLeftMargin>
+      <pageOddLeftMargin>0.393701</pageOddLeftMargin>
+      <pageEvenTopMargin>0.393701</pageEvenTopMargin>
+      <pageEvenBottomMargin>0.787403</pageEvenBottomMargin>
+      <pageOddTopMargin>0.393701</pageOddTopMargin>
+      <pageOddBottomMargin>0.787403</pageOddBottomMargin>
       <minSystemDistance>9.2</minSystemDistance>
       <frameSystemDistance>13</frameSystemDistance>
       <bracketDistance>0.2</bracketDistance>
@@ -78,6 +85,7 @@
             </TimeSig>
           <Fermata>
             <subtype>fermataAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Chord>
             <durationType>quarter</durationType>
@@ -88,6 +96,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataBelow</subtype>
+            <timeStretch>1</timeStretch>
             <placement>below</placement>
             </Fermata>
           <Chord>
@@ -99,6 +108,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataShortAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Chord>
             <durationType>quarter</durationType>
@@ -109,6 +119,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataShortBelow</subtype>
+            <timeStretch>1</timeStretch>
             <placement>below</placement>
             </Fermata>
           <Chord>
@@ -124,6 +135,7 @@
         <voice>
           <Fermata>
             <subtype>fermataLongAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Chord>
             <durationType>quarter</durationType>
@@ -134,6 +146,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataLongBelow</subtype>
+            <timeStretch>1</timeStretch>
             <placement>below</placement>
             </Fermata>
           <Chord>
@@ -145,6 +158,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataVeryLongAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Chord>
             <durationType>quarter</durationType>
@@ -155,6 +169,7 @@
             </Chord>
           <Fermata>
             <subtype>fermataVeryLongBelow</subtype>
+            <timeStretch>1</timeStretch>
             <placement>below</placement>
             </Fermata>
           <Chord>
@@ -487,6 +502,7 @@
         <voice>
           <Fermata>
             <subtype>fermataAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Rest>
             <durationType>quarter</durationType>
@@ -506,6 +522,7 @@
         <voice>
           <Fermata>
             <subtype>fermataAbove</subtype>
+            <timeStretch>1</timeStretch>
             </Fermata>
           <Rest>
             <durationType>measure</durationType>

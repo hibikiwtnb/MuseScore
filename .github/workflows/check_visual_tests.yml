@@ -1,0 +1,115 @@
+name: 'Check: Visual Tests (vtests)'
+
+on:
+  #schedule: # scheduled workflows will only run on the default branch. edit default values under gen1 below
+  #  - cron: '20 1 * * *' # At 01:20 on every day-of-month
+  #push: # push.inputs field does not exist, use gen1 below
+  #  branches:
+  #  - 3.x
+  #pull_request:
+  #workflow_dispatch: # triggered by github web ui run "Check: Visual Tests (vtest)" workflow button.
+  workflow_call: # triggered by "uses" from other yml files.
+
+concurrency:
+  group: ${{ github.workflow }} ${{ github.event_name }} ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run_vtests:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Get base commit for PR
+      if: github.event_name == 'pull_request'
+      run: |
+        export BASEREF=${{ github.event.pull_request.base.sha }}
+        if [ -z "$BASEREF" ]; then export found=0; else export found=1; fi
+        echo "BASEREF=$BASEREF" >> $GITHUB_ENV
+        echo "found=$found" >> $GITHUB_ENV
+    - name: Get base commit for push
+      if: github.event_name == 'push'
+      run: |
+        export BASEREF=$( git show -s --pretty=%P ${{ github.sha }} | head -c 10 )
+        if [ -z "$BASEREF" ]; then export found=0; else export found=1; fi
+        echo "BASEREF=$BASEREF" >> $GITHUB_ENV
+        echo "found=$found" >> $GITHUB_ENV
+    - name: Setup proposed change
+      if: contains( env.found, '1')
+      run: |
+        bash ./build/ci/linux/setup.sh -p "software" --is_calling_without_sudo true
+    - name: Build proposed change
+      if: contains( env.found, '1')
+      run: |
+        bash ./build/ci/linux/build.sh -p "software" -n ${{ github.run_id }} --build_mode vtests
+    - name: Setup base
+      if: contains( env.found, '1')
+      run: |
+        bash ./build/ci/linux/setup.sh -p "softwarebase" --is_calling_without_sudo true
+    - name: Build current
+      if: contains( env.found, '1')
+      run: |
+        git checkout $BASEREF
+        bash ./build/ci/linux/build.sh -p "softwarebase" -n ${{ github.run_id }} --build_mode vtests
+    - name: Run vtests using base build
+      if: contains( env.found, '1')
+      run: |
+        source $HOME/softwarebase/build_tools/environment.sh
+        cd vtest
+        export VTEST_MSCORE="$HOME/softwarebase/bin/mscore"
+        export VTEST_BROWSER=ls
+        export VTEST_DIR=$(pwd)
+        xvfb-run ./gen
+    - name: Run vtests using proposed change build
+      if: contains( env.found, '1')
+      run: |
+        source $HOME/software/build_tools/environment.sh
+        git checkout -
+        cd vtest
+        mkdir -p compare
+        find ./html -name "*-1.png" -exec mv '{}' ./compare \;
+        rm -rf html 2>/dev/null
+        export VTEST_MSCORE="$HOME/software/bin/mscore"
+        export VTEST_BROWSER=ls
+        export VTEST_DIR=$(pwd)
+        xvfb-run ./gen
+    - name: Compare vtests
+      if: contains( env.found, '1')
+      run: |
+        source $HOME/softwarebase/build_tools/environment.sh
+        cd vtest
+        export VTEST_DIR=$(pwd)
+        ./gen_compare
+    - name: Upload artifact
+      if: contains( env.found, '1') && contains( env.VTEST_DIFF_FOUND, 'true')
+      uses: actions/upload-artifact@v7
+      with:
+        name: compare
+        path: ./vtest/compare
+    - name: Skip failure signal if PR is labeled 'vtests'
+      if: github.event_name == 'pull_request' && contains( env.found, '1') && contains( env.VTEST_DIFF_FOUND, 'true') && contains(github.event.pull_request.labels.*.name, 'vtests')
+      run: |
+        echo "This PR appears to change some of the visual tests."
+        echo "Please carefully review the new visual test results in the uploaded artifact that can be found here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        echo "Failure signal skipped because 'vtests' label is applied to the PR"
+        export VTEST_DIFF_FOUND=false
+        echo "VTEST_DIFF_FOUND=$VTEST_DIFF_FOUND" >> $GITHUB_ENV
+    - name: Emit failure signal for PR if differences are found
+      if: github.event_name == 'pull_request' && contains( env.found, '1') && contains( env.VTEST_DIFF_FOUND, 'true')
+      run: |
+        echo "This PR appears to change some of the visual tests."
+        echo "Please carefully review the new visual test results in the uploaded artifact that can be found here: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        exit 1
+    - name: Comment push commit
+      if: github.event_name == 'push' && contains( env.found, '1') && contains( env.VTEST_DIFF_FOUND, 'true')
+      uses: peter-evans/commit-comment@v4.0.0
+      with:
+        body: |
+          This is an automatic message. This commit appears to change some of the visual tests.
+          Please carefully review the new visual test results in the uploaded artifact that can be found
+          [here][1]
+
+          [1]: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        token: ${{ secrets.GITHUB_TOKEN }}

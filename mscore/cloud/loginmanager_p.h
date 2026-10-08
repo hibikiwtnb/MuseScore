@@ -20,8 +20,6 @@
 #ifndef __LOGINMANAGER_P_H__
 #define __LOGINMANAGER_P_H__
 
-#include "config.h"
-
 namespace Ms {
 
 //---------------------------------------------------------
@@ -120,20 +118,6 @@ class ApiRequest : public QObject
 
       int retryCount() const { return _retryCount; }
       };
-
-//---------------------------------------------------------
-//   ApiWebEngineRequestInterceptor
-//---------------------------------------------------------
-
-#ifdef USE_WEBENGINE
-class ApiWebEngineRequestInterceptor : public QWebEngineUrlRequestInterceptor
-      {
-      Q_OBJECT
-   public:
-      ApiWebEngineRequestInterceptor(QObject* parent) : QWebEngineUrlRequestInterceptor(parent) {}
-      void interceptRequest(QWebEngineUrlRequestInfo& info) override;
-      };
-#endif
 
 //---------------------------------------------------------
 //   AsyncWait

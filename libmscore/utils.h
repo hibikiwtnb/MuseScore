@@ -13,13 +13,14 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
-#include "mscore.h"
 #include "interval.h"
 #include "sym.h"
 
 namespace Ms {
 
-enum class Key;
+class KeySig;
+
+enum class Key : signed char;
 
 //---------------------------------------------------------
 //   cycles
@@ -90,6 +91,9 @@ extern Segment* skipTuplet(Tuplet* tuplet);
 extern std::vector<SymId> toTimeSigString(const QString&);
 extern Fraction actualTicks(Fraction duration, Tuplet* tuplet, Fraction timeStretch);
 
+
+extern double yStaffDifference(const System* system1, int staffIdx1, const System* system2, int staffIdx2);
+extern bool isFirstSystemKeySig(const KeySig* ks);
 }     // namespace Ms
 #endif
 

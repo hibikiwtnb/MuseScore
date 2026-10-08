@@ -25,19 +25,9 @@ include_directories(
       ${PROJECT_SOURCE_DIR}/thirdparty
       )
 
-if (USE_SYSTEM_FREETYPE)
-      include_directories(${FREETYPE_INCLUDE_DIRS})
-else (USE_SYSTEM_FREETYPE)
-      include_directories(${PROJECT_SOURCE_DIR}/thirdparty/freetype/include)
-endif (USE_SYSTEM_FREETYPE)
-
 if (OMR)
 set(OMR_SRC ${PROJECT_SOURCE_DIR}/omr/importpdf.cpp)
 endif (OMR)
-
-if (MSVC)
-   set(_all_h_file "${PROJECT_SOURCE_DIR}/all.h")
-endif (MSVC)
 
 QT5_ADD_RESOURCES(qrc_files ${PROJECT_SOURCE_DIR}/mtest/mtest.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Campania.qrc
@@ -50,6 +40,8 @@ QT5_ADD_RESOURCES(qrc_files ${PROJECT_SOURCE_DIR}/mtest/mtest.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Free.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-FreeSerif.qrc
             ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-Petaluma.qrc
+            ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-FinaleMaestro.qrc
+            ${PROJECT_SOURCE_DIR}/mscore/musescorefonts-FinaleBroadway.qrc
       )
 
 add_library (testResources STATIC
@@ -94,32 +86,13 @@ set (SOURCE_LIB
       omr
       )
 
-if (MSVC)
-    add_library(
-      testutils STATIC
-	  ${_all_h_file}
-	  ${PCH}
-	  ${SOURCE_LIB}
-	  )
-else (MSVC)
-    add_library(
-      testutils STATIC
-	  ${SOURCE_LIB}
-	  )
-endif (MSVC)
+add_library(testutils STATIC ${SOURCE_LIB})
 
 # testutils version that is linked to a full mscoreapp target
 add_library(testutils_mscoreapp STATIC
       testutils.cpp
       mscoreappresources.cpp
       )
-
-if (MSVC)
-      target_sources(testutils_mscoreapp PRIVATE
-            ${_all_h_file}
-            ${PCH}
-            )
-endif (MSVC)
 
 target_link_libraries(testutils_mscoreapp mscoreapp)
 
@@ -130,28 +103,19 @@ add_executable(
 
 target_link_libraries(
       mtest
+      freetype
       ${QT_LIBRARIES}
       )
-
-if (USE_SYSTEM_FREETYPE)
-      target_link_libraries(mtest freetype)
-else (USE_SYSTEM_FREETYPE)
-      target_link_libraries(mtest mscore_freetype)
-endif (USE_SYSTEM_FREETYPE)
 
 set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
 
 string(REPLACE ";" ";-I" INC "${QT_INCLUDES}")
 
-if (APPLE AND (CMAKE_VERSION VERSION_LESS "3.5.0"))
-      set(TESTUTILS_COMPILE_FLAGS "-include all.h -D TESTROOT=\\\\\"${PROJECT_SOURCE_DIR}\\\\\" -g -Wall -Wextra")
-else (APPLE AND (CMAKE_VERSION VERSION_LESS "3.5.0"))
-      if (MSVC)
-            set(TESTUTILS_COMPILE_FLAGS "${PCH_INCLUDE}  /D TESTROOT=\\\"${PROJECT_SOURCE_DIR}\\\"")
-      else (MSVC)
-            set(TESTUTILS_COMPILE_FLAGS "-include all.h -D TESTROOT=\\\"${PROJECT_SOURCE_DIR}\\\" -g -Wall -Wextra")
-      endif (MSVC)
-endif (APPLE AND (CMAKE_VERSION VERSION_LESS "3.5.0"))
+if (MSVC)
+      set(TESTUTILS_COMPILE_FLAGS "/D TESTROOT=\\\"${PROJECT_SOURCE_DIR}\\\"")
+else (MSVC)
+      set(TESTUTILS_COMPILE_FLAGS "-D TESTROOT=\\\"${PROJECT_SOURCE_DIR}\\\" -g -Wall -Wextra")
+endif (MSVC)
 
 set_target_properties(testutils PROPERTIES COMPILE_FLAGS "${TESTUTILS_COMPILE_FLAGS}")
 set_target_properties(testutils_mscoreapp PROPERTIES COMPILE_FLAGS "${TESTUTILS_COMPILE_FLAGS}")
@@ -246,3 +210,10 @@ subdirs (
 if (OMR)
 subdirs(omr)
 endif (OMR)
+
+if (BUILD_PCH)
+      target_use_pch(testResources)
+      target_use_pch(testutils)
+      target_use_pch(testutils_mscoreapp)
+      target_use_pch(mtest)
+endif (BUILD_PCH)

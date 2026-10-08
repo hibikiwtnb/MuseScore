@@ -11,8 +11,9 @@
 //=============================================================================
 
 #include "layoutbreak.h"
-#include "score.h"
+#include "measurebase.h"
 #include "mscore.h"
+#include "score.h"
 #include "xml.h"
 
 namespace Ms {
@@ -22,7 +23,7 @@ namespace Ms {
 //---------------------------------------------------------
 
 static const ElementStyle sectionBreakStyle {
-      { Sid::SectionPause, Pid::PAUSE }
+      { Sid::sectionPause, Pid::PAUSE }
       };
 
 //---------------------------------------------------------
@@ -35,8 +36,9 @@ LayoutBreak::LayoutBreak(Score* score)
       _pause = 0.;
       _startWithLongNames = false;
       _startWithMeasureOne = false;
-      _firstSystemIdentation = false;
-      _layoutBreakType = Type(propertyDefault(Pid::LAYOUT_BREAK).toInt());
+      _firstSystemIndentation = false;
+      _showCourtesy = false;
+      _layoutBreakType = LayoutBreak::Type::PAGE;
 
       initElementStyle(&sectionBreakStyle);
 
@@ -44,18 +46,20 @@ LayoutBreak::LayoutBreak(Score* score)
       resetProperty(Pid::START_WITH_LONG_NAMES);
       resetProperty(Pid::START_WITH_MEASURE_ONE);
       resetProperty(Pid::FIRST_SYSTEM_INDENTATION);
+      resetProperty(Pid::SHOW_COURTESY);
       lw = spatium() * 0.3;
       }
 
 LayoutBreak::LayoutBreak(const LayoutBreak& lb)
    : Element(lb)
       {
-      _layoutBreakType       = lb._layoutBreakType;
-      lw                     = lb.lw;
-      _pause                 = lb._pause;
-      _startWithLongNames    = lb._startWithLongNames;
-      _startWithMeasureOne   = lb._startWithMeasureOne;
-      _firstSystemIdentation = lb._firstSystemIdentation;
+      _layoutBreakType        = lb._layoutBreakType;
+      lw                      = lb.lw;
+      _pause                  = lb._pause;
+      _startWithLongNames     = lb._startWithLongNames;
+      _startWithMeasureOne    = lb._startWithMeasureOne;
+      _firstSystemIndentation = lb._firstSystemIndentation;
+      _showCourtesy           = lb._showCourtesy;
       layout0();
       }
 
@@ -68,7 +72,7 @@ void LayoutBreak::write(XmlWriter& xml) const
       xml.stag(this);
       Element::writeProperties(xml);
 
-      for (auto id : { Pid::LAYOUT_BREAK, Pid::PAUSE, Pid::START_WITH_LONG_NAMES, Pid::START_WITH_MEASURE_ONE, Pid::FIRST_SYSTEM_INDENTATION })
+      for (auto id : { Pid::LAYOUT_BREAK, Pid::PAUSE, Pid::START_WITH_LONG_NAMES, Pid::START_WITH_MEASURE_ONE, Pid::FIRST_SYSTEM_INDENTATION, Pid::SHOW_COURTESY })
             writeProperty(xml, id);
 
       xml.etag();
@@ -90,8 +94,10 @@ void LayoutBreak::read(XmlReader& e)
                   readProperty(e, Pid::START_WITH_LONG_NAMES);
             else if (tag == "startWithMeasureOne")
                   readProperty(e, Pid::START_WITH_MEASURE_ONE);
-            else if (tag == "firstSystemIdentation")
+            else if (tag == "firstSystemIndentation")
                   readProperty(e, Pid::FIRST_SYSTEM_INDENTATION);
+            else if (tag == "showCourtesySig")
+                  readProperty(e, Pid::SHOW_COURTESY);
             else if (!Element::readProperties(e))
                   e.unknown();
             }
@@ -257,7 +263,9 @@ QVariant LayoutBreak::getProperty(Pid propertyId) const
             case Pid::START_WITH_MEASURE_ONE:
                   return _startWithMeasureOne;
             case Pid::FIRST_SYSTEM_INDENTATION:
-                  return _firstSystemIdentation;
+                  return _firstSystemIndentation;
+            case Pid::SHOW_COURTESY:
+                  return _showCourtesy;
             default:
                   return Element::getProperty(propertyId);
             }
@@ -283,14 +291,25 @@ bool LayoutBreak::setProperty(Pid propertyId, const QVariant& v)
                   setStartWithMeasureOne(v.toBool());
                   break;
             case Pid::FIRST_SYSTEM_INDENTATION:
-                  setFirstSystemIdentation(v.toBool());
+                  setFirstSystemIndentation(v.toBool());
+                  break;
+            case Pid::SHOW_COURTESY:
+                  setShowCourtesy(v.toBool());
                   break;
             default:
                   if (!Element::setProperty(propertyId, v))
                         return false;
                   break;
             }
-      triggerLayoutAll();
+
+      if (propertyId == Pid::START_WITH_MEASURE_ONE)
+            triggerLayoutToEnd();
+      else {
+            triggerLayout();
+            if (parent() && measure()->next())
+                  measure()->next()->triggerLayout();
+            }
+
       setGenerated(false);
       return true;
       }
@@ -305,13 +324,15 @@ QVariant LayoutBreak::propertyDefault(Pid id) const
             case Pid::LAYOUT_BREAK:
                   return QVariant(); // LAYOUT_BREAK_LINE;
             case Pid::PAUSE:
-                  return score()->styleD(Sid::SectionPause);
+                  return score()->styleD(Sid::sectionPause);
             case Pid::START_WITH_LONG_NAMES:
                   return true;
             case Pid::START_WITH_MEASURE_ONE:
                   return true;
             case Pid::FIRST_SYSTEM_INDENTATION:
                   return true;
+            case Pid::SHOW_COURTESY:
+                  return false;
             default:
                   return Element::propertyDefault(id);
             }

@@ -15,23 +15,23 @@
  Implementation of classes Clef (partial) and ClefList (complete).
 */
 
+#include "ambitus.h"
 #include "clef.h"
 #include "measure.h"
-#include "ambitus.h"
-#include "xml.h"
+#include "part.h"
+#include "score.h"
+#include "segment.h"
+#include "staff.h"
+#include "stafftype.h"
 #include "sym.h"
 #include "symbol.h"
 #include "system.h"
-#include "score.h"
-#include "staff.h"
-#include "segment.h"
-#include "stafftype.h"
-#include "part.h"
+#include "xml.h"
 
 namespace Ms {
 
 
-// table must be in sync with enum ClefType
+// table must be in sync with enum ClefType in clef.h
 const ClefInfo ClefInfo::clefTable[] = {
 // tag    xmlName    line oCh pOff|-lines for sharps---||---lines for flats--|  symbol                           | name                                   | valid in staff group
 { "G",    "G",         2,  0, 45, { 0, 3,-1, 2, 5, 1, 4, 4, 1, 5, 2, 6, 3, 7 }, SymId::gClef,                    QT_TRANSLATE_NOOP("clefTable", "Treble clef"),                       StaffGroup::STANDARD  },
@@ -70,6 +70,10 @@ const ClefInfo ClefInfo::clefTable[] = {
 { "TAB4", "TAB",       5,  0,  0, { 0, 3,-1, 2, 5, 1, 4, 4, 1, 5, 2, 6, 3, 7 }, SymId::fourStringTabClef,        QT_TRANSLATE_NOOP("clefTable", "Tablature 4 lines"),                 StaffGroup::TAB       },
 { "TAB2", "TAB",       5,  0,  0, { 0, 3,-1, 2, 5, 1, 4, 4, 1, 5, 2, 6, 3, 7 }, SymId::sixStringTabClefSerif,    QT_TRANSLATE_NOOP("clefTable", "Tablature Serif"),                   StaffGroup::TAB       },
 { "TAB4_SERIF", "TAB", 5,  0,  0, { 0, 3,-1, 2, 5, 1, 4, 4, 1, 5, 2, 6, 3, 7 }, SymId::fourStringTabClefSerif,   QT_TRANSLATE_NOOP("clefTable", "Tablature Serif 4 lines"),           StaffGroup::TAB       },
+// new clefs to be added between here
+{ "C4_8VB", "C",       4, -1, 30, { 6, 2, 5, 1, 4, 0, 3, 3, 0, 4, 1, 5, 2, 6 }, SymId::cClef8vb,                 QT_TRANSLATE_NOOP("clefTable", "Tenor clef 8va bassa"),              StaffGroup::STANDARD  },
+{ "G8vbc", "G",        2, -1, 38, { 0, 3,-1, 2, 5, 1, 4, 4, 1, 5, 2, 6, 3, 7 }, SymId::gClef8vbCClef,            QT_TRANSLATE_NOOP("clefTable", "G clef ottava bassa with C clef"),   StaffGroup::STANDARD  },
+// and here in oder to not break TAB clef style
       };
 
 //---------------------------------------------------------
@@ -100,7 +104,7 @@ Clef::Clef(Score* s)
 qreal Clef::mag() const
       {
       qreal mag = staff() ? staff()->mag(tick()) : 1.0;
-      if (_small)
+      if (m_isSmall)
             mag *= score()->styleD(Sid::smallClefMag);
       return mag;
       }
@@ -170,29 +174,14 @@ void Clef::layout()
                   yoff = lineDist * 1.5;
                   break;
             case ClefType::TAB:                            // TAB clef
+            case ClefType::TAB4:                            // TAB clef 4 strings
+            case ClefType::TAB_SERIF:                           // TAB clef alternate style
+            case ClefType::TAB4_SERIF:                           // TAB clef alternate style
                   // on tablature, position clef at half the number of spaces * line distance
                   yoff = lineDist * (lines - 1) * .5;
                   stepOffset = 0; //  ignore stepOffset for TAB and pecussion clefs
                   break;
-            case ClefType::TAB4:                            // TAB clef 4 strings
-                  // on tablature, position clef at half the number of spaces * line distance
-                  yoff = lineDist * (lines - 1) * .5;
-                  stepOffset = 0;
-                  break;
-            case ClefType::TAB_SERIF:                           // TAB clef alternate style
-                  // on tablature, position clef at half the number of spaces * line distance
-                  yoff = lineDist * (lines - 1) * .5;
-                  stepOffset = 0;
-                  break;
-            case ClefType::TAB4_SERIF:                           // TAB clef alternate style
-                  // on tablature, position clef at half the number of spaces * line distance
-                  yoff = lineDist * (lines - 1) * .5;
-                  stepOffset = 0;
-                  break;
             case ClefType::PERC:                           // percussion clefs
-                  yoff = lineDist * (lines - 1) * 0.5;
-                  stepOffset = 0;
-                  break;
             case ClefType::PERC2:
                   yoff = lineDist * (lines - 1) * 0.5;
                   stepOffset = 0;
@@ -273,8 +262,8 @@ Element* Clef::drop(EditData& data)
 
 void Clef::setSmall(bool val)
       {
-      if (val != _small) {
-            _small = val;
+      if (val != m_isSmall) {
+            m_isSmall = val;
             }
       }
 
@@ -294,6 +283,8 @@ void Clef::read(XmlReader& e)
                   _showCourtesy = e.readInt();
             else if (tag == "forInstrumentChange")
                   _forInstrumentChange = e.readBool();
+            else if (tag == "isHeader")   // Mu4.2+ compatibility
+                  e.skipCurrentElement(); // skip, don't log
             else if (!Element::readProperties(e))
                   e.unknown();
             }
@@ -462,7 +453,7 @@ QVariant Clef::getProperty(Pid propertyId) const
             case Pid::CLEF_TYPE_CONCERT:     return int(_clefTypes._concertClef);
             case Pid::CLEF_TYPE_TRANSPOSING: return int(_clefTypes._transposingClef);
             case Pid::SHOW_COURTESY: return showCourtesy();
-            case Pid::SMALL:         return small();
+            case Pid::SMALL:         return isSmall();
             default:
                   return Element::getProperty(propertyId);
             }

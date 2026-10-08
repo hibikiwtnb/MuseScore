@@ -17,13 +17,17 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-#include "editstaff.h"
+#include "log.h"
 
-#include "editdrumset.h"
 #include "editpitch.h"
+#include "editstaff.h"
 #include "editstafftype.h"
 #include "editstringdata.h"
 #include "icons.h"
+#include "musescore.h"
+#include "seq.h"
+#include "selinstrument.h"
+
 #include "libmscore/instrtemplate.h"
 #include "libmscore/measure.h"
 #include "libmscore/part.h"
@@ -33,9 +37,6 @@
 #include "libmscore/text.h"
 #include "libmscore/undo.h"
 #include "libmscore/utils.h"
-#include "musescore.h"
-#include "seq.h"
-#include "selinstrument.h"
 
 namespace Ms {
 
@@ -100,7 +101,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
       Score* score      = part->score();
       staff             = new Staff(score);
       StaffType* stt = staff->setStaffType(Fraction(0,1), *orgStaff->staffType(Fraction(0,1)));
-      stt->setSmall(orgStaff->staffType(Fraction(0,1))->small());
+      stt->setSmall(orgStaff->staffType(Fraction(0,1))->isSmall());
       stt->setInvisible(orgStaff->staffType(Fraction(0,1))->invisible());
       staff->setUserDist(orgStaff->userDist());
       stt->setColor(orgStaff->staffType(Fraction(0,1))->color());
@@ -127,7 +128,7 @@ void EditStaff::setStaff(Staff* s, const Fraction& tick)
       // set dlg controls
       spinExtraDistance->setValue(s->userDist() / score->spatium());
       invisible->setChecked(staff->invisible(Fraction(0,1)));
-      small->setChecked(stt->small());
+      isSmallCheckbox->setChecked(stt->isSmall());
       color->setColor(stt->color());
       partName->setText(part->partName());
       cutaway->setChecked(staff->cutaway());
@@ -197,6 +198,7 @@ void EditStaff::updateInstrument()
       maxPitchA->setText(midiCodeToStr(_maxPitchA));
       minPitchP->setText(midiCodeToStr(_minPitchP));
       maxPitchP->setText(midiCodeToStr(_maxPitchP));
+      color_2->setColor(instrument.getNameColor());
       singleNoteDynamics->setChecked(instrument.singleNoteDynamics());
 
       // only show string data controls if instrument has strings
@@ -216,24 +218,24 @@ void EditStaff::updateInstrument()
 
 void EditStaff::updateInterval(const Interval& iv)
       {
-      int diatonic  = iv.diatonic;
-      int chromatic = iv.chromatic;
+      bool upFlag = !(iv.chromatic < 0 || iv.diatonic < 0);
 
+      int chromatic = std::abs(iv.chromatic);
+      int diatonic = std::abs(iv.diatonic);
       int oct = chromatic / 12;
-      if (oct < 0)
-            oct = -oct;
 
-      bool upFlag = true;
-      if (chromatic < 0 || diatonic < 0) {
-            upFlag    = false;
-            chromatic = -chromatic;
-            diatonic  = -diatonic;
-            }
       chromatic %= 12;
       diatonic  %= 7;
 
+      if (diatonic == 0 && chromatic == 11)
+            diatonic = 7;
+      else if (chromatic == 0 && diatonic == 6) {
+            chromatic = 12;
+            --oct;
+            }
+
       int interval = searchInterval(diatonic, chromatic);
-      if (interval == -1) {
+      IF_ASSERT_FAILED (interval != -1) {
             qDebug("EditStaff: unknown interval %d %d", diatonic, chromatic);
             interval = 0;
             }
@@ -261,11 +263,10 @@ void EditStaff::updateNextPreviousButtons()
 
 void EditStaff::gotoNextStaff()
       {
+      apply();
       Staff* nextStaff = orgStaff->score()->staff(orgStaff->idx() + 1);
       if (nextStaff)
-            {
             setStaff(nextStaff, _tickStart);
-            }
       }
 
 //---------------------------------------------------------
@@ -274,11 +275,10 @@ void EditStaff::gotoNextStaff()
 
 void EditStaff::gotoPreviousStaff()
       {
+      apply();
       Staff* prevStaff = orgStaff->score()->staff(orgStaff->idx() - 1);
       if (prevStaff)
-            {
             setStaff(prevStaff, _tickStart);
-            }
       }
 
 //---------------------------------------------------------
@@ -354,6 +354,7 @@ void EditStaff::apply()
 
       instrument.setShortName(sn);
       instrument.setLongName(ln);
+      instrument.setNameColor(color_2->color());
 
       instrument.setSingleNoteDynamics(singleNoteDynamics->isChecked());
 
@@ -388,7 +389,7 @@ void EditStaff::apply()
                         score->undo(new ChangePart(part, new Instrument(*part->instrument()), newPartName));  //tick?
                   if (instrumentFieldChanged) {
                         Segment* s = score->tick2segment(_tickStart, true, SegmentType::ChordRest);
-                        const std::vector<Element*> elist = s ? s->findAnnotations(ElementType::INSTRUMENT_CHANGE, part->startTrack(), part->endTrack()) : std::vector<Element*>();
+                        const std::vector<Element*> elist = s ? s->findAnnotations(ElementType::INSTRUMENT_CHANGE, part->startTrack(), part->endTrack() - 1) : std::vector<Element*>();
                         if (elist.size())
                               for (Element* e : elist) // Change instrument in all Instrument Changes (for linked staves)
                                     score->undo(new ChangeInstrument(toInstrumentChange(e), new Instrument(instrument)));
@@ -407,7 +408,7 @@ void EditStaff::apply()
 
       orgStaff->undoChangeProperty(Pid::MAG, mag->value() / 100.0);
       orgStaff->undoChangeProperty(Pid::STAFF_COLOR, color->color());
-      orgStaff->undoChangeProperty(Pid::SMALL, small->isChecked());
+      orgStaff->undoChangeProperty(Pid::SMALL, isSmallCheckbox->isChecked());
 
       if (inv != orgStaff->invisible(Fraction(0,1))
          || clefType != orgStaff->defaultClefType()
@@ -559,7 +560,7 @@ void EditStaff::editStringDataClicked()
                   int oldHighestStringPitch     = INT16_MIN;
                   int highestStringPitch        = INT16_MIN;
                   int lowestStringPitch         = INT16_MAX;
-                  for (const instrString& str : stringList) {
+                  for (instrString& str : stringList) {
                         if (str.pitch > highestStringPitch) highestStringPitch = str.pitch;
                         if (str.pitch < lowestStringPitch)  lowestStringPitch  = str.pitch;
                         }

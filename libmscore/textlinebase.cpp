@@ -10,17 +10,16 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "textlinebase.h"
+#include "mscore.h"
+#include "measure.h"
+#include "score.h"
+#include "staff.h"
 #include "style.h"
 #include "system.h"
-#include "measure.h"
-#include "xml.h"
-#include "utils.h"
-#include "score.h"
-#include "sym.h"
 #include "text.h"
-#include "mscore.h"
-#include "staff.h"
+#include "textlinebase.h"
+#include "utils.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -42,8 +41,8 @@ TextLineBaseSegment::TextLineBaseSegment(Spanner* sp, Score* score, ElementFlags
 TextLineBaseSegment::TextLineBaseSegment(const TextLineBaseSegment& seg)
    : LineSegment(seg)
       {
-      _text    = new Text(*seg._text);
-      _endText = new Text(*seg._endText);
+      _text    = seg._text->clone();
+      _endText = seg._endText->clone();
       _text->setParent(this);
       _endText->setParent(this);
       layout();    // set the right _text
@@ -113,7 +112,8 @@ void TextLineBaseSegment::draw(QPainter* painter) const
       QVector<qreal> dashDotted    = { 3.0, 3.0, 0.01, 2.99 };
       QVector<qreal> dashDotDotted = { 3.0, 3.0, 0.01, 2.99, 0.01, 2.99 };
       QVector<qreal> customDashes  = { tl->dashLineLen(), tl->dashGapLen() };
-  
+
+      pen.setCapStyle(Qt::SquareCap);
       switch (tl->lineStyle()) {
             case Qt::DashLine:
                 pen.setDashPattern(dashed);
@@ -135,25 +135,43 @@ void TextLineBaseSegment::draw(QPainter* painter) const
                   break;
             }
 
-      //Draw lines      
+      //Draw lines
       if (twoLines) {   // hairpins
+            pen.setJoinStyle(Qt::BevelJoin);
             painter->setPen(pen);
-            painter->drawLines(&points[0], 1);
-            painter->drawLines(&points[2], 1);
+
+            if (!joinedHairpin.isEmpty() && tl->lineStyle() == Qt::SolidLine)
+                  painter->drawPolyline(joinedHairpin);
+            else
+                  painter->drawLines(&points[0], 2);
             }
       else {
             int start = 0;
             int end = npoints;
             //draw centered hooks as solid
             painter->setPen(solidPen);
-            if (tl->beginHookType() == HookType::HOOK_90T) {
+            if (tl->beginHookType() == HookType::HOOK_90T && (isSingleType() || isBeginType())) {
                   painter->drawLines(&points[0], 1);
                   start++;
                   }
-            if (tl->endHookType() == HookType::HOOK_90T) {
+            if (tl->endHookType() == HookType::HOOK_90T && (isSingleType() || isEndType())) {
                   painter->drawLines(&points[npoints-1], 1);
                   end--;
                   }
+#if 0 // experiment
+            if (tl->beginHookType() == HookType::HOOK_45 && (isSingleType() || isBeginType())) {
+                  pen.setCapStyle(Qt::RoundCap);
+                  painter->setPen(pen);
+                  painter->drawLines(&points[0], 1);
+                  start++;
+            }
+            if (tl->endHookType() == HookType::HOOK_45 && (isSingleType() || isEndType())) {
+                  pen.setCapStyle(Qt::RoundCap);
+                  painter->setPen(pen);
+                  painter->drawLines(&points[npoints-1], 1);
+                  end--;
+            }
+#endif
             //draw rest of line as regular
             //calculate new gap
             if (tl->lineStyle() == Qt::CustomDashLine) {
@@ -228,6 +246,7 @@ void TextLineBaseSegment::layout()
       npoints      = 0;
       TextLineBase* tl = textLineBase();
       qreal _spatium = tl->spatium();
+      bool isSingleOrBegin = isSingleBeginType();
 
       if (spanner()->placeBelow())
             rypos() = staff() ? staff()->height() : 0.0;
@@ -239,33 +258,31 @@ void TextLineBaseSegment::layout()
       if (!tl->diagonal())
             _offset2.setY(0);
 
-      switch (spannerSegmentType()) {
-            case SpannerSegmentType::SINGLE:
-            case SpannerSegmentType::BEGIN:
-                  _text->setXmlText(tl->beginText());
-                  _text->setFamily(tl->beginFontFamily());
-                  _text->setSize(tl->beginFontSize());
-                  _text->setOffset(tl->beginTextOffset() * mag());
-                  _text->setAlign(tl->beginTextAlign());
-                  _text->setBold(tl->beginFontStyle() & FontStyle::Bold);
-                  _text->setItalic(tl->beginFontStyle() & FontStyle::Italic);
-                  _text->setUnderline(tl->beginFontStyle() & FontStyle::Underline);
-                  break;
-            case SpannerSegmentType::MIDDLE:
-            case SpannerSegmentType::END:
-                  _text->setXmlText(tl->continueText());
-                  _text->setFamily(tl->continueFontFamily());
-                  _text->setSize(tl->continueFontSize());
-                  _text->setOffset(tl->continueTextOffset() * mag());
-                  _text->setAlign(tl->continueTextAlign());
-                  _text->setBold(tl->continueFontStyle() & FontStyle::Bold);
-                  _text->setItalic(tl->continueFontStyle() & FontStyle::Italic);
-                  _text->setUnderline(tl->continueFontStyle() & FontStyle::Underline);
-
-                  break;
+      if (isSingleOrBegin) {
+            _text->setXmlText(tl->beginText());
+            _text->setFamily(tl->beginFontFamily());
+            _text->setSize(tl->beginFontSize());
+            _text->setOffset(tl->beginTextOffset() * mag());
+            _text->setAlign(tl->beginTextAlign());
+            _text->setBold(tl->beginFontStyle() & FontStyle::Bold);
+            _text->setItalic(tl->beginFontStyle() & FontStyle::Italic);
+            _text->setUnderline(tl->beginFontStyle() & FontStyle::Underline);
+            _text->setStrike(tl->beginFontStyle() & FontStyle::Strike);
+            }
+      else {
+            _text->setXmlText(tl->continueText());
+            _text->setFamily(tl->continueFontFamily());
+            _text->setSize(tl->continueFontSize());
+            _text->setOffset(tl->continueTextOffset() * mag());
+            _text->setAlign(tl->continueTextAlign());
+            _text->setBold(tl->continueFontStyle() & FontStyle::Bold);
+            _text->setItalic(tl->continueFontStyle() & FontStyle::Italic);
+            _text->setUnderline(tl->continueFontStyle() & FontStyle::Underline);
+            _text->setStrike(tl->continueFontStyle() & FontStyle::Strike);
             }
       _text->setPlacement(Placement::ABOVE);
       _text->setTrack(track());
+      _text->setColor(textLineBase()->lineColor());
       _text->layout();
 
       if ((isSingleType() || isEndType())) {
@@ -277,8 +294,10 @@ void TextLineBaseSegment::layout()
             _endText->setBold(tl->endFontStyle() & FontStyle::Bold);
             _endText->setItalic(tl->endFontStyle() & FontStyle::Italic);
             _endText->setUnderline(tl->endFontStyle() & FontStyle::Underline);
+            _endText->setStrike(tl->endFontStyle() & FontStyle::Strike);
             _endText->setPlacement(Placement::ABOVE);
             _endText->setTrack(track());
+            _endText->setColor(textLineBase()->lineColor());
             _endText->layout();
             }
       else {
@@ -290,8 +309,8 @@ void TextLineBaseSegment::layout()
 
       // diagonal line with no text or hooks - just use the basic rectangle for line
       if (_text->empty() && _endText->empty() && pp2.y() != 0
-          && textLineBase()->beginHookType() == HookType::NONE
-          && textLineBase()->endHookType() == HookType::NONE) {
+          && (!isSingleOrBegin || textLineBase()->beginHookType() == HookType::NONE)
+          && (!isSingleEndType() || textLineBase()->endHookType() == HookType::NONE)) {
             npoints = 1; // 2 points, but only one line must be drawn
             points[0] = pp1;
             points[1] = pp2;
@@ -309,13 +328,33 @@ void TextLineBaseSegment::layout()
       qreal y1 = qMin(0.0, pp2.y()) + y0;
       qreal y2 = qMax(0.0, pp2.y()) - y0;
 
-      qreal l = 0.0;
+      qreal l1 = 0.0;
+      qreal l2 = 0.0;
+      qreal textlineTextDistance = _spatium * .5;
+
+      bool alignBeginText = tl->beginTextPlace() == PlaceText::LEFT || tl->beginTextPlace() == PlaceText::AUTO;
+      bool alignContinueText = tl->continueTextPlace() == PlaceText::LEFT || tl->continueTextPlace() == PlaceText::AUTO;
+      //bool alignEndText = tl->endTextPlace() == PlaceText::LEFT || tl->endTextPlace() == PlaceText::AUTO;
+      //bool hasBeginText = !_text->empty() && isSingleOrBegin;
+      //bool hasContinueText = !_text->empty() && !isSingleOrBegin;
+      //bool hasEndText = !_endText->empty() && isSingleEndType();
+
       if (!_text->empty()) {
-            qreal textlineTextDistance = _spatium * .5;
-            if (((isSingleType() || isBeginType())
-               && (tl->beginTextPlace() == PlaceText::LEFT || tl->beginTextPlace() == PlaceText::AUTO))
-               || ((isMiddleType() || isEndType()) && (tl->continueTextPlace() == PlaceText::LEFT))) {
-                  l = _text->pos().x() + _text->bbox().width() + textlineTextDistance;
+            if ((isSingleOrBegin && alignBeginText) || (!isSingleOrBegin && alignContinueText)) {
+                  l1 = textlineTextDistance;
+                  auto txtPlace = textLineBase()->beginTextPlace();
+                  if (txtPlace == PlaceText::AUTO || txtPlace == PlaceText::LEFT)
+                        l1 += _text->bbox().right();
+                  switch (_text->align()) {
+                        case Align::LEFT:
+                              l1 += _text->bbox().width();
+                              break;
+                        case Align::HCENTER:
+                              l1 += _text->bbox().width() / 2;
+                              break;
+                        default:
+                              break;
+                        }
                   }
             qreal h = _text->height();
             if (textLineBase()->beginTextPlace() == PlaceText::ABOVE)
@@ -349,6 +388,17 @@ void TextLineBaseSegment::layout()
             bbox() |= _text->bbox().translated(_text->pos());  // DEBUG
       // set end text position and extend bbox
       if (!_endText->empty()) {
+            l2 = textlineTextDistance;
+            switch (_endText->align()) {
+                  case Align::RIGHT:
+                        l2 += _endText->bbox().width();
+                        break;
+                  case Align::HCENTER:
+                        l2 += _endText->bbox().width() / 2;
+                        break;
+                  default:
+                        break;
+                  }
             _endText->setPos(bbox().right(), 0);
             bbox() |= _endText->bbox().translated(_endText->pos());
             }
@@ -357,7 +407,8 @@ void TextLineBaseSegment::layout()
             return;
 
       if (tl->lineVisible() || !score()->printing()) {
-            pp1 = QPointF(l, 0.0);
+            pp1 = QPointF(l1, 0.0);
+            pp2.rx() -= l2;
 
             qreal beginHookWidth;
             qreal endHookWidth;
@@ -379,7 +430,7 @@ void TextLineBaseSegment::layout()
             // don't draw backwards lines (or hooks) if text is longer than nominal line length
             bool backwards = !_text->empty() && pp1.x() > pp2.x() && !tl->diagonal();
 
-            if ((tl->beginHookType() != HookType::NONE) && (isSingleType() || isBeginType())) {
+            if (isSingleOrBegin && tl->beginHookType() != HookType::NONE) {
                   qreal hh = tl->beginHookHeight().val() * _spatium;
                   if (tl->beginHookType() == HookType::HOOK_90T)
                         points[npoints++] = QPointF(pp1.x() - beginHookWidth, pp1.y() - hh);

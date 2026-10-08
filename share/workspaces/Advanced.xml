@@ -3193,6 +3193,12 @@
             <subtype>section</subtype>
             </LayoutBreak>
           </Cell>
+        <Cell name="Group measures">
+          <mag>1.2</mag>
+          <LayoutBreak>
+            <subtype>nobreak</subtype>
+            </LayoutBreak>
+          </Cell>
         <Cell name="Staff spacer down">
           <mag>0.7</mag>
           <Spacer>
@@ -3355,6 +3361,8 @@
       <action>repeat</action>
       <action>pan</action>
       <action>metronome</action>
+      <action>playback-highlight</action>
+      <action>countin</action>
       </Toolbar>
     </Workspace>
   </museScore>

@@ -495,8 +495,13 @@ void ZitaReverb::setNValue(int idx, double value)
       }
       float min = (pd[idx].log ? pow(M_E, pd[idx].min) : pd[idx].min);
       float max = (pd[idx].log ? pow(M_E, pd[idx].max) : pd[idx].max);
+#if (__cplusplus >= 201703L) // C++17 or later
+      fvalue = std::clamp(fvalue, min, max);
+#else
       fvalue = std::max(min, fvalue);
       fvalue = std::min(max, fvalue);
+#endif
+
       switch (idx) {
             case R_DELAY: set_delay(fvalue); break;
             case R_XOVER: set_xover(fvalue); break;

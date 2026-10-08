@@ -21,7 +21,6 @@
 #define __PREFSDIALOG_H__
 
 #include "ui_prefsdialog.h"
-#include "preferences.h"
 #include "abstractdialog.h"
 #include "preferenceslistwidget.h"
 
@@ -77,6 +76,9 @@ class PreferenceDialog : public AbstractDialog, private Ui::PrefsDialogBase {
       void selectScoreOrderList1();
       void selectScoreOrderList2();
       void selectStartWith();
+      void selectMetronomeDownbeatSound();
+      void selectMetronomeBeatSound();
+      void resetMetronomeSounds();
       void resetShortcutClicked();
       void saveShortcutListClicked();
       void loadShortcutListClicked();
@@ -91,6 +93,7 @@ class PreferenceDialog : public AbstractDialog, private Ui::PrefsDialogBase {
       void nonExclusiveJackDriver(bool on);
       void selectScoresDirectory();
       void selectStylesDirectory();
+      void selectScoreFontsDirectory();
       void selectTemplatesDirectory();
       void selectPluginsDirectory();
       void selectImagesDirectory();

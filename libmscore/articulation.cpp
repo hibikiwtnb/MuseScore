@@ -313,7 +313,7 @@ QVariant Articulation::getProperty(Pid propertyId) const
             case Pid::DIRECTION:           return QVariant::fromValue<Direction>(direction());
             case Pid::ARTICULATION_ANCHOR: return int(anchor());
             case Pid::ORNAMENT_STYLE:      return int(ornamentStyle());
-            case Pid::PLAY:                return bool(playArticulation());
+            case Pid::PLAY:                return playArticulation();
             default:
                   return Element::getProperty(propertyId);
             }
@@ -434,6 +434,12 @@ Articulation::AnchorGroup Articulation::anchorGroup(SymId symId)
             case SymId::luteFingeringRHThird:
                   return AnchorGroup::LUTE_FINGERING;
 
+            case SymId::tremoloDivisiDots2:
+            case SymId::tremoloDivisiDots3:
+            case SymId::tremoloDivisiDots4:
+            case SymId::tremoloDivisiDots6:
+                  return AnchorGroup::ARTICULATION;
+
             default:
                   break;
             }
@@ -457,6 +463,10 @@ const char* Articulation::symId2ArticulationName(SymId symId)
 
             case SymId::articStaccatoAbove:
             case SymId::articStaccatoBelow:
+            case SymId::tremoloDivisiDots2:
+            case SymId::tremoloDivisiDots3:
+            case SymId::tremoloDivisiDots4:
+            case SymId::tremoloDivisiDots6:
                   return "staccato";
 
             case SymId::articAccentStaccatoAbove:
@@ -590,7 +600,9 @@ bool Articulation::isStaccato() const
       {
       return _symId == SymId::articStaccatoAbove        || _symId == SymId::articStaccatoBelow
           || _symId == SymId::articMarcatoStaccatoAbove || _symId == SymId::articMarcatoStaccatoBelow
-          || _symId == SymId::articAccentStaccatoAbove  || _symId == SymId::articAccentStaccatoBelow;
+          || _symId == SymId::articAccentStaccatoAbove || _symId == SymId::articAccentStaccatoBelow
+          || _symId == SymId::tremoloDivisiDots2 || _symId == SymId::tremoloDivisiDots3
+          || _symId == SymId::tremoloDivisiDots4 || _symId == SymId::tremoloDivisiDots6;
       }
 
 bool Articulation::isAccent() const
@@ -632,6 +644,9 @@ bool Articulation::isLuteFingering() const
 bool Articulation::isOrnament() const
       {
       return _symId == SymId::ornamentTurn
+          || _symId == SymId::ornamentTurnUp
+          || _symId == SymId::ornamentTurnUpS
+          || _symId == SymId::ornamentHaydn
           || _symId == SymId::ornamentTurnInverted
           || _symId == SymId::ornamentTurnSlash
           || _symId == SymId::ornamentTrill
@@ -647,7 +662,11 @@ bool Articulation::isOrnament() const
           || _symId == SymId::ornamentDownMordent
           || _symId == SymId::ornamentPrallUp
           || _symId == SymId::ornamentPrallDown
-          || _symId == SymId::ornamentPrecompSlide;
+          || _symId == SymId::ornamentPrecompSlide
+          || _symId == SymId::ornamentShake3
+          || _symId == SymId::ornamentShakeMuffat1
+          || _symId == SymId::ornamentTremblementCouperin
+          || _symId == SymId::ornamentPinceCouperin;
       }
 
 //---------------------------------------------------------
@@ -674,7 +693,7 @@ void Articulation::doAutoplace()
       if (autoplace() && parent()) {
             Segment* s = segment();
             Measure* m = measure();
-            int si     = staffIdx();
+            int si     = vStaffIdx();
 
             qreal sp = score()->spatium();
             qreal md = minDistance().val() * sp;

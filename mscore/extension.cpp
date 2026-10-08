@@ -19,7 +19,6 @@
 
 #include "extension.h"
 #include "preferences.h"
-#include "libmscore/utils.h"
 
 namespace Ms {
 

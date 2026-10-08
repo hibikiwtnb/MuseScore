@@ -10,31 +10,30 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "score.h"
-
-#include "rest.h"
-#include "staff.h"
-#include "measure.h"
-#include "harmony.h"
-#include "fret.h"
-#include "breath.h"
+#include "articulation.h"
 #include "beam.h"
+#include "breath.h"
+#include "chord.h"
+#include "drumset.h"
 #include "figuredbass.h"
-#include "ottava.h"
-#include "part.h"
-#include "lyrics.h"
+#include "fret.h"
 #include "hairpin.h"
+#include "harmony.h"
+#include "image.h"
+#include "lyrics.h"
+#include "measure.h"
+#include "part.h"
+#include "repeat.h"
+#include "rest.h"
+#include "score.h"
+#include "sig.h"
+#include "staff.h"
 #include "tie.h"
+#include "timesig.h"
+#include "tremolo.h"
 #include "tuplet.h"
 #include "utils.h"
 #include "xml.h"
-#include "image.h"
-#include "repeat.h"
-#include "chord.h"
-#include "tremolo.h"
-#include "slur.h"
-#include "articulation.h"
-#include "sig.h"
 
 namespace Ms {
 
@@ -106,12 +105,12 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                         break;
                         }
                   }
-            Fraction tickStart = Fraction::fromTicks(e.intAttribute("tick", 0));
-                tickLen       =  Fraction::fromTicks(e.intAttribute("len", 0));
+            Fraction tickStart = Fraction::fromString(e.attribute("tick"));
+            tickLen =  Fraction::fromString(e.attribute("len"));
             Fraction oTickLen =  tickLen;
-                tickLen       *= scale;
-            int staffStart    = e.intAttribute("staff", 0);
-                staves        = e.intAttribute("staves", 0);
+            tickLen *= scale;
+            int staffStart = e.intAttribute("staff", 0);
+            staves = e.intAttribute("staves", 0);
 
             Fraction oEndTick = dstTick + oTickLen;
             auto oSpanner = spannerMap().findContained(dstTick.ticks(), oEndTick.ticks());
@@ -191,6 +190,11 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                               tuplet->setParent(measure);
                               tuplet->setTick(tick);
                               tuplet->setTuplet(oldTuplet);
+                              if (tuplet->staffIdx() > (nstaves() - 1)) {
+                                    delete tuplet;
+                                    MScore::setError(CANNOT_INSERT_TUPLET);
+                                    return false;
+                                    }
                               if (tuplet->rtick() + tuplet->actualTicks() > measure->ticks()) {
                                     delete tuplet;
                                     if (oldTuplet && oldTuplet->elements().empty())
@@ -239,7 +243,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                               else {
                                     if (tuplet)
                                           cr->readAddTuplet(tuplet);
-                                    e.incTick(cr->actualTicks());
+                                    e.incTick(cr->actualTicksAt(tick));
                                     if (doScale) {
                                           Fraction d = cr->durationTypeTicks();
                                           cr->setTicks(cr->ticks() * scale);
@@ -424,7 +428,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                               e.skipCurrentElement();    // ignore bar line
                               }
                         else {
-                              qDebug("PasteStaff: element %s not handled", tag.toUtf8().data());
+                              qDebug("PasteStaff: element %s not handled", tag.toUtf8().constData());
                               e.skipCurrentElement();    // ignore
                               }
                         }
@@ -471,7 +475,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
                   }
             }
 
-      for (Score* s : scoreList())     // for all parts
+      for (Score*& s : scoreList())     // for all parts
             s->connectTies();
 
       if (pasted) {                       //select only if we pasted something
@@ -484,7 +488,7 @@ bool Score::pasteStaff(XmlReader& e, Segment* dst, int dstStaff, Fraction scale)
             Measure* endM = tick2measure(dstTick + tickLen);
             for (int i = dstStaff; i < endStaff; i++) {
                   for (Measure* m = dstM; m && m != endM->nextMeasure(); m = m->nextMeasure())
-                        m->checkMeasure(i);
+                        m->checkMeasure(i, false);
                   }
             _selection.setRangeTicks(dstTick, dstTick + tickLen, dstStaff, endStaff);
 
@@ -526,6 +530,10 @@ void Score::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
             qDebug("Score::readAddConnector is called not in paste mode.");
             return;
             }
+
+      if (info->connector()->systemFlag())
+            return;
+
       const ElementType type = info->type();
       switch(type) {
             case ElementType::HAIRPIN:
@@ -533,7 +541,6 @@ void Score::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
             case ElementType::OTTAVA:
             case ElementType::TRILL:
             case ElementType::TEXTLINE:
-            case ElementType::VOLTA:
             case ElementType::PALM_MUTE:
             case ElementType::LET_RING:
             case ElementType::VIBRATO:
@@ -577,7 +584,7 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
             transposeChord(toChord(cr), srcTranspose, tick);
             if (toChord(cr)->tremolo() && toChord(cr)->tremolo()->twoNotes())
                   twoNoteTremoloFactor = 2;
-            else if (cr->durationTypeTicks() == (cr->actualTicks() * 2)) {
+            else if (cr->durationTypeTicks() == (cr->actualTicksAt(tick) * 2)) {
                   // this could be the 2nd note of a two-note tremolo
                   // check previous CR on same track, if it has a two-note tremolo, then set twoNoteTremoloFactor to 2
                   Segment* seg = measure->undoGetSegment(SegmentType::ChordRest, tick);
@@ -606,18 +613,18 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
       if (cr->isRepeatMeasure())
             partialCopy = toRepeatMeasure(cr)->actualTicks() != measure->ticks();
       else if (!isGrace && !cr->tuplet())
-            partialCopy = cr->durationTypeTicks() != (cr->actualTicks() * twoNoteTremoloFactor);
+            partialCopy = cr->durationTypeTicks() != (cr->actualTicksAt(tick) * twoNoteTremoloFactor);
 
       // if note is too long to fit in measure, split it up with a tie across the barline
       // exclude tuplets from consideration
       // we have already disallowed a tuplet from crossing the barline, so there is no problem here
       // but due to rounding, it might appear from actualTicks() that the last note is too long by a couple of ticks
 
-      if (!isGrace && !cr->tuplet() && (tick + cr->actualTicks() > measureEnd || partialCopy || convertMeasureRest)) {
+      if (!isGrace && !cr->tuplet() && (tick + cr->actualTicksAt(tick) > measureEnd || partialCopy || convertMeasureRest)) {
             if (cr->isChord()) {
                   // split Chord
                   Chord* c = toChord(cr);
-                  Fraction rest = c->actualTicks();
+                  Fraction rest = c->actualTicksAt(tick);
                   bool firstpart = true;
                   while (rest.isNotZero()) {
                         measure = tick2measure(tick);
@@ -627,10 +634,11 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
                         Fraction mlen = measure->tick() + measure->ticks() - tick;
                         Fraction len = mlen > rest ? rest : mlen;
                         std::vector<TDuration> dl = toRhythmicDurationList(len, false, tick - measure->tick(), sigmap()->timesig(tick).nominal(), measure, MAX_DOTS);
+                        Fraction c2Tick(tick + c->tick());
                         TDuration d = dl[0];
                         c2->setDurationType(d);
                         c2->setTicks(d.fraction());
-                        rest -= c2->actualTicks();
+                        rest -= c2->actualTicksAt(c2Tick);
                         undoAddCR(c2, measure, tick);
 
                         std::vector<Note*> nl1 = c->notes();
@@ -649,12 +657,11 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
                                           nl2[i]->setTieFor(nl1[i]->tieFor());
                                           tie2->setStartNote(nl2[i]);
                                           }
-                                    nl1[i]->setTieFor(tie);
-                                    nl2[i]->setTieBack(tie);
+                                    undoAddElement(tie);
                                     }
                         c = c2;
                         firstpart = false;
-                        tick += c->actualTicks();
+                        tick += c->actualTicksAt(c2Tick);
                         }
                   }
             else if (cr->isRest()) {
@@ -674,7 +681,7 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
                         r2->setTicks(d.isMeasure() ? measure->ticks() : d.fraction());
                         undoAddCR(r2, measure, tick);
                         rest -= r2->ticks();
-                        tick += r2->actualTicks();
+                        tick += r2->actualTicksAt(tick);
                         firstpart = false;
                         }
                   }
@@ -696,7 +703,7 @@ void Score::pasteChordRest(ChordRest* cr, const Fraction& t, const Interval& src
                               r2->setDurationType(d);
                               undoAddCR(r2, measure, tick);
                               rest -= d.fraction();
-                              tick += r2->actualTicks();
+                              tick += r2->actualTicksAt(tick);
                               }
                         delete r;
                         }
@@ -776,7 +783,7 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
                                     harmSegm          = meas ? meas->undoGetSegment(SegmentType::ChordRest, destTick) : nullptr;
                               }
                               if (destTrack >= maxTrack || harmSegm == nullptr) {
-                                    qDebug("PasteSymbols: no track or segment for %s", tag.toUtf8().data());
+                                    qDebug("PasteSymbols: no track or segment for %s", tag.toUtf8().constData());
                                     e.skipCurrentElement();       // ignore
                                     continue;
                                     }
@@ -820,6 +827,11 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
                               undoAddElement(d);
                               }
                         else if (tag == "HairPin") {
+                              if (destTrack >= maxTrack) {
+                                    qDebug("PasteSymbols: no track for %s", tag.toLocal8Bit().constData());
+                                    e.skipCurrentElement();
+                                    continue;
+                                    }
                               Hairpin* h = new Hairpin(this);
                               h->setTrack(destTrack);
                               h->read(e);
@@ -836,13 +848,13 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
                                     currSegm = currSegm->nextCR(destTrack);
                               // check the intended dest. track and segment exist
                               if (destTrack >= maxTrack || currSegm == nullptr) {
-                                    qDebug("PasteSymbols: no track or segment for %s", tag.toUtf8().data());
+                                    qDebug("PasteSymbols: no track or segment for %s", tag.toUtf8().constData());
                                     e.skipCurrentElement();       // ignore
                                     continue;
                                     }
                               // check there is a segment element in the required track
                               if (currSegm->element(destTrack) == nullptr) {
-                                    qDebug("PasteSymbols: no track element for %s", tag.toUtf8().data());
+                                    qDebug("PasteSymbols: no track element for %s", tag.toUtf8().constData());
                                     e.skipCurrentElement();
                                     continue;
                                     }
@@ -974,7 +986,7 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
                                     undoAddElement(el);
                                     }
                               else {
-                                    qDebug("PasteSymbols: element %s not handled", tag.toUtf8().data());
+                                    qDebug("PasteSymbols: element %s not handled", tag.toUtf8().constData());
                                     e.skipCurrentElement();    // ignore
                                     }
                               }           // if !Harmony
@@ -982,6 +994,68 @@ void Score::pasteSymbols(XmlReader& e, ChordRest* dst)
                   }                       // outer while readNextstartElement()
             }                             // inner while readNextstartElement()
       }                                   // pasteSymbolList()
+
+static ChordRest* replaceWithRest(ChordRest* target)
+      {
+      target->score()->undoRemoveElement(target);
+      return target->score()->addRest(target->segment(), target->track(), target->ticks(), target->tuplet());
+      }
+
+static Note* prepareTarget(ChordRest* target, Note* with, const Fraction& duration)
+      {
+      if (!target->segment()->element(target->track()))
+           return nullptr; // target was removed by previous operation, ignore this
+      if (target->isChord() && target->ticks() > duration)
+            target = replaceWithRest(target); // prevent unexpected note splitting
+      Segment* segment = target->segment();
+      if (segment->measure()->isMMRest()) {
+            Measure* m = segment->measure()->mmRestFirst();
+            segment = m->findSegment(SegmentType::ChordRest, m->tick());
+            }
+
+      const Staff* staff = target->staff();
+      const StaffGroup staffGroup = staff->staffType(segment->tick())->group();
+      Direction stemDirection = Direction::AUTO;
+      if (staffGroup == StaffGroup::PERCUSSION) {
+            const Drumset* ds = staff->part()->instrument(segment->tick())->drumset();
+            stemDirection = ds->stemDirection(with->noteVal().pitch);
+            }
+
+      segment = target->score()->setNoteRest(segment, target->track(),
+                                             with->noteVal(), duration, stemDirection, false, false, &target->score()->inputState());
+      return toChord(segment->nextChordRest(target->track()))->upNote();
+      }
+
+static Element* prepareTarget(Element* target, Note* with, const Fraction& duration)
+      {
+      if (target->isNote() && toNote(target)->chord()->ticks() != duration)
+            return prepareTarget(toNote(target)->chord(), with, duration);
+      if (target->isChordRest() && toChordRest(target)->ticks() != duration)
+            return prepareTarget(toChordRest(target), with, duration);
+      return target;
+      }
+
+static bool canPasteStaff(XmlReader& reader, const Fraction& scale)
+      {
+      if (scale != Fraction(1, 1)) {
+            while (reader.readNext() && reader.tokenType() != XmlReader::TokenType::EndDocument) {
+                  QString tag(reader.name().toString());
+                  Fraction len = Fraction::fromString(reader.attribute("len"));
+                  if (!len.isZero() && !TDuration(len * scale).isValid())
+                        return false;
+                  if (tag == "durationType")
+                        if (!TDuration(TDuration(reader.readElementText()).fraction() * scale).isValid())
+                              return false;
+                  }
+            }
+      return true;
+      }
+
+inline static bool canPasteStaff(const QByteArray& mimeData, const Fraction& scale)
+{
+    XmlReader reader(mimeData);
+    return canPasteStaff(reader, scale);
+}
 
 //---------------------------------------------------------
 //   cmdPaste
@@ -1003,45 +1077,33 @@ void Score::cmdPaste(const QMimeData* ms, MuseScoreView* view, Fraction scale)
 
             if (!el)
                   return;
+            duration *= scale;
+            if (!TDuration(duration).isValid())
+                return;
 
             QList<Element*> els;
             if (_selection.isSingle())
                   els.append(_selection.element());
             else
                   els.append(_selection.elements());
-
+            Element* nel = 0;
             for (Element* target : els) {
                   el->setTrack(target->track());
-                  Element* nel = el->clone();
                   addRefresh(target->abbox());   // layout() ?!
                   EditData ddata(view);
                   ddata.view        = view;
-                  ddata.dropElement = nel;
+                  ddata.dropElement = el.get();
                   if (target->acceptDrop(ddata)) {
-                        if (el->isNote()) {
-                              // dropping a note replaces and invalidates the target,
-                              // so we need to deselect it
-                              ElementType targetType = target->type();
-                              deselect(target);
-
-                              // perform the drop
-                              target->drop(ddata);
-
-                              // if the target is a rest rather than a note,
-                              // a new note is generated, and nel becomes invalid as well
-                              // (ChordRest::drop() will select it for us)
-                              if (targetType == ElementType::NOTE)
-                                    select(nel);
+                        if (!el->isNote() || (target = prepareTarget(target, toNote(el.get()), duration))) {
+                              ddata.dropElement = el->clone();
+                              Element* dropped = target->drop(ddata);
+                              if (dropped)
+                                    nel = dropped;
                               }
-                        else {
-                              target->drop(ddata);
-                              }
-                        if (_selection.element())
-                              addRefresh(_selection.element()->abbox());
                         }
-                  else
-                        delete nel;
                   }
+            if (nel)
+                  select(nel);
             }
       else if ((_selection.isRange() || _selection.isList()) && ms->hasFormat(mimeStaffListFormat)) {
             ChordRest* cr = 0;
@@ -1070,10 +1132,12 @@ void Score::cmdPaste(const QMimeData* ms, MuseScoreView* view, Fraction scale)
                   QByteArray data(ms->data(mimeStaffListFormat));
                   if (MScore::debugMode)
                         qDebug("paste <%s>", data.data());
-                  XmlReader e(data);
-                  e.setPasteMode(true);
-                  if (!pasteStaff(e, cr->segment(), cr->staffIdx(), scale))
-                        return;
+                  if (canPasteStaff(data, scale)) {
+                        XmlReader e(data);
+                        e.setPasteMode(true);
+                        if (!pasteStaff(e, cr->segment(), cr->staffIdx(), scale))
+                            return;
+                        }
                   }
             }
       else if (ms->hasFormat(mimeSymbolListFormat)) {
@@ -1124,18 +1188,20 @@ void Score::cmdPaste(const QMimeData* ms, MuseScoreView* view, Fraction scale)
                   Element* nel = image->clone();
                   addRefresh(target->abbox());   // layout() ?!
                   EditData ddata(view);
-                  ddata.view       = view;
-                  ddata.dropElement    = nel;
-                  target->drop(ddata);
-                  if (_selection.element())
-                        addRefresh(_selection.element()->abbox());
+                  ddata.view        = view;
+                  ddata.dropElement = nel;
+                  if (target->acceptDrop(ddata)) {
+                        target->drop(ddata);
+                        if (_selection.element())
+                              addRefresh(_selection.element()->abbox());
+                        }
                   }
             delete image;
             }
       else {
             qDebug("cannot paste selState %d staffList %s",
                int(_selection.state()), (ms->hasFormat(mimeStaffListFormat))? "true" : "false");
-            for (const QString& s : ms->formats())
+            for (QString& s : ms->formats())
                   qDebug("  format %s", qPrintable(s));
             }
       }

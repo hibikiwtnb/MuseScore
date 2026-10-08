@@ -11,57 +11,55 @@
 //=============================================================================
 
 #include "importgtp.h"
-
 #include "importptb.h"
 
-#include "mscore/preferences.h"
-
-#include <libmscore/measurebase.h>
-#include <libmscore/text.h>
+#include <libmscore/arpeggio.h>
+#include <libmscore/articulation.h>
+#include <libmscore/barline.h>
+#include <libmscore/bend.h>
 #include <libmscore/box.h>
-#include <libmscore/staff.h>
-#include <libmscore/part.h>
+#include <libmscore/bracket.h>
+#include <libmscore/chord.h>
+#include <libmscore/chordline.h>
+#include <libmscore/clef.h>
+#include <libmscore/dynamic.h>
+#include <libmscore/excerpt.h>
+#include <libmscore/fret.h>
+#include <libmscore/glissando.h>
+#include <libmscore/hairpin.h>
+#include <libmscore/harmony.h>
+#include <libmscore/instrtemplate.h>
+#include <libmscore/keysig.h>
+#include <libmscore/letring.h>
+#include <libmscore/lyrics.h>
 #include <libmscore/measure.h>
+#include <libmscore/measurebase.h>
+#include <libmscore/note.h>
+#include <libmscore/notedot.h>
+#include <libmscore/ottava.h>
+#include <libmscore/palmmute.h>
+#include <libmscore/part.h>
+#include <libmscore/rehearsalmark.h>
+#include <libmscore/rest.h>
+#include <libmscore/segment.h>
+#include <libmscore/slur.h>
+#include <libmscore/staff.h>
+#include <libmscore/stafftext.h>
+#include <libmscore/stafftype.h>
+#include <libmscore/stringdata.h>
+#include <libmscore/sym.h>
+#include <libmscore/tempotext.h>
+#include <libmscore/text.h>
+#include <libmscore/textline.h>
+#include <libmscore/tie.h>
 #include <libmscore/timesig.h>
 #include <libmscore/tremolo.h>
-#include <libmscore/rest.h>
-#include <libmscore/chord.h>
-#include <libmscore/note.h>
-#include <libmscore/stringdata.h>
-#include <libmscore/clef.h>
-#include <libmscore/lyrics.h>
-#include <libmscore/tempotext.h>
-#include <libmscore/slur.h>
-#include <libmscore/tie.h>
-#include <libmscore/tuplet.h>
-#include <libmscore/barline.h>
-#include <libmscore/excerpt.h>
-#include <libmscore/stafftype.h>
-#include <libmscore/bracket.h>
-#include <libmscore/articulation.h>
-#include <libmscore/keysig.h>
-#include <libmscore/harmony.h>
-#include <libmscore/bend.h>
 #include <libmscore/tremolobar.h>
-#include <libmscore/segment.h>
-#include <libmscore/rehearsalmark.h>
-#include <libmscore/dynamic.h>
-#include <libmscore/arpeggio.h>
-#include <libmscore/volta.h>
-#include <libmscore/fret.h>
-#include <libmscore/instrtemplate.h>
-#include <libmscore/glissando.h>
-#include <libmscore/chordline.h>
-#include <libmscore/instrtemplate.h>
-#include <libmscore/hairpin.h>
-#include <libmscore/ottava.h>
-#include <libmscore/notedot.h>
-#include <libmscore/stafftext.h>
-#include <libmscore/sym.h>
-#include <libmscore/textline.h>
-#include <libmscore/letring.h>
-#include <libmscore/palmmute.h>
+#include <libmscore/tuplet.h>
 #include <libmscore/vibrato.h>
+#include <libmscore/volta.h>
+
+#include "mscore/preferences.h"
 
 namespace Ms {
 
@@ -350,7 +348,7 @@ void GuitarPro::initGuitarProDrumset()
       gpDrumset->drum(81) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Open Triangle"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
       gpDrumset->drum(82) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Shaker"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
       gpDrumset->drum(83) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Sleigh Bell"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
-      gpDrumset->drum(84) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Bell Tree"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
+      gpDrumset->drum(84) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Mark Tree"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
       gpDrumset->drum(85) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Castanets"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
       gpDrumset->drum(86) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Mute Surdo"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
       gpDrumset->drum(87) = DrumInstrument(QT_TRANSLATE_NOOP("drumset", "Open Surdo"), NoteHead::Group::HEAD_NORMAL, 3, Direction::UP);
@@ -738,7 +736,11 @@ void GuitarPro::readLyrics()
       QString lyrics = readWordPascalString();
       lyrics.replace(QRegExp("\n"), " ");
       lyrics.replace(QRegExp("\r"), " ");
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      auto sl = lyrics.split(" ", Qt::KeepEmptyParts);
+#else
       auto sl = lyrics.split(" ", QString::KeepEmptyParts);
+#endif
       //gpLyrics.lyrics = lyrics.split(" ", QString::KeepEmptyParts);
       for (auto& str : sl) {
             /*while (str[0] == '-')
@@ -1089,6 +1091,9 @@ bool GuitarPro1::read(QFile* fp)
             int tuning[GP_MAX_STRING_NUMBER];
 
             int strings  = version > 101 ? readInt() : 6;
+            if (strings <= 0 || strings > GP_MAX_STRING_NUMBER)
+                   return false;
+
             for (int j = 0; j < strings; ++j)
                   tuning[j] = readInt();
             std::vector<int> tuning2(strings);
@@ -1833,13 +1838,13 @@ bool GuitarPro1::readNote(int string, Note* note)
                   int transition = readUChar();            // grace transition
                   int duration = readUChar();            // grace duration
 
-                  int grace_len = MScore::division/8;
+                  int grace_len = DIVISION/8;
                   if (duration == 1)
-                        grace_len = MScore::division/8; //32th
+                        grace_len = DIVISION/8; //32th
                   else if (duration == 2)
-                        grace_len = MScore::division/6; //24th
+                        grace_len = DIVISION/6; //24th
                   else if (duration == 3)
-                        grace_len = MScore::division/4; //16th
+                        grace_len = DIVISION/4; //16th
                   Note* gn = new Note(score);
 
                   if (fret == 255) {
@@ -1864,7 +1869,7 @@ bool GuitarPro1::readNote(int string, Note* note)
                         gc = new Chord(score);
                         TDuration d;
                         d.setVal(grace_len);
-                        if (grace_len == MScore::division / 6)
+                        if (grace_len == DIVISION / 6)
                               d.setDots(1);
                         gc->setDurationType(d);
                         gc->setTicks(d.fraction());
@@ -2756,8 +2761,8 @@ Score::FileError importGTP(MasterScore* score, const QString& name)
                   qDebug("unknown gtp format <%s>", ss);
                   return Score::FileError::FILE_BAD_FORMAT;
                   }
-            int a = s.left(1).toInt();
-            int b = s.mid(2).toInt();
+            int a = s.leftRef(1).toInt();
+            int b = s.midRef(2).toInt();
             int version = a * 100 + b;
             if (a == 1)
                   gp = new GuitarPro1(score, version);
@@ -2792,7 +2797,7 @@ Score::FileError importGTP(MasterScore* score, const QString& name)
             return Score::FileError::FILE_NO_ERROR;
             }
 
-      score->style().set(Sid::ArpeggioHiddenInStdIfTab, true);
+      score->style().set(Sid::arpeggioHiddenInStdIfTab, true);
 
       MeasureBase* m;
       if (!score->measures()->first()) {
@@ -2861,7 +2866,7 @@ Score::FileError importGTP(MasterScore* score, const QString& name)
             Score* pscore = new Score(score);
             //TODO-ws		pscore->showLyrics = score->showLyrics;
             pscore->style().set(Sid::createMultiMeasureRests, false);
-            pscore->style().set(Sid::ArpeggioHiddenInStdIfTab, true);
+            pscore->style().set(Sid::arpeggioHiddenInStdIfTab, true);
 
             QList<int> stavesMap;
             Part*   p = new Part(pscore);
@@ -2951,4 +2956,3 @@ Score::FileError importGTP(MasterScore* score, const QString& name)
       return Score::FileError::FILE_NO_ERROR;
       }
 }
-

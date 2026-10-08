@@ -18,8 +18,8 @@
  Definition of class Measure.
 */
 
-#include "measurebase.h"
 #include "fraction.h"
+#include "measurebase.h"
 #include "segmentlist.h"
 
 namespace Ms {
@@ -87,7 +87,7 @@ class Measure final : public MeasureBase {
       void push_back(Segment* e);
       void push_front(Segment* e);
 
-      void fillGap(const Fraction& pos, const Fraction& len, int track, const Fraction& stretch);
+      void fillGap(const Fraction& pos, const Fraction& len, int track, const Fraction& stretch, bool useGapRests = true);
       void computeMinWidth(Segment* s, qreal x, bool isSystemHeader);
 
       void readVoice(XmlReader& e, int staffIdx, bool irregular);
@@ -101,16 +101,17 @@ class Measure final : public MeasureBase {
       ElementType type() const override { return ElementType::MEASURE; }
       void setScore(Score* s) override;
       Measure* cloneMeasure(Score*, const Fraction& tick, TieMap*);
+      Measure* cloneMeasureLimited(Score*, const Fraction& tick, TieMap*, int startStaff, int endStaff);
 
       void read(XmlReader&, int idx);
-      void read(XmlReader& d) { read(d, 0); }
+      void read(XmlReader& d) override { read(d, 0); }
       void readAddConnector(ConnectorInfoReader* info, bool pasteMode) override;
       void write(XmlWriter& xml) const override { Element::write(xml); }
-      void write(XmlWriter&, int, bool writeSystemElements, bool forceTimeSig) const;
+      void write(XmlWriter&, int, bool writeSystemElements, bool forceTimeSig) const override;
       void writeBox(XmlWriter&) const;
       void readBox(XmlReader&);
       bool isEditable() const override { return false; }
-      void checkMeasure(int idx);
+      void checkMeasure(int idx, bool useGapRests = true);
 
       void add(Element*) override;
       void remove(Element*) override;
@@ -160,6 +161,7 @@ class Measure final : public MeasureBase {
 
       void stretchMeasure(qreal stretch);
       Fraction computeTicks();
+      Fraction anacrusisOffset() const;
       void layout2();
 
       bool showsMeasureNumber();
@@ -229,9 +231,10 @@ class Measure final : public MeasureBase {
       bool isRepeatMeasure(const Staff* staff) const;
       bool visible(int staffIdx) const;
       bool stemless(int staffIdx) const;
-      bool isFinalMeasureOfSection() const;
+      LayoutBreak* nextSectionBreak() const;
       bool isAnacrusis() const;
       bool isFirstInSystem() const;
+      bool isFirstInSection() const;
 
       bool breakMultiMeasureRest() const        { return _breakMultiMeasureRest; }
       void setBreakMultiMeasureRest(bool val)   { _breakMultiMeasureRest = val;  }
@@ -248,10 +251,13 @@ class Measure final : public MeasureBase {
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid) const override;
 
+      void undoChangeProperty(Pid id, const QVariant& newValue);
+      void undoChangeProperty(Pid id, const QVariant& newValue, PropertyFlags ps) override;
+
       bool hasMMRest() const        { return _mmRest != 0; }
       bool isMMRest() const         { return _mmRestCount > 0; }
       Measure* mmRest() const       { return _mmRest;      }
-      const Measure* mmRest1() const;
+      const Measure* coveringMMRestOrThis() const;
       void setMMRest(Measure* m)    { _mmRest = m;         }
       int mmRestCount() const       { return _mmRestCount; }    // number of measures _mmRest spans
       void setMMRestCount(int n)    { _mmRestCount = n;    }
@@ -274,11 +280,16 @@ class Measure final : public MeasureBase {
       qreal basicStretch() const;
       qreal basicWidth() const;
       int layoutWeight(int maxMMRestLength = 0) const;
-      void computeMinWidth();
+      void computeMinWidth() override;
       void checkHeader();
       void checkTrailer();
       void setStretchedWidth(qreal);
       void layoutStaffLines();
+
+      qreal computeFirstSegmentXPosition(Segment* segment);
+
+      bool canAddStaffTypeChange(int staffIdx) const;
+
       };
 
 }     // namespace Ms

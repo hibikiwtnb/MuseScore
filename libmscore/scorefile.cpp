@@ -10,32 +10,33 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#include "config.h"
-#include "score.h"
-#include "xml.h"
-#include "element.h"
-#include "measure.h"
-#include "segment.h"
-#include "slur.h"
-#include "chordrest.h"
-#include "chord.h"
-#include "tuplet.h"
+#include "audio.h"
+#include "barline.h"
 #include "beam.h"
+#include "chordrest.h"
+#include "clef.h"
+#include "config.h"
+#include "element.h"
+#include "excerpt.h"
+#include "imageStore.h"
+#include "keysig.h"
+#include "mscore.h"
+#include "measure.h"
 #include "revisions.h"
 #include "page.h"
 #include "part.h"
-#include "staff.h"
-#include "system.h"
-#include "keysig.h"
-#include "clef.h"
-#include "text.h"
-#include "ottava.h"
-#include "volta.h"
-#include "excerpt.h"
-#include "mscore.h"
-#include "stafftype.h"
-#include "sym.h"
+#include "rest.h"
+#include "score.h"
 #include "scoreOrder.h"
+#include "segment.h"
+#include "sig.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "system.h"
+#include "tuplet.h"
+#include "undo.h"
+#include "volta.h"
+#include "xml.h"
 
 #include "mscore/preferences.h"
 
@@ -48,11 +49,6 @@
 #include "avsomr/msmrwriter.h"
 #endif
 
-#include "sig.h"
-#include "undo.h"
-#include "imageStore.h"
-#include "audio.h"
-#include "barline.h"
 #include "thirdparty/qzip/qzipreader_p.h"
 #include "thirdparty/qzip/qzipwriter_p.h"
 #ifdef Q_OS_WIN
@@ -126,6 +122,8 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
             xml.tag("layoutMode", "line");
       if (systemMode())
             xml.tag("layoutMode", "system");
+      if (doublePageMode())
+            xml.tag("layoutMode", "double-page");
 
 #ifdef OMR
       if (masterScore()->omr() && xml.writeOmr())
@@ -156,7 +154,7 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
 
       if (pageNumberOffset())
             xml.tag("page-offset", pageNumberOffset());
-      xml.tag("Division", MScore::division);
+      xml.tag("Division", DIVISION);
       xml.setCurTrack(-1);
 
       if (isTopScore())                    // only top score
@@ -250,7 +248,7 @@ void Score::writeMovement(XmlWriter& xml, bool selectionOnly)
       xml.setCurTrack(-1);
       if (isMaster()) {
             if (!selectionOnly) {
-                  for (const Excerpt* excerpt : excerpts()) {
+                  for (Excerpt*& excerpt : excerpts()) {
                         if (excerpt->partScore() != this)
                               excerpt->partScore()->write(xml, false);       // recursion
                         }
@@ -447,16 +445,7 @@ bool MasterScore::saveFile(bool generateBackup)
                   dir.mkdir(backupSubdirString);
 #ifdef Q_OS_WIN
                   const QString backupDirNativePath = QDir::toNativeSeparators(backupDirString);
-#if (defined (_MSCVER) || defined (_MSC_VER))
-   #if (defined (UNICODE))
-                  SetFileAttributes((LPCTSTR)backupDirNativePath.unicode(), FILE_ATTRIBUTE_HIDDEN);
-   #else
-                  // Use byte-based Windows function
-                  SetFileAttributes((LPCTSTR)backupDirNativePath.toLocal8Bit(), FILE_ATTRIBUTE_HIDDEN);
-   #endif
-#else
-                  SetFileAttributes((LPCTSTR)backupDirNativePath.toLocal8Bit(), FILE_ATTRIBUTE_HIDDEN);
-#endif
+                  SetFileAttributesW(reinterpret_cast<LPCWSTR>(backupDirNativePath.utf16()), FILE_ATTRIBUTE_HIDDEN);
 #endif
                   }
             const QString backupName = QString(".") + info.fileName() + QString(",");
@@ -561,7 +550,7 @@ QImage Score::createThumbnail()
 
       QImage pm(w, h, QImage::Format_ARGB32_Premultiplied);
 
-      int dpm = lrint(DPMM * 1000.0);
+      int dpm = (int)lrint(DPMM * 1000.0);
       pm.setDotsPerMeterX(dpm);
       pm.setDotsPerMeterY(dpm);
       pm.fill(0xffffffff);
@@ -766,7 +755,7 @@ bool Score::saveFile(QIODevice* f, bool msczFormat, bool onlySelection)
       xml.stag("museScore version=\"" MSC_VERSION "\"");
 
       if (!MScore::testMode) {
-            xml.tag("programVersion", VERSION);
+            xml.tag("programVersion", "3.6.3");
             xml.tag("programRevision", revision);
             }
       write(xml, onlySelection);
@@ -775,7 +764,7 @@ bool Score::saveFile(QIODevice* f, bool msczFormat, bool onlySelection)
             masterScore()->revisions()->write(xml);
       if (!onlySelection) {
             //update version values for i.e. plugin access
-            _mscoreVersion = VERSION;
+            _mscoreVersion = "3.6.3";
             _mscoreRevision = revision.toInt(0, 16);
             _mscVersion = MSCVERSION;
             }
@@ -812,10 +801,18 @@ QString readRootFile(MQZipReader* uz, QList<QString>& images)
                         const QStringRef& tag(e.name());
 
                         if (tag == "rootfile") {
-                              if (rootfile.isEmpty()) {
-                                    rootfile = e.attribute("full-path");
-                                    e.skipCurrentElement();
+                              QString file = e.attribute("full-path");
+
+                              // pick first .mscx (or .xml, for workspaces) from a .mscz (resp. .workspace), works for Mu4 too.
+                              if (rootfile.isEmpty() && (file.endsWith(".mscx") || file.endsWith(".xml"))) {
+                                    rootfile = file;
                                     }
+
+                              // 4.x images are recorded as rootfile items, not as file items
+                              if (file.startsWith("Pictures/")) {
+                                    images.append(file);
+                                    }
+                              e.skipCurrentElement();
                               }
                         else if (tag == "file")
                               images.append(e.readElementText());
@@ -836,8 +833,8 @@ Score::FileError MasterScore::loadCompressedMsc(QIODevice* io, bool ignoreVersio
       {
       MQZipReader uz(io);
 
-      QList<QString> sl;
-      QString rootfile = readRootFile(&uz, sl);
+      QList<QString> images;
+      QString rootfile = readRootFile(&uz, images);
       if (rootfile.isEmpty())
             return FileError::FILE_NO_ROOTFILE;
 
@@ -845,7 +842,7 @@ Score::FileError MasterScore::loadCompressedMsc(QIODevice* io, bool ignoreVersio
       // load images
       //
       if (!MScore::noImages) {
-            foreach(const QString& s, sl) {
+            for (QString& s : images) {
                   QByteArray dbuf = uz.fileData(s);
                   imageStore.add(s, dbuf);
                   }
@@ -854,10 +851,30 @@ Score::FileError MasterScore::loadCompressedMsc(QIODevice* io, bool ignoreVersio
       QByteArray dbuf = uz.fileData(rootfile);
       if (dbuf.isEmpty()) {
             QVector<MQZipReader::FileInfo> fil = uz.fileInfoList();
-            foreach(const MQZipReader::FileInfo& fi, fil) {
+            for (MQZipReader::FileInfo& fi : fil) {
                   if (fi.filePath.endsWith(".mscx")) {
                         dbuf = uz.fileData(fi.filePath);
                         break;
+                        }
+                  }
+            }
+
+      QByteArray sbuf = uz.fileData("score_style.mss"); // exists in Mu4 scores only
+      if (!sbuf.isEmpty() && ignoreVersionError) { // needs to be read before the actual score
+            XmlReader el(sbuf);
+            while (el.readNextStartElement()) {
+                  if (el.name() == "museScore") {
+                        QString version = el.attribute("version");
+                        QStringList sl  = version.split('.');
+                        int mscVersion  = sl[0].toInt() * 100 + sl[1].toInt();
+
+                        while (el.readNextStartElement()) {
+                              if (el.name() == "Style") { // should be the next element after "museScore"
+                                    masterScore()->style().load(el, mscVersion);
+                                    break; // no need to read any further
+                                    }
+                              el.unknown();
+                              }
                         }
                   }
             }
@@ -866,6 +883,22 @@ Score::FileError MasterScore::loadCompressedMsc(QIODevice* io, bool ignoreVersio
       e.setDocName(masterScore()->fileInfo()->completeBaseName());
 
       FileError retval = read1(e, ignoreVersionError);
+
+      QByteArray vbuf = uz.fileData("viewsettings.json"); // exists in Mu4 scores only
+      if (!vbuf.isEmpty() && ignoreVersionError) {
+            QJsonDocument doc = QJsonDocument::fromJson(vbuf);
+            QJsonObject obj = doc.object();
+            QString viewMode = obj["notation"].toObject()["viewMode"].toString();
+
+            if (viewMode == "continuous_v")
+                  masterScore()->setLayoutMode(LayoutMode::LINE);
+            else if ( viewMode == "continuous_h")
+                  masterScore()->setLayoutMode(LayoutMode::SYSTEM);
+            else if (viewMode == "page") // not really neeed, is the default anyhow
+                  masterScore()->setLayoutMode(LayoutMode::PAGE);
+            else // may never happen
+                  masterScore()->setLayoutMode(LayoutMode::FLOAT);
+            }
 
 #ifdef OMR
       //
@@ -951,7 +984,7 @@ Score::FileError MasterScore::loadMsc(QString name, QIODevice* io, bool ignoreVe
       ScoreLoad sl;
       fileInfo()->setFile(name);
 
-      if (name.endsWith(".mscz") || name.endsWith(".mscz,"))
+      if (name.endsWith(".mscz", Qt::CaseInsensitive) || name.endsWith(".mscz,", Qt::CaseInsensitive))
             return loadCompressedMsc(io, ignoreVersionError);
       else {
             XmlReader r(io);
@@ -1022,7 +1055,7 @@ Score::FileError MasterScore::read1(XmlReader& e, bool ignoreVersionError)
             if (e.name() == "museScore") {
                   const QString& version = e.attribute("version");
                   QStringList sl = version.split('.');
-                  setMscVersion(sl[0].toInt() * 100 + sl[1].toInt());
+                  setMscVersion(sl[0].toInt() * 100 + (sl.size() > 1 ? sl[1].toInt() : 0));
 
                   if (!ignoreVersionError) {
                         if (mscVersion() > MSCVERSION)
@@ -1036,7 +1069,7 @@ Score::FileError MasterScore::read1(XmlReader& e, bool ignoreVersionError)
                   if (created() && !preferences.getString(PREF_SCORE_STYLE_DEFAULTSTYLEFILE).isEmpty()) {
                         setStyle(MScore::defaultStyle());
                         }
-                  else {
+                  else if (mscVersion() < 400) { // 4.x compat, style read already
                         int defaultsVersion = readStyleDefaultsVersion();
 
                         setStyle(*MStyle::resolveStyleDefaults(defaultsVersion));
@@ -1419,4 +1452,3 @@ Tuplet* Score::searchTuplet(XmlReader& /*e*/, int /*id*/)
       }
 
 }
-

@@ -10,9 +10,9 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
+#include "score.h"
 #include "stafftypelist.h"
 #include "xml.h"
-#include "score.h"
 
 namespace Ms {
 
@@ -22,16 +22,18 @@ namespace Ms {
 
 const StaffType& StaffTypeList::staffType(const Fraction& tick) const
       {
-      static const StaffType st;
-
-      if (tick.negative())
+      if (tick.negative()) {
+            static const StaffType st;
             return st;
+            }
+
       if (staffTypeChanges.empty())
             return firstStaffType;
 
       auto i = staffTypeChanges.upper_bound(tick.ticks());
       if (i == staffTypeChanges.begin())
             return firstStaffType;
+
       return (--i)->second;
       }
 

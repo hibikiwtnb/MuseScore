@@ -23,7 +23,7 @@ class TDuration;
 class Fraction;
 class TimeSig;
 class Chord;
-enum class Key;
+enum class Key : signed char;
 
 //---------------------------------------------------------
 //   MCursor
@@ -51,6 +51,8 @@ class MCursor {
       MasterScore* score() const    { return _score; }
       void setScore(MasterScore* s) { _score = s;    }
       void setTimeSig(Fraction f)   { _sig = f; }
+
+      Element* currentElement() const;
       };
 
 

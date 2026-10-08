@@ -25,6 +25,9 @@
 #include "libmscore/score.h"
 #include "libmscore/mscore.h"
 
+#include <QAbstractItemView>
+#include <QTimer>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -88,7 +91,7 @@ ZoomBox::ZoomBox(QWidget* parent)
    , _previousScoreView(nullptr)
       {
       setEditable(true);
-      setInsertPolicy(QComboBox::InsertAtBottom);
+      setInsertPolicy(QComboBox::NoInsert);
       setToolTip(tr("Zoom"));
       setWhatsThis(tr("Zoom"));
       setAccessibleName(tr("Zoom"));
@@ -103,8 +106,31 @@ ZoomBox::ZoomBox(QWidget* parent)
             addItem(ts, QVariant::fromValue(e.index));
             }
       resetToDefaultLogicalZoom();
+
       connect(this, SIGNAL(currentIndexChanged(int)), SLOT(indexChanged(int)));
-      connect(lineEdit(), SIGNAL(returnPressed()), SLOT(textChanged()));
+
+      connect(view(), &QAbstractItemView::pressed, this, [this](const QModelIndex&) {
+            _mousePopupSelection = true;
+            });
+      }
+
+//---------------------------------------------------------
+//   hidePopup
+//---------------------------------------------------------
+
+void ZoomBox::hidePopup()
+      {
+      const bool mouseSelection = _mousePopupSelection;
+      _mousePopupSelection = false;
+
+      QComboBox::hidePopup();
+
+      if (mouseSelection) {
+            QTimer::singleShot(0, this, []() {
+                  if (mscore)
+                        mscore->focusScoreView();
+                  });
+            }
       }
 
 //---------------------------------------------------------

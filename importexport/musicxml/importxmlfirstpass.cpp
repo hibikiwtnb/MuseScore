@@ -16,10 +16,20 @@ namespace Ms {
 
 // TODO: move somewhere else
 
+static const std::vector<QString> vocalInstrumentNames({"Voice",
+                                                        "Soprano",
+                                                        "Mezzo-Soprano",
+                                                        "Alto",
+                                                        "Tenor",
+                                                        "Baritone",
+                                                        "Bass",
+                                                        "Women",
+                                                        "Men"});
+
 MusicXmlPart::MusicXmlPart(QString id, QString name)
       : id(id), name(name)
       {
-      octaveShifts.resize(MAX_STAVES);
+      octaveShifts.resize(MAX_VOICE_DESC_STAVES);
       }
 
 
@@ -44,12 +54,12 @@ Fraction MusicXmlPart::measureDuration(int i) const
 
 QString MusicXmlPart::toString() const
       {
-      auto res = QString("part id '%1' name '%2' print %3 abbr '%4' print %5 maxStaff %6\n")
-            .arg(id, name).arg(printName).arg(abbr).arg(printAbbr, _maxStaff);
+      QString res = QString("part id '%1' name '%2' print %3 abbr '%4' print %5 maxStaff %6\n")
+                  .arg(id, name).arg(_printName).arg(abbr).arg(_printAbbr, _maxStaff);
 
       for (VoiceList::const_iterator i = voicelist.constBegin(); i != voicelist.constEnd(); ++i) {
             res += QString("voice %1 map staff data %2\n")
-                  .arg(i.key() + 1, i.value().toString());
+                  .arg(QString(i.key() + 1), i.value().toString());
             }
 
       for (int i = 0; i < measureNumbers.size(); ++i) {
@@ -69,7 +79,7 @@ Interval MusicXmlPart::interval(const Fraction f) const
 
 int MusicXmlPart::octaveShift(const int staff, const Fraction f) const
       {
-      if (staff < 0 || MAX_STAVES <= staff)
+      if (staff < 0 || MAX_VOICE_DESC_STAVES <= staff)
             return 0;
       if (f < Fraction(0, 1))
             return 0;
@@ -78,7 +88,7 @@ int MusicXmlPart::octaveShift(const int staff, const Fraction f) const
 
 void MusicXmlPart::addOctaveShift(const int staff, const int shift, const Fraction f)
       {
-      if (staff < 0 || MAX_STAVES <= staff)
+      if (staff < 0 || MAX_VOICE_DESC_STAVES <= staff)
             return;
       if (f < Fraction(0, 1))
             return;
@@ -87,11 +97,17 @@ void MusicXmlPart::addOctaveShift(const int staff, const int shift, const Fracti
 
 void MusicXmlPart::calcOctaveShifts()
       {
-      for (int i = 0; i < MAX_STAVES; ++i) {
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i) {
             octaveShifts[i].calcOctaveShiftShifts();
             }
       }
 
+bool MusicXmlPart::isVocalStaff() const
+      {
+      return (std::find(vocalInstrumentNames.begin(), vocalInstrumentNames.end(), name) != vocalInstrumentNames.end()
+              || _hasLyrics);
+      }
+      
 //---------------------------------------------------------
 //   interval
 //---------------------------------------------------------
@@ -114,10 +130,10 @@ Interval MusicXmlIntervalList::interval(const Fraction f) const
 const QString MusicXmlInstrList::instrument(const Fraction f) const
       {
       if (empty())
-            return "";
+            return QString();
       auto i = upper_bound(f);
       if (i == begin())
-            return "";
+            return QString();
       --i;
       return i->second;
       }
@@ -149,7 +165,8 @@ int MusicXmlOctaveShiftList::octaveShift(const Fraction f) const
 
 void MusicXmlOctaveShiftList::addOctaveShift(const int shift, const Fraction f)
       {
-      Q_ASSERT(Fraction(0, 1) <= f);
+      if (Fraction(0, 1) > f)
+            return;
 
       //qDebug("addOctaveShift(shift %d f %s)", shift, qPrintable(f.print()));
       auto i = find(f);
@@ -185,6 +202,30 @@ void MusicXmlOctaveShiftList::calcOctaveShiftShifts()
 
       }
 
+//---------------------------------------------------------
+//   staffNumberToIndex
+//---------------------------------------------------------
+
+/**
+ This handles the mapping from MusicXML staff number to the index
+ in a Part's Staff list.
+ In most cases, this is a simple decrement from the 1-based staff number
+ to the 0-based index.
+ However, in some parts some MusicXML staves are discarded, and a mapping
+ must be stored from MusicXML staff number to index. When this mapping is
+ defined (i.e. size() != 0), it is used. See MusicXMLParserPass1::attributes()
+ for more information.
+ */
+
+int MusicXmlPart::staffNumberToIndex(const int staffNumber) const
+      {
+      if (_staffNumberToIndex.size() == 0)
+            return staffNumber - 1;
+      else if (_staffNumberToIndex.contains(staffNumber))
+            return  _staffNumberToIndex[staffNumber];
+      else
+            return -1;
+      }
 
 //---------------------------------------------------------
 //   LyricNumberHandler

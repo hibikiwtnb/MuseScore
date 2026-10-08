@@ -10,16 +10,16 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "instrument.h"
-#include "xml.h"
 #include "drumset.h"
-#include "articulation.h"
-#include "utils.h"
-#include "stringdata.h"
 #include "instrtemplate.h"
+#include "instrument.h"
 #include "mscore.h"
 #include "part.h"
 #include "score.h"
+#include "stringdata.h"
+#include "text.h"
+#include "utils.h"
+#include "xml.h"
 
 #include "audio/midi/synthesizer.h"
 #include "audio/midi/midipatch.h"
@@ -108,6 +108,7 @@ Instrument::Instrument(QString id)
       _useDrumset  = false;
       _drumset     = 0;
       _singleNoteDynamics = true;
+      _nameColor = MScore::defaultColor;
       }
 
 Instrument::Instrument(const Instrument& i)
@@ -126,6 +127,7 @@ Instrument::Instrument(const Instrument& i)
       _drumset      = 0;
       setDrumset(i._drumset);
       _useDrumset   = i._useDrumset;
+      _pianoRollNoteShape = i._pianoRollNoteShape;
       _stringData   = i._stringData;
       _midiActions  = i._midiActions;
       _articulation = i._articulation;
@@ -133,6 +135,7 @@ Instrument::Instrument(const Instrument& i)
       for (Channel* c : i._channel)
             _channel.append(new Channel(*c));
       _clefType     = i._clefType;
+      _nameColor    = i._nameColor;
       }
 
 void Instrument::operator=(const Instrument& i)
@@ -154,6 +157,7 @@ void Instrument::operator=(const Instrument& i)
       _stringData   = i._stringData;
       _drumset      = 0;
       setDrumset(i._drumset);
+      _pianoRollNoteShape = i._pianoRollNoteShape;
       _useDrumset   = i._useDrumset;
       _stringData   = i._stringData;
       _midiActions  = i._midiActions;
@@ -162,6 +166,7 @@ void Instrument::operator=(const Instrument& i)
       for (Channel* c : i._channel)
             _channel.append(new Channel(*c));
       _clefType     = i._clefType;
+      _nameColor    = i._nameColor;
       }
 
 //---------------------------------------------------------
@@ -225,6 +230,7 @@ void Instrument::write(XmlWriter& xml, const Part* part) const
       _shortNames.write(xml, "shortName");
 //      if (!_trackName.empty())
             xml.tag("trackName", _trackName);
+      xml.tag("nameColor", _nameColor, MScore::defaultColor);
       if (_minPitchP > 0)
             xml.tag("minPitchP", _minPitchP);
       if (_maxPitchP < 127)
@@ -242,6 +248,9 @@ void Instrument::write(XmlWriter& xml, const Part* part) const
       if (_useDrumset) {
             xml.tag("useDrumset", _useDrumset);
             _drumset->save(xml);
+            }
+      if (_pianoRollNoteShape != PianoRollNoteShape::AUTO) {
+            xml.tag("pianoRollNoteShape", int(_pianoRollNoteShape));
             }
       for (int i = 0; i < _clefType.size(); ++i) {
             ClefTypeList ct = _clefType[i];
@@ -348,6 +357,7 @@ void Instrument::read(XmlReader& e, Part* part)
       bool customDrumset = false;
       bool readSingleNoteDynamics = false;
 
+      auto defaultChannel = _channel[0];
       _channel.clear();       // remove default channel
       _id = e.attribute("id");
       while (e.readNextStartElement()) {
@@ -356,6 +366,8 @@ void Instrument::read(XmlReader& e, Part* part)
                   _singleNoteDynamics = e.readBool();
                   readSingleNoteDynamics = true;
                   }
+            else if (tag == "glissandoStyle") // Mu4 compatibility
+                  e.skipCurrentElement();
             else if (!readProperties(e, part, &customDrumset))
                   e.unknown();
             }
@@ -363,15 +375,17 @@ void Instrument::read(XmlReader& e, Part* part)
       if (_instrumentId.isEmpty())
             _instrumentId = recognizeInstrumentId();
 
-      if (channel(0) && channel(0)->program() == -1) {
-          channel(0)->setProgram(recognizeMidiProgram());
-      }
+      if (_channel.empty())
+            _channel.append(defaultChannel);
+
+      if (_channel[0] && _channel[0]->program() == -1)
+            _channel[0]->setProgram(recognizeMidiProgram());
 
       if (!readSingleNoteDynamics)
             setSingleNoteDynamicsFromTemplate();
 
       if (_useDrumset) {
-            if (_channel[0]->bank() == 0 && _channel[0]->synti().toLower() != "zerberus")
+            if (_channel[0] && _channel[0]->bank() == 0 && _channel[0]->synti().toLower() != "zerberus")
                   _channel[0]->setBank(128);
             }
       }
@@ -393,6 +407,8 @@ bool Instrument::readProperties(XmlReader& e, Part* part, bool* customDrumset)
             name.read(e);
             _shortNames.append(name);
             }
+      else if (tag == "nameColor")
+            _nameColor = e.readColor();
       else if (tag == "trackName")
             _trackName = e.readElementText();
       else if (tag == "minPitch") {      // obsolete
@@ -424,6 +440,14 @@ bool Instrument::readProperties(XmlReader& e, Part* part, bool* customDrumset)
             if (_useDrumset) {
                   delete _drumset;
                   _drumset = new Drumset(*smDrumset);
+                  }
+            }
+      else if (tag == "pianoRollNoteShape") {
+            const int value = e.readInt();
+
+            if (value >= int(PianoRollNoteShape::AUTO)
+                && value < int(PianoRollNoteShape::UNUSED)) {
+                  _pianoRollNoteShape = PianoRollNoteShape(value);
                   }
             }
       else if (tag == "Drum") {
@@ -471,6 +495,8 @@ bool Instrument::readProperties(XmlReader& e, Part* part, bool* customDrumset)
             QString val(e.readElementText());
             setClefType(idx, ClefTypeList(clefType(idx)._concertClef, Clef::clefType(val)));
             }
+      else if (tag == "soundId")    // Mu4 compatibility
+            e.skipCurrentElement(); // skip, don't log
       else
             return false;
 
@@ -1260,13 +1286,15 @@ bool Instrument::operator==(const Instrument& i) const
          &&  i._minPitchP == _minPitchP
          &&  i._maxPitchP == _maxPitchP
          &&  i._useDrumset == _useDrumset
+         &&  i._pianoRollNoteShape == _pianoRollNoteShape
          &&  i._midiActions == _midiActions
          &&  i._articulation == _articulation
          &&  i._transpose.diatonic == _transpose.diatonic
          &&  i._transpose.chromatic == _transpose.chromatic
          &&  i._trackName == _trackName
          &&  *i.stringData() == *stringData()
-         &&  i._singleNoteDynamics == _singleNoteDynamics;
+         &&  i._singleNoteDynamics == _singleNoteDynamics
+         &&  i._nameColor == _nameColor;
       }
 
 //---------------------------------------------------------
@@ -1297,6 +1325,7 @@ bool Instrument::isDifferentInstrument(const Instrument& i) const
             || i._minPitchP != _minPitchP
             || i._maxPitchP != _maxPitchP
             || i._useDrumset != _useDrumset
+            || i._pianoRollNoteShape != _pianoRollNoteShape
             || i._midiActions != _midiActions
             || i._articulation != _articulation
             || i._transpose.diatonic != _transpose.diatonic
@@ -1602,8 +1631,8 @@ void Instrument::updateInstrumentId()
       const int val32ref = (idxref < 0) ? -1 : channel(idxref)->bank();
       QString fallback;
 
-      for (InstrumentGroup* g : instrumentGroups) {
-            for (InstrumentTemplate* it : g->instrumentTemplates) {
+      for (InstrumentGroup*& g : instrumentGroups) {
+            for (InstrumentTemplate*& it : g->instrumentTemplates) {
                   if (it->musicXMLid == instrumentId()) {
                         if (groupHack) {
                               if (fallback.isEmpty())
@@ -1611,7 +1640,7 @@ void Instrument::updateInstrumentId()
                                     // if no "strings.group" instrument with requested bank
                                     // is found, assume "Strings".
                                     fallback = it->id;
-                              for (const Channel& chan : it->channel) {
+                              for (Channel& chan : it->channel) {
                                     if ((chan.name() == arco) && (chan.bank() == val32ref)) {
                                           _id = it->id;
                                           return;

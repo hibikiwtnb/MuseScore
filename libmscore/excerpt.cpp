@@ -10,39 +10,37 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "excerpt.h"
-#include "score.h"
-#include "part.h"
-#include "xml.h"
-#include "staff.h"
-#include "box.h"
-#include "textframe.h"
-#include "style.h"
-#include "page.h"
-#include "text.h"
-#include "slur.h"
-#include "tie.h"
-#include "sig.h"
-#include "tempo.h"
-#include "measure.h"
-#include "rest.h"
-#include "stafftype.h"
-#include "tuplet.h"
-#include "chord.h"
-#include "note.h"
-#include "lyrics.h"
-#include "segment.h"
-#include "textline.h"
-#include "tupletmap.h"
-#include "tiemap.h"
-#include "layoutbreak.h"
-#include "harmony.h"
-#include "beam.h"
-#include "utils.h"
-#include "tremolo.h"
 #include "barline.h"
-#include "undo.h"
+#include "beam.h"
+#include "box.h"
 #include "bracketItem.h"
+#include "chord.h"
+#include "excerpt.h"
+#include "harmony.h"
+#include "layoutbreak.h"
+#include "lyrics.h"
+#include "measure.h"
+#include "note.h"
+#include "page.h"
+#include "part.h"
+#include "rest.h"
+#include "score.h"
+#include "segment.h"
+#include "sig.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "style.h"
+#include "text.h"
+#include "textframe.h"
+#include "textline.h"
+#include "tie.h"
+#include "tiemap.h"
+#include "tremolo.h"
+#include "tuplet.h"
+#include "tupletmap.h"
+#include "undo.h"
+#include "utils.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -186,7 +184,7 @@ void Excerpt::createExcerpt(Excerpt* excerpt)
       // Fill tracklist (map all tracks of a stave)
       if (excerpt->tracks().isEmpty()) {
             QMultiMap<int, int> tracks;
-            for (Staff* s : score->staves()) {
+            for (Staff* s : qAsConst(score->staves())) {
                   const LinkedElements* ls = s->links();
                   if (ls == 0)
                         continue;
@@ -234,7 +232,7 @@ void Excerpt::createExcerpt(Excerpt* excerpt)
 
       // handle transposing instruments
       if (oscore->styleB(Sid::concertPitch) != score->styleB(Sid::concertPitch)) {
-            for (const Staff* staff : score->staves()) {
+            for (const Staff* staff : qAsConst(score->staves())) {
                   if (staff->staffType(Fraction(0,1))->group() == StaffGroup::PERCUSSION)
                         continue;
 
@@ -315,10 +313,10 @@ void MasterScore::deleteExcerpt(Excerpt* excerpt)
             }
 
       // unlink the staves in the excerpt
-      for (Staff* st : partScore->staves()) {
+      for (Staff* st : qAsConst(partScore->staves())) {
             bool hasLinksInMaster = false;
             if (st->links()) {
-                  for (auto le : *st->links()) {
+                  for (auto& le : *st->links()) {
                         if (le->score() == this) {
                               hasLinksInMaster = true;
                               break;
@@ -378,7 +376,7 @@ static void cloneSpanner(Spanner* s, Score* score, int dstTrack, int dstTrack2)
             ns->setStartElement(0);
             ns->setEndElement(0);
             if (cr1 && cr1->links()) {
-                  for (ScoreElement* e : *cr1->links()) {
+                  for (ScoreElement* e : qAsConst(*cr1->links())) {
                         ChordRest* cr = toChordRest(e);
                         if (cr == cr1)
                               continue;
@@ -389,7 +387,7 @@ static void cloneSpanner(Spanner* s, Score* score, int dstTrack, int dstTrack2)
                         }
                   }
             if (cr2 && cr2->links()) {
-                  for (ScoreElement* e : *cr2->links()) {
+                  for (ScoreElement* e : qAsConst(*cr2->links())) {
                         ChordRest* cr = toChordRest(e);
                         if (cr == cr2)
                               continue;
@@ -582,7 +580,7 @@ void Excerpt::cloneStaves(Score* oscore, Score* score, const QList<int>& map, QM
                                                 BarLine* bl = toBarLine(oe);
                                                 int oSpan1 = bl->staff()->idx();
                                                 int oSpan2 = oSpan1 + bl->spanStaff();
-                                                if (oSpan1 <= oIdx && oIdx < oSpan2) {
+                                                if (oSpan1 <= oIdx && oIdx <= oSpan2) {
                                                       // this staff is within span
                                                       // calculate adjusted span for excerpt
                                                       int oSpan = oSpan2 - oIdx;
@@ -727,11 +725,12 @@ void Excerpt::cloneStaves(Score* oscore, Score* score, const QList<int>& map, QM
                         }
                   }
 
-            nmb->linkTo(mb);
+            if (nmb)
+                  nmb->linkTo(mb);
             for (Element* e : mb->el()) {
                   if (e->isLayoutBreak()) {
                         LayoutBreak::Type st = toLayoutBreak(e)->layoutBreakType();
-                        if (st == LayoutBreak::Type::PAGE || st == LayoutBreak::Type::LINE)
+                        if (st != LayoutBreak::Type::SECTION)
                               continue;
                         }
                   int track = -1;
@@ -766,7 +765,8 @@ void Excerpt::cloneStaves(Score* oscore, Score* score, const QList<int>& map, QM
                         ne = e->clone();
                   ne->setScore(score);
                   ne->setTrack(track);
-                  nmb->add(ne);
+                  if (nmb)
+                        nmb->add(ne);
                   }
             nmbl->add(nmb);
             }
@@ -800,7 +800,7 @@ void Excerpt::cloneStaves(Score* oscore, Score* score, const QList<int>& map, QM
                         span = n - dstStaffIdx - 1;
                   dstStaff->setBarLineSpan(span);
                   int idx = 0;
-                  for (BracketItem* bi : srcStaff->brackets()) {
+                  for (BracketItem* bi : qAsConst(srcStaff->brackets())) {
                         dstStaff->setBracketType(idx, bi->bracketType());
                         dstStaff->setBracketSpan(idx, bi->bracketSpan());
                         ++idx;
@@ -1089,7 +1089,7 @@ void Excerpt::cloneStaff2(Staff* srcStaff, Staff* dstStaff, const Fraction& stic
                         map.insert(i, otracks.key(i));
                   }
             else if (!oex && ex) {
-                  for (int j : tracks.values(i)) {
+                  for (int& j : tracks.values(i)) {
                         if (dstStaffIdx * VOICES <= j && j < (dstStaffIdx + 1) * VOICES) {
                               map.insert(i, j);
                               break;
@@ -1098,7 +1098,7 @@ void Excerpt::cloneStaff2(Staff* srcStaff, Staff* dstStaff, const Fraction& stic
                   }
             else if (oex && ex) {
                   if (otracks.key(i, -1) != -1) {
-                        for (int j : tracks.values(otracks.key(i))) {
+                        for (int& j : tracks.values(otracks.key(i))) {
                               if (dstStaffIdx * VOICES <= j && j < (dstStaffIdx + 1) * VOICES) {
                                     map.insert(i, j);
                                     break;
@@ -1111,7 +1111,21 @@ void Excerpt::cloneStaff2(Staff* srcStaff, Staff* dstStaff, const Fraction& stic
 
       for (Measure* m = m1; m && (m != m2); m = m->nextMeasure()) {
             Measure* nm = score->tick2measure(m->tick());
-            for (int srcTrack : map.keys()) {
+
+            for (Element* oldEl : m->el()) {
+                  if (oldEl->isLayoutBreak())
+                        continue;
+                  if (oldEl->systemFlag() && dstStaffIdx != 0)
+                        continue;
+                  Element* newEl = oldEl->linkedClone();
+                  newEl->setParent(nm);
+                  newEl->setTrack(0);
+                  newEl->setScore(score);
+                  newEl->styleChanged();
+                  score->undoAddElement(newEl);
+                  }
+
+            for (int srcTrack : map) {
                   TupletMap tupletMap;    // tuplets cannot cross measure boundaries
                   int dstTrack = map.value(srcTrack);
                   for (Segment* oseg = m->first(); oseg; oseg = oseg->next()) {
@@ -1230,7 +1244,7 @@ void Excerpt::cloneStaff2(Staff* srcStaff, Staff* dstStaff, const Fraction& stic
 QList<Excerpt*> Excerpt::createAllExcerpt(MasterScore *score)
       {
       QList<Excerpt*> all;
-      for (Part* part : score->parts()) {
+      for (Part* part : qAsConst(score->parts())) {
             if (part->show()) {
                   Excerpt* e = new Excerpt(score);
                   e->parts().append(part);

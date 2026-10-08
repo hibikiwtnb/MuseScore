@@ -13,9 +13,7 @@
 #ifndef __PART_H__
 #define __PART_H__
 
-#include "mscore.h"
 #include "instrument.h"
-#include "text.h"
 
 namespace Ms {
 
@@ -93,14 +91,19 @@ class Part final : public ScoreElement {
       const QList<StaffName>& longNames(const  Fraction& tick = { -1, 1 } ) const { return instrument(tick)->longNames();  }
       const QList<StaffName>& shortNames(const Fraction& tick = { -1, 1 } ) const { return instrument(tick)->shortNames(); }
 
+      const QColor namesColor(const  Fraction& tick = { -1, 1 }) const { return instrument(tick)->getNameColor(); }
       void setLongNames(QList<StaffName>& s,  const Fraction& tick = { -1, 1 } );
       void setShortNames(QList<StaffName>& s, const Fraction& tick = { -1, 1 } );
 
       void setLongName(const QString& s);
       void setShortName(const QString& s);
+      void setLongNameAll(const QString& s);  // For all instruments in _instruments
+      void setShortNameAll(const QString& s); // For all instruments in _instruments
 
       void setPlainLongName(const QString& s);
       void setPlainShortName(const QString& s);
+      void setPlainLongNameAll(const QString& s);
+      void setPlainShortNameAll(const QString& s);
 
       void setStaves(int);
 

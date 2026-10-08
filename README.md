@@ -1,8 +1,6 @@
 ![MuseScore](mscore/data/musescore_logo_full.png)  
 Music notation and composition software
 
-[![Travis CI](https://secure.travis-ci.org/musescore/MuseScore.svg?branch=master)](https://travis-ci.org/musescore/MuseScore)
-[![Appveyor](https://ci.appveyor.com/api/projects/status/bp3ww6v985i64ece/branch/master?svg=true)](https://ci.appveyor.com/project/MuseScore/musescore/branch/master)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 
 MuseScore is an open source and free music notation software. For support, contribution, and bug reports visit MuseScore.org. Fork and make pull requests!
@@ -18,7 +16,7 @@ MuseScore is an open source and free music notation software. For support, contr
 - MuseData import
 - MIDI input for note entry
 - Integrated sequencer and software synthesizer to play the score
-- Print or create pdf files
+- Print or create PDF files
 
 ## More info
 - [MuseScore Homepage](https://musescore.org)
@@ -43,7 +41,7 @@ MuseScore is licensed under GPL version 2.0. See [LICENSE.GPL](https://github.co
 
 - **fluid:** Clone of [FluidSynth@sourceforge](https://sourceforge.net/projects/fluidsynth), ported to C++ and customized. Code now at [fluidsynth@github](https://github.com/FluidSynth/fluidsynth).
 
-- **fonts:** Contains fontforge source (sfd) + ttf/otf fonts. MuseScore includes the "Emmentaler" font from the Lilypond project.
+- **fonts:** Contains FontForge source (sfd) + ttf/otf fonts. MuseScore includes the "Emmentaler" font from the LilyPond project.
 
 - **libmscore:** Data model of MuseScore.
 
@@ -129,3 +127,6 @@ To run the debug version, type:
 See [mtest/README.md](/mtest/README.md) or [the developer handbook](https://musescore.org/handbook/developers-handbook/finding-your-way-around/automated-tests) for instructions on how to run the test suite.
 
 The new [script testing facility](https://musescore.org/node/278278) is also available to create your own automated tests. Please try it out!
+
+### Getting ready-made packages for MuseScore 3.7 Evolution and instructions how to 'install'
+See the [Wiki](https://github.com/Jojo-Schmitz/MuseScore/wiki).

@@ -17,14 +17,14 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-#include "libmscore/score.h"
-#include "stafftextproperties.h"
-#include "libmscore/stafftext.h"
-#include "libmscore/system.h"
-#include "libmscore/staff.h"
-#include "libmscore/segment.h"
-#include "globals.h"
 #include "musescore.h"
+#include "stafftextproperties.h"
+
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
+#include "libmscore/staff.h"
+#include "libmscore/stafftextbase.h"
+#include "libmscore/system.h"
 
 namespace Ms {
 
@@ -140,12 +140,12 @@ StaffTextProperties::StaffTextProperties(const StaffTextBase* st, QWidget* paren
 
       if (_staffText->swing()) {
             setSwingBox->setChecked(true);
-            if (_staffText->swingParameters()->swingUnit == MScore::division/2) {
+            if (_staffText->swingParameters()->swingUnit == DIVISION/2) {
                   swingBox->setEnabled(true);
                   swingEighth->setChecked(true);
                   swingBox->setValue(_staffText->swingParameters()->swingRatio);
                   }
-            else if (_staffText->swingParameters()->swingUnit == MScore::division/4) {
+            else if (_staffText->swingParameters()->swingUnit == DIVISION/4) {
                   swingBox->setEnabled(true);
                   swingSixteenth->setChecked(true);
                   swingBox->setValue(_staffText->swingParameters()->swingRatio);
@@ -395,7 +395,7 @@ void StaffTextProperties::channelItemChanged(QTreeWidgetItem* item, QTreeWidgetI
             ti->setData(0, Qt::UserRole, name);
             ti->setText(1, qApp->translate("InstrumentsXML", e.descr.toUtf8().data()));
             }
-      for (const NamedEventList& e : channel->midiActions) {
+      for (NamedEventList& e : channel->midiActions) {
             QTreeWidgetItem* ti = new QTreeWidgetItem(actionList);
             QString name = e.name;
             if (e.name.isEmpty())
@@ -406,7 +406,7 @@ void StaffTextProperties::channelItemChanged(QTreeWidgetItem* item, QTreeWidgetI
             }
       for (const ChannelActions& ca : *_staffText->channelActions()) {
             if (ca.channel == channelIdx) {
-                  for (QString s : ca.midiActionNames) {
+                  for (const QString& s : ca.midiActionNames) {
                         QList<QTreeWidgetItem*> items;
                         for (int i = 0; i < actionList->topLevelItemCount(); i++) {
                               QTreeWidgetItem* ti = actionList->topLevelItem(i);
@@ -464,11 +464,11 @@ void StaffTextProperties::saveValues()
                   swingBox->setEnabled(false);
                   }
             else if (swingEighth->isChecked()) {
-                  _staffText->setSwingParameters(MScore::division/2, swingBox->value());
+                  _staffText->setSwingParameters(DIVISION/2, swingBox->value());
                   swingBox->setEnabled(true);
                   }
             else if (swingSixteenth->isChecked()) {
-                  _staffText->setSwingParameters(MScore::division/4, swingBox->value());
+                  _staffText->setSwingParameters(DIVISION/4, swingBox->value());
                   swingBox->setEnabled(true);
                   }
             }
@@ -490,4 +490,3 @@ void StaffTextProperties::hideEvent(QHideEvent* event)
       }
 
 }
-

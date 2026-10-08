@@ -28,9 +28,7 @@
 
 namespace Ms {
 
-#ifndef NDEBUG
 bool useSourceQmlFiles = false;
-#endif
 
 //---------------------------------------------------------
 //   FocusChainBreak
@@ -241,13 +239,11 @@ void QmlDockWidget::setupStyle()
 
 QString QmlDockWidget::qmlSourcePrefix()
       {
-#ifndef NDEBUG
       if (useSourceQmlFiles) {
             const QFileInfo fi(__FILE__);
             const QDir mscoreDir = fi.absoluteDir();
             return QUrl::fromLocalFile(mscoreDir.absolutePath()).toString() + '/';
             }
-#endif
       static const QString qmlResourcesRoot("qrc:/");
       return qmlResourcesRoot;
       }

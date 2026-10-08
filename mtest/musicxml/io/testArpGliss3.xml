@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Arpeggio/glissando 3</work-title>
@@ -99,7 +99,7 @@
         <type>half</type>
         <stem>down</stem>
         <notations>
-          <glissando line-type="wavy" number="1" type="stop" color="#005500"/>
+          <glissando line-type="wavy" number="1" type="stop"/>
           </notations>
         </note>
       </measure>
@@ -155,7 +155,7 @@
         <type>half</type>
         <stem>down</stem>
         <notations>
-          <slide line-type="solid" number="1" type="stop" color="#AA0000"/>
+          <slide line-type="solid" number="1" type="stop"/>
           </notations>
         </note>
       <barline location="right">

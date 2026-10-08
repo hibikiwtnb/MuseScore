@@ -10,15 +10,15 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "symbol.h"
-#include "sym.h"
-#include "xml.h"
-#include "system.h"
-#include "staff.h"
+#include "image.h"
 #include "measure.h"
 #include "page.h"
 #include "score.h"
-#include "image.h"
+#include "staff.h"
+#include "system.h"
+#include "symbol.h"
+#include "sym.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -47,6 +47,16 @@ QString Symbol::symName() const
       {
       return Sym::id2name(_sym);
       }
+
+//---------------------------------------------------------
+//   accessibleInfo
+//---------------------------------------------------------
+
+QString Symbol::accessibleInfo() const
+      {
+      return QString("%1: %2").arg(Element::accessibleInfo(), Sym::id2name(_sym));
+      }
+
 
 //---------------------------------------------------------
 //   layout

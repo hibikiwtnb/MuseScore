@@ -10,12 +10,11 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "config.h"
 #include "chordlist.h"
+#include "mscore.h"
+#include "pitchspelling.h"
 #include "score.h"
 #include "xml.h"
-#include "pitchspelling.h"
-#include "mscore.h"
 
 namespace Ms {
 
@@ -30,7 +29,11 @@ HChord::HChord(const QString& str)
             { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" }
             };
       keys = 0;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      QStringList sl = str.split(" ", Qt::SkipEmptyParts);
+#else
       QStringList sl = str.split(" ", QString::SkipEmptyParts);
+#endif
       for (const QString& s : qAsConst(sl)) {
             for (int i = 0; i < 12; ++i) {
                   if (s == scaleNames[0][i] || s == scaleNames[1][i]) {
@@ -294,10 +297,18 @@ void HChord::add(const QList<HDegree>& degreeList)
 static void readRenderList(QString val, QList<RenderAction>& renderList)
       {
       renderList.clear();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      QStringList sl = val.split(" ", Qt::SkipEmptyParts);
+#else
       QStringList sl = val.split(" ", QString::SkipEmptyParts);
+#endif
       for (const QString& s : qAsConst(sl)) {
             if (s.startsWith("m:")) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+                  QStringList ssl = s.split(":", Qt::SkipEmptyParts);
+#else
                   QStringList ssl = s.split(":", QString::SkipEmptyParts);
+#endif
                   if (ssl.size() == 3) {
                         // m:x:y
                         RenderAction a;
@@ -349,7 +360,7 @@ static void writeRenderList(XmlWriter& xml, const QList<RenderAction>* al, const
                         s += a.text;
                         break;
                   case RenderAction::RenderActionType::MOVE:
-                        if (a.movex != 0.0 || a.movey != 0.0)
+                        if (!qFuzzyIsNull(a.movex) || !qFuzzyIsNull(a.movey))
                               s += QString("m:%1:%2").arg(a.movex).arg(a.movey);
                         break;
                   case RenderAction::RenderActionType::PUSH:
@@ -441,7 +452,7 @@ void ParsedChord::configure(const ChordList* cl)
       // TODO: allow this to be parameterized via chord list
       major << "ma" << "maj" << "major" << "t" << "^";
       minor << "mi" << "min" << "minor" << "-" << "=";
-      diminished << "dim" << "o";
+      diminished << "dim" << "dim." << "o";
       augmented << "aug" << "+";
       lower << "b" << "-" << "dim";
       raise << "#" << "+" << "aug";
@@ -614,8 +625,8 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
       firstLeadingToken = _tokenList.size();
       while (i < len && leading.contains(s[i]))
             addToken(QString(s[i++]),ChordTokenClass::EXTENSION);
-#endif
       lastLeadingToken = _tokenList.size();
+#endif
       // get extension - up to first non-digit other than comma or slash
       for (tok1 = ""; i < len; ++i) {
             if (!s[i].isDigit() && s[i] != ',' && s[i] != '/')
@@ -956,7 +967,7 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
                                     _xmlKind = "suspended-fourth";
                               else if (tok2L == "2")
                                     _xmlKind = "suspended-second";
-                              _xmlText = tok1 + tok2;
+                              _xmlText = tok1L + tok2;
                               }
                         else {
                               _xmlDegrees += "sub3";
@@ -970,7 +981,7 @@ bool ParsedChord::parse(const QString& s, const ChordList* cl, bool syntaxOnly, 
                               _xmlKind = "suspended-fourth";
                         else if (tok2L == "2")
                               _xmlKind = "suspended-second";
-                        _xmlText = tok1 + tok2;
+                        _xmlText = tok1L + tok2;
                         if (_extension == "7" || _extension == "9" || _extension == "11" || _extension == "13") {
                               _xmlDegrees += (_quality == "major") ? "add#7" : "add7";
                               // hack for programs that cannot assemble names well
@@ -1233,6 +1244,11 @@ QString ParsedChord::fromXml(const QString& rawKind, const QString& rawKindText,
             implied = true;
             extension = 5;
             }
+      else if (kind == "pedal") {
+            // Ignore, assume major
+            _quality = "major";
+            implied = true;
+            }
       else
             _quality = kind;
 
@@ -1463,10 +1479,10 @@ const QList<RenderAction>& ParsedChord::renderList(const ChordList* cl)
             // check for adjustments
             // stop adjusting when first non-adjusted modifier found
             qreal p = adjust ? cl->position(tok.names, ctc) : 0.0;
-            if (tok.tokenClass == ChordTokenClass::MODIFIER && p == 0.0)
+            if (tok.tokenClass == ChordTokenClass::MODIFIER && qFuzzyIsNull(p))
                   adjust = false;
             // build render list
-            if (p != 0.0) {
+            if (!qFuzzyIsNull(p)) {
                   RenderAction m1 = RenderAction(RenderAction::RenderActionType::MOVE);
                   m1.movex = 0.0;
                   m1.movey = p;
@@ -1481,7 +1497,7 @@ const QList<RenderAction>& ParsedChord::renderList(const ChordList* cl)
                   a.text = tok.names.first();
                   _renderList.append(a);
                   }
-            if (p != 0.0) {
+            if (!qFuzzyIsNull(p)) {
                   RenderAction m2 = RenderAction(RenderAction::RenderActionType::MOVE);
                   m2.movex = 0.0;
                   m2.movey = -p;

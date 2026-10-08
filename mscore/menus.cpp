@@ -20,74 +20,70 @@
 // For menus in the menu bar, like File, Edit, and View, see mscore/musescore.cpp
 
 #include "menus.h"
-#include <tuple>
-#include "libmscore/score.h"
-#include "palette.h"
-#include "libmscore/note.h"
-#include "libmscore/chordrest.h"
-#include "libmscore/dynamic.h"
-#include "libmscore/slur.h"
-#include "libmscore/sym.h"
-#include "libmscore/hairpin.h"
-#include "scoreview.h"
 #include "musescore.h"
-#include "libmscore/select.h"
-#include "libmscore/tempo.h"
-#include "libmscore/segment.h"
-#include "libmscore/undo.h"
-#include "icons.h"
-#include "libmscore/bracket.h"
-#include "libmscore/ottava.h"
-#include "libmscore/textline.h"
-#include "libmscore/trill.h"
-#include "libmscore/pedal.h"
-#include "libmscore/clef.h"
-#include "libmscore/timesig.h"
-#include "libmscore/barline.h"
-#include "libmscore/layoutbreak.h"
-#include "symboldialog.h"
-#include "libmscore/volta.h"
-#include "libmscore/keysig.h"
-#include "libmscore/breath.h"
-#include "libmscore/arpeggio.h"
-#include "libmscore/tremolo.h"
-#include "libmscore/repeat.h"
-#include "libmscore/tempotext.h"
-#include "libmscore/glissando.h"
-#include "libmscore/articulation.h"
-#include "libmscore/chord.h"
-#include "libmscore/drumset.h"
-#include "libmscore/spacer.h"
-#include "libmscore/measure.h"
-#include "libmscore/fret.h"
-#include "libmscore/staffstate.h"
-#include "libmscore/fingering.h"
-#include "libmscore/bend.h"
-#include "libmscore/tremolobar.h"
-#include "libmscore/chordline.h"
-#include "libmscore/stafftext.h"
-#include "libmscore/systemtext.h"
-#include "libmscore/instrchange.h"
-#include "workspace.h"
-#include "libmscore/icon.h"
-#include "libmscore/accidental.h"
-#include "libmscore/harmony.h"
-#include "libmscore/rehearsalmark.h"
+#include "palette.h"
+#include "scoreview.h"
 #include "shortcut.h"
-#include "libmscore/marker.h"
-#include "libmscore/jump.h"
-#include "libmscore/bagpembell.h"
+#include "symboldialog.h"
+#include "workspace.h"
+
+#include "libmscore/accidental.h"
 #include "libmscore/ambitus.h"
-#include "libmscore/stafftypechange.h"
-#include "libmscore/letring.h"
-#include "libmscore/vibrato.h"
-#include "libmscore/palmmute.h"
+#include "libmscore/arpeggio.h"
+#include "libmscore/articulation.h"
+#include "libmscore/bagpembell.h"
+#include "libmscore/barline.h"
+#include "libmscore/bend.h"
+#include "libmscore/bracket.h"
+#include "libmscore/breath.h"
+#include "libmscore/chord.h"
+#include "libmscore/chordline.h"
+#include "libmscore/chordrest.h"
+#include "libmscore/clef.h"
+#include "libmscore/dynamic.h"
 #include "libmscore/fermata.h"
+#include "libmscore/fingering.h"
+#include "libmscore/fret.h"
+#include "libmscore/glissando.h"
+#include "libmscore/hairpin.h"
+#include "libmscore/icon.h"
+#include "libmscore/instrchange.h"
+#include "libmscore/jump.h"
+#include "libmscore/keysig.h"
+#include "libmscore/layoutbreak.h"
+#include "libmscore/letring.h"
+#include "libmscore/marker.h"
+#include "libmscore/measure.h"
 #include "libmscore/measurenumber.h"
+#include "libmscore/note.h"
+#include "libmscore/ottava.h"
+#include "libmscore/palmmute.h"
+#include "libmscore/pedal.h"
+#include "libmscore/rehearsalmark.h"
+#include "libmscore/repeat.h"
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
+#include "libmscore/select.h"
+#include "libmscore/slur.h"
+#include "libmscore/spacer.h"
+#include "libmscore/stafftext.h"
+#include "libmscore/stafftypechange.h"
+#include "libmscore/sym.h"
+#include "libmscore/systemtext.h"
+#include "libmscore/tempotext.h"
+#include "libmscore/textline.h"
+#include "libmscore/timesig.h"
+#include "libmscore/tremolo.h"
+#include "libmscore/tremolobar.h"
+#include "libmscore/trill.h"
+#include "libmscore/undo.h"
+#include "libmscore/vibrato.h"
+#include "libmscore/volta.h"
 
 #include "palette/palettetree.h"
 #include "palette/palettewidget.h"
 #include "palette/paletteworkspace.h"
+
 #include "qml/msqmlengine.h"
 
 namespace Ms {
@@ -515,7 +511,7 @@ PalettePanel* MuseScore::newDynamicsPalettePanel(bool defaultPalettePanel)
             "pppppp", "ppppp", "pppp",
             "ppp", "pp", "p", "mp", "mf", "f", "ff", "fff",
             "ffff", "fffff", "ffffff",
-            "fp", "pf", "sf", "sfz", "sff", "sffz", "sfp", "sfpp",
+            "fp", "pf", "sf", "sfz", "sff", "sffz", "sfff", "sfffz", "sfp", "sfpp",
             "rfz", "rf", "fz", "m", "r", "s", "z", "n"
             };
       static const std::vector<const char*> arrayDefault = {
@@ -691,7 +687,7 @@ PalettePanel* MuseScore::newRepeatsPalettePanel()
       sp->setDrawGrid(true);
 
       RepeatMeasure* rm = new RepeatMeasure(gscore);
-      sp->append(rm, qApp->translate("symUserNames", Sym::symUserNames[int(SymId::repeat1Bar)]));
+      sp->append(rm, qApp->translate("symUserNames", Sym::id2userName(SymId::repeat1Bar).toUtf8()));
 
       for (int i = 0; i < markerTypeTableSize(); i++) {
             if (markerTypeTable[i].type == Marker::Type::CODETTA) // not in SMuFL
@@ -762,12 +758,10 @@ PalettePanel* MuseScore::newBreaksPalettePanel()
       cell = sp->append(lb, QT_TRANSLATE_NOOP("Palette", "Section break"));
       cell->mag = 1.2;
 
-#if 0
       lb = new LayoutBreak(gscore);
       lb->setLayoutBreakType(LayoutBreak::Type::NOBREAK);
-      cell = sp->append(lb, QT_TRANSLATE_NOOP("Palette", "Don't break"));
+      cell = sp->append(lb, QT_TRANSLATE_NOOP("Palette", "Keep measures on the same system"));
       cell->mag = 1.2;
-#endif
 
       Spacer* spacer = new Spacer(gscore);
       spacer->setSpacerType(SpacerType::DOWN);
@@ -851,10 +845,22 @@ PalettePanel* MuseScore::newTremoloPalettePanel()
       sp->setGrid(27, 40);
       sp->setDrawGrid(true);
 
-      for (int i = int(TremoloType::R8); i <= int(TremoloType::C64); ++i) {
+      for (int i = int(TremoloType::R8); i <= int(TremoloType::C256); ++i) {
             Tremolo* tremolo = new Tremolo(gscore);
             tremolo->setTremoloType(TremoloType(i));
             sp->append(tremolo, tremolo->subtypeName());
+            }
+
+      static const std::vector<SymId> dots {
+            SymId::tremoloDivisiDots2,
+            SymId::tremoloDivisiDots3,
+            SymId::tremoloDivisiDots4,
+            SymId::tremoloDivisiDots6
+            };
+      // include additional symbol-based tremolo articulations implemented as articulations
+      for (auto i : dots) {
+            Articulation* s = new Articulation(i, gscore);
+            sp->append(s, s->userName());
             }
       return sp;
       }
@@ -901,7 +907,6 @@ PalettePanel* MuseScore::newArticulationsPalettePanel()
       sp->setGrid(42, 25);
       sp->setDrawGrid(true);
 
-      // do not include additional symbol-based fingerings (temporarily?) implemented as articulations
       static const std::vector<SymId> fermatas {
             SymId::fermataAbove,
             SymId::fermataShortAbove,
@@ -915,6 +920,7 @@ PalettePanel* MuseScore::newArticulationsPalettePanel()
             Fermata* f = new Fermata(i, gscore);
             sp->append(f, f->userName());
             }
+      // do not include additional symbol-based fingerings (temporarily?) implemented as articulations
       static const std::vector<SymId> art {
             SymId::articAccentAbove,
             SymId::articStaccatoAbove,
@@ -950,6 +956,7 @@ PalettePanel* MuseScore::newArticulationsPalettePanel()
             SymId::stringsUpBow,
             SymId::stringsDownBow,
             SymId::pluckedSnapPizzicatoAbove,
+            SymId::pictHalfOpen2,
             // SymId::stringsThumbPosition,
             // SymId::luteFingeringRHThumb,
             // SymId::luteFingeringRHFirst,
@@ -986,11 +993,13 @@ PalettePanel* MuseScore::newOrnamentsPalettePanel()
       sp->setGrid(42, 25);
       sp->setDrawGrid(true);
 
-      // do not include additional symbol-based fingerings (temporarily?) implemented as articulations
       static const std::vector<SymId> art {
             SymId::ornamentTurnInverted,
             SymId::ornamentTurnSlash,
             SymId::ornamentTurn,
+            SymId::ornamentTurnUp,
+            SymId::ornamentHaydn,
+            SymId::ornamentTurnUpS,
             SymId::ornamentTrill,
             SymId::ornamentShortTrill,
             SymId::ornamentMordent,
@@ -1004,6 +1013,10 @@ PalettePanel* MuseScore::newOrnamentsPalettePanel()
             SymId::ornamentPrallUp,
             SymId::ornamentLinePrall,
             SymId::ornamentPrecompSlide,
+            SymId::ornamentShake3,
+            SymId::ornamentShakeMuffat1,
+            SymId::ornamentTremblementCouperin,
+            SymId::ornamentPinceCouperin,
             };
       for (auto i : art) {
             Articulation* s = new Articulation(i, gscore);
@@ -1023,8 +1036,7 @@ PalettePanel* MuseScore::newAccordionPalettePanel()
       sp->setGrid(42, 25);
       sp->setDrawGrid(true);
 
-      // do not include additional symbol-based fingerings (temporarily?) implemented as articulations
-      static std::vector<SymId> art {
+      static const std::vector<SymId> art {
             SymId::accdnCombDot,
             SymId::accdnCombLH2RanksEmpty,
             SymId::accdnCombLH3RanksEmptySquare,
@@ -1219,18 +1231,18 @@ PalettePanel* MuseScore::newClefsPalettePanel(bool defaultPalettePanel)
       sp->setYOffset(1.0);
 
       static std::vector<ClefType> clefsDefault  {
-            ClefType::G,     ClefType::G8_VA,  ClefType::G15_MA,  ClefType::G8_VB, ClefType::G15_MB, ClefType::G8_VB_O,
-            ClefType::G8_VB_P,    ClefType::G_1,  ClefType::C1,  ClefType::C2,    ClefType::C3,
-            ClefType::C4,    ClefType::C5, ClefType::F,   ClefType::F_8VA, ClefType::F_15MA,
-            ClefType::F8_VB,    ClefType::F15_MB, ClefType::F_B, ClefType::F_C, ClefType::PERC,
+            ClefType::G, ClefType::G8_VA, ClefType::G15_MA, ClefType::G8_VB, ClefType::G15_MB, ClefType::G8_VB_O,
+            ClefType::G8_VB_P, ClefType::G_1, ClefType::C1, ClefType::C2, ClefType::C3,
+            ClefType::C4, ClefType::C5, ClefType::F, ClefType::F_8VA, ClefType::F_15MA,
+            ClefType::F8_VB, ClefType::F15_MB, ClefType::F_B, ClefType::F_C, ClefType::PERC,
             ClefType::PERC2, ClefType::TAB, ClefType::TAB4
             };
       static std::vector<ClefType> clefsMaster  {
-            ClefType::G,     ClefType::G8_VA,  ClefType::G15_MA,  ClefType::G8_VB, ClefType::G15_MB, ClefType::G8_VB_O,
-            ClefType::G8_VB_P,    ClefType::G_1,  ClefType::C1,  ClefType::C2,    ClefType::C3,
-            ClefType::C4,    ClefType::C5,  ClefType::C_19C, ClefType::C1_F18C, ClefType::C3_F18C, ClefType::C4_F18C, ClefType::C1_F20C, ClefType::C3_F20C, ClefType::C4_F20C,
-             ClefType::F,   ClefType::F_8VA, ClefType::F_15MA,
-            ClefType::F8_VB,    ClefType::F15_MB, ClefType::F_B, ClefType::F_C, ClefType::F_F18C, ClefType::F_19C,  ClefType::PERC,
+            ClefType::G, ClefType::G8_VA, ClefType::G15_MA, ClefType::G8_VB, ClefType::G15_MB, ClefType::G8_VB_O,
+            ClefType::G8_VB_C, ClefType::G8_VB_P, ClefType::G_1, ClefType::C1, ClefType::C2, ClefType::C3,
+            ClefType::C4, ClefType::C4_8VB, ClefType::C5, ClefType::C_19C, ClefType::C1_F18C, ClefType::C3_F18C, ClefType::C4_F18C, ClefType::C1_F20C, ClefType::C3_F20C, ClefType::C4_F20C,
+            ClefType::F, ClefType::F_8VA, ClefType::F_15MA,
+            ClefType::F8_VB, ClefType::F15_MB, ClefType::F_B, ClefType::F_C, ClefType::F_F18C, ClefType::F_19C, ClefType::PERC,
             ClefType::PERC2, ClefType::TAB, ClefType::TAB4, ClefType::TAB_SERIF, ClefType::TAB4_SERIF
             };
 
@@ -1414,6 +1426,7 @@ PalettePanel* MuseScore::newLinesPalettePanel()
       ottava = new Ottava(gscore);
       ottava->setOttavaType(OttavaType::OTTAVA_22MB);
       ottava->setLen(w);
+      ottava->setPlacement(Placement::BELOW);
       ottava->styleChanged();
       sp->append(ottava, QT_TRANSLATE_NOOP("Palette", "22ma bassa"));
 
@@ -1546,7 +1559,7 @@ PalettePanel* MuseScore::newTempoPalettePanel(bool defaultPalettePanel)
             TempoPattern("<sym>metNoteQuarterUp</sym> = <sym>metNoteHalfUp</sym>",    QT_TRANSLATE_NOOP("Palette", "Quarter note = half note metric modulation"),    2.0/1.0, true, false, true, false, false),
             TempoPattern("<sym>metNote8thUp</sym> = <sym>metNote8thUp</sym>",         QT_TRANSLATE_NOOP("Palette", "Eighth note = eighth note metric modulation"),   1.0/1.0, true, false, true, false, false),
             TempoPattern("<sym>metNoteQuarterUp</sym> = <sym>metNoteQuarterUp</sym>", QT_TRANSLATE_NOOP("Palette", "Quarter note = quarter note metric modulation"), 1.0/1.0, true, false, true, false, false),
-            TempoPattern("<sym>metNote8thUp</sym><sym>space</sym><sym>metAugmentationDot</sym> = <sym>metNoteQuarterUp</sym>",     QT_TRANSLATE_NOOP("Palette", "Dotted eighth note = quarter note metric modulation"),  2.0/3.0, true, false, true, false, false),
+            TempoPattern("<sym>metNote8thUp</sym><sym>space</sym><sym>metAugmentationDot</sym> = <sym>metNoteQuarterUp</sym>",     QT_TRANSLATE_NOOP("Palette", "Dotted eighth note = quarter note metric modulation"),  4.0/3.0, true, false, true, false, false),
             };
       for (TempoPattern tp : tps) {
             TempoText* tt = new TempoText(gscore);
@@ -1741,13 +1754,13 @@ PalettePanel* MuseScore::newTimePalettePanel()
             { 7,  8, TimeSigType::NORMAL, "7/8" },
             { 9,  8, TimeSigType::NORMAL, "9/8" },
             { 12, 8, TimeSigType::NORMAL, "12/8" },
-            { 4,  4, TimeSigType::FOUR_FOUR, qApp->translate("symUserNames", "Common time") },
-            { 2,  2, TimeSigType::ALLA_BREVE, qApp->translate("symUserNames", "Cut time") },
+            { 4,  4, TimeSigType::FOUR_FOUR, qApp->translate("symUserNames", Sym::id2userName(SymId::timeSigCommon).toUtf8()) },
+            { 2,  2, TimeSigType::ALLA_BREVE, qApp->translate("symUserNames", Sym::id2userName(SymId::timeSigCutCommon).toUtf8()) },
             { 2,  2, TimeSigType::NORMAL, "2/2" },
             { 3,  2, TimeSigType::NORMAL, "3/2" },
             { 4,  2, TimeSigType::NORMAL, "4/2" },
-            { 2,  2, TimeSigType::CUT_BACH, qApp->translate("symUserNames", "Cut time (Bach)") },
-            { 9,  8, TimeSigType::CUT_TRIPLE, qApp->translate("symUserNames", "Cut triple time (9/8)") },
+            { 2,  2, TimeSigType::CUT_BACH, qApp->translate("symUserNames", Sym::id2userName(SymId::timeSigCut2).toUtf8()) },
+            { 9,  8, TimeSigType::CUT_TRIPLE, qApp->translate("symUserNames", Sym::id2userName(SymId::timeSigCut3).toUtf8()) },
             };
 
       PalettePanel* sp = new PalettePanel(PalettePanel::Type::TimeSig);
@@ -1934,6 +1947,12 @@ void MuseScore::addTempo()
                   else
                         text = "<sym>metNote64thUp</sym> = 80";
                   break;
+            case 128:
+                  if(f.numerator() % 3 == 0)
+                        text = "<sym>metNote64ndUp</sym><sym>space</sym><sym>metAugmentationDot</sym> = 80";
+                  else
+                        text = "<sym>metNote128thUp</sym> = 80";
+                  break;
             default:
                   break;
             }
@@ -1951,7 +1970,7 @@ void MuseScore::addTempo()
       Measure* m = tt->findMeasure();
       if (m && m->hasMMRest() && tt->links()) {
             Measure* mmRest = m->mmRest();
-            for (ScoreElement* se : *tt->links()) {
+            for (ScoreElement*& se : *tt->links()) {
                   TempoText* tt1 = toTempoText(se);
                   if (tt != tt1 && tt1->findMeasure() == mmRest) {
                         tt = tt1;
@@ -1982,13 +2001,13 @@ QMap<QString, QStringList>* smuflRanges()
                   qDebug("Json parse error in <%s>(offset: %d): %s", qPrintable(fi.fileName()),
                      error.offset, qPrintable(error.errorString()));
 
-            for (auto s : o.keys()) {
+            for (const auto& s : o.keys()) {
                   QJsonObject range = o.value(s).toObject();
                   QString desc      = range.value("description").toString();
                   QJsonArray glyphs = range.value("glyphs").toArray();
                   if (glyphs.size() > 0) {
                         QStringList glyphNames;
-                        for (QJsonValue g : glyphs)
+                        for (const QJsonValue& g : qAsConst(glyphs))
                               glyphNames.append(g.toString());
                         ranges.insert(desc, glyphNames);
                         allSymbols << glyphNames;

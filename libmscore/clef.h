@@ -33,7 +33,7 @@ static const int NO_CLEF = -1000;
 //---------------------------------------------------------
 //   ClefType
 //---------------------------------------------------------
-
+// enum must be in sync with clefTable in clef.cpp
 enum class ClefType : signed char {
       INVALID = -1,
       G = 0,
@@ -71,6 +71,10 @@ enum class ClefType : signed char {
       TAB4,
       TAB_SERIF,
       TAB4_SERIF,
+      // new clefs to be added between here
+      C4_8VB,
+      G8_VB_C,
+      // and here in oder to not break TAB clef style
       MAX
       };
 
@@ -126,13 +130,13 @@ class ClefInfo {
 ///    Graphic representation of a clef.
 //
 //   @P showCourtesy  bool    show/hide courtesy clef when applicable
-//   @P small         bool    small, mid-staff clef (read only, set by layout)
+//   @P isSmall       bool    small, mid-staff clef (read only, set by layout)
 //---------------------------------------------------------
 
 class Clef final : public Element {
       SymId symId;
       bool _showCourtesy = true;
-      bool _small = false;
+      bool m_isSmall = false;
       bool _forInstrumentChange = false;
 
       ClefTypeList _clefTypes { ClefType::INVALID };
@@ -155,7 +159,7 @@ class Clef final : public Element {
 
       bool isEditable() const override { return false; }
 
-      bool small() const               { return _small; }
+      bool isSmall() const             { return m_isSmall; }
       void setSmall(bool val);
 
       bool showCourtesy() const        { return _showCourtesy; }
@@ -169,6 +173,9 @@ class Clef final : public Element {
       ClefType clefType() const;
       void setClefType(ClefType i);
       void setClefType(const QString& s);
+
+      int subtype() const override { return int(clefType()); }
+      QString subtypeName() const override { return QString(ClefInfo::name(clefType())); };
 
       void setForInstrumentChange(bool forInstrumentChange) { _forInstrumentChange = forInstrumentChange; }
       bool forInstrumentChange() const { return _forInstrumentChange; }

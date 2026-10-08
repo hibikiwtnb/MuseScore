@@ -10,18 +10,20 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "connector.h"
-#include "score.h"
-#include "spanner.h"
-#include "system.h"
-#include "chordrest.h"
 #include "chord.h"
-#include "segment.h"
-#include "measure.h"
-#include "undo.h"
-#include "staff.h"
+#include "chordrest.h"
+#include "connector.h"
+#include "log.h"
 #include "lyrics.h"
+#include "measure.h"
 #include "musescoreCore.h"
+#include "part.h"
+#include "score.h"
+#include "segment.h"
+#include "spanner.h"
+#include "staff.h"
+#include "system.h"
+#include "undo.h"
 
 namespace Ms {
 
@@ -126,9 +128,17 @@ QByteArray SpannerSegment::mimeData(const QPointF& dragOffset) const
 
 Element* SpannerSegment::propertyDelegate(Pid pid)
       {
-      if (pid == Pid::COLOR || pid == Pid::VISIBLE || pid == Pid::PLACEMENT)
-            return spanner();
-      return 0;
+      switch (pid) {
+            case Pid::COLOR:
+            case Pid::PLACEMENT:
+            case Pid::SPANNER_TICK:
+            case Pid::SPANNER_TICKS:
+            case Pid::SPANNER_TRACK2:
+            case Pid::VISIBLE:
+                  return spanner();
+            default: break;
+            }
+      return nullptr;
       }
 
 //---------------------------------------------------------
@@ -158,7 +168,7 @@ bool SpannerSegment::setProperty(Pid pid, const QVariant& v)
       switch (pid) {
             case Pid::OFFSET2:
                   _offset2 = v.toPointF();
-                  triggerLayoutAll();
+                  triggerLayout();
                   break;
             default:
                   return Element::setProperty(pid, v);
@@ -346,6 +356,11 @@ Spanner::Spanner(const Spanner& s)
       _tick         = s._tick;
       _ticks        = s._ticks;
       _track2       = s._track2;
+      if (!s.startElement() && !spannerSegments().size()) {
+            for (auto segment : s.spannerSegments()) {
+                  add(segment->clone());
+                  }
+            }
       }
 
 Spanner::~Spanner()
@@ -579,14 +594,18 @@ void Spanner::computeStartElement()
       switch (_anchor) {
             case Anchor::SEGMENT: {
                   Segment* seg = score()->tick2segmentMM(tick(), false, SegmentType::ChordRest);
-                  int strack = (track() / VOICES) * VOICES;
-                  int etrack = strack + VOICES;
+                  int strack = part()->startTrack();
+                  int etrack = part()->endTrack();
                   _startElement = 0;
                   if (seg) {
-                        for (int t = strack; t < etrack; ++t) {
-                              if (seg->element(t)) {
-                                    _startElement = seg->element(t);
-                                    break;
+                        if (seg->element(track()))
+                              _startElement = seg->element(track());
+                        else {
+                              for (int t = strack; t < etrack; ++t) {
+                                    if (seg->element(t)) {
+                                          _startElement = seg->element(t);
+                                          break;
+                                          }
                                     }
                               }
                         }
@@ -671,9 +690,14 @@ void Spanner::computeEndElement()
                         _endElement = score()->lastMeasure();
                         }
                   break;
-
-            case Anchor::CHORD:
             case Anchor::NOTE:
+                  if (!_endElement) {
+                        ChordRest* cr = score()->findCR(tick2(), track2());
+                        if (cr && cr->isChord()) {
+                              _endElement = toChord(cr)->upNote();
+                              }
+                        } //FALLTROUGH
+              case Anchor::CHORD:
                   break;
             }
       }
@@ -705,7 +729,7 @@ Note* Spanner::startElementFromSpanner(Spanner* sp, Element* newEnd)
       int   newTrack    = (newEnd->track() - oldEnd->track()) + oldStart->track();
       // look in notes linked to oldStart for a note with the
       // same score as new score and appropriate track
-      for (ScoreElement* newEl : oldStart->linkList())
+      for (ScoreElement*& newEl : oldStart->linkList())
             if (toNote(newEl)->score() == score && toNote(newEl)->track() == newTrack) {
                   newStart = toNote(newEl);
                   break;
@@ -738,7 +762,7 @@ Note* Spanner::endElementFromSpanner(Spanner* sp, Element* newStart)
       int   newTrack    = newStart->track() + (oldEnd->track() - oldStart->track());
       // look in notes linked to oldEnd for a note with the
       // same score as new score and appropriate track
-      for (ScoreElement* newEl : oldEnd->linkList())
+      for (ScoreElement*& newEl : oldEnd->linkList())
             if (toNote(newEl)->score() == score && toNote(newEl)->track() == newTrack) {
                   newEnd = toNote(newEl);
                   break;
@@ -857,7 +881,24 @@ Measure* Spanner::startMeasure() const
 
 Measure* Spanner::endMeasure() const
       {
+      Q_ASSERT(anchor() == Spanner::Anchor::MEASURE);
       return toMeasure(_endElement);
+      }
+
+Measure* Spanner::findStartMeasure() const
+      {
+      if (!_startElement)
+            return nullptr;
+
+      return toMeasure(_startElement->findAncestor(ElementType::MEASURE));
+      }
+
+Measure* Spanner::findEndMeasure() const
+      {
+      if (!_endElement)
+            return nullptr;
+
+      return toMeasure(_endElement->findAncestor(ElementType::MEASURE));
       }
 
 //---------------------------------------------------------
@@ -928,6 +969,8 @@ void Spanner::setEndElement(Element* e)
             Q_ASSERT(!e || e->type() == ElementType::NOTE);
 #endif
       _endElement = e;
+      if (e && ticks() == Fraction() && _tick >= Fraction())
+            setTicks(std::max(e->tick() - _tick, Fraction()));
       }
 
 //---------------------------------------------------------
@@ -1033,7 +1076,7 @@ Element* Spanner::nextSegmentElement()
       {
       Segment* s = startSegment();
       if (s)
-            return s->firstElement(staffIdx());
+            return s->firstElementForNavigation(staffIdx());
       return score()->lastElement();
       }
 
@@ -1045,7 +1088,7 @@ Element* Spanner::prevSegmentElement()
       {
       Segment* s = endSegment();
       if (s)
-            return s->lastElement(staffIdx());
+            return s->lastElementForNavigation(staffIdx());
       return score()->firstElement();
       }
 
@@ -1075,9 +1118,28 @@ void Spanner::setTick2(const Fraction& f)
 
 void Spanner::setTicks(const Fraction& f)
       {
-      _ticks = f;
+      if (!f.positive()) {            
+            qDebug() << "Reversing negative tick span for"
+                     << name() << "starting at tick:" << tick().print()
+                     << "with ticks:" << f.print();
+            _ticks = -f;
+            }
+      else
+            _ticks = f;
+
       if (score())
             score()->spannerMap().setDirty();
+      }
+
+bool Spanner::isVoiceSpecific() const
+      {
+      static const std::set <ElementType> VOICE_SPECIFIC_SPANNERS {
+            ElementType::TRILL,
+            ElementType::HAIRPIN,
+            ElementType::LET_RING,
+            };
+
+      return VOICE_SPECIFIC_SPANNERS.find(type()) == VOICE_SPECIFIC_SPANNERS.end();
       }
 
 //---------------------------------------------------------
@@ -1089,16 +1151,6 @@ void Spanner::triggerLayout() const
       // Spanners do not have parent even when added to a score, so can't check parent here
       const int tr2 = effectiveTrack2();
       score()->setLayout(_tick, _tick + _ticks, staffIdx(), track2staff(tr2), this);
-      }
-
-void Spanner::triggerLayoutAll() const
-      {
-      // Spanners do not have parent even when added to a score, so can't check parent here
-      score()->setLayoutAll(staffIdx(), this);
-
-      const int tr2 = track2();
-      if (tr2 != -1 && tr2 != track())
-            score()->setLayoutAll(track2staff(tr2), this);
       }
 
 //---------------------------------------------------------
@@ -1319,6 +1371,26 @@ void Spanner::writeSpannerStart(XmlWriter& xml, const Element* current, int trac
 void Spanner::writeSpannerEnd(XmlWriter& xml, const Element* current, int track, Fraction tick) const
       {
       Fraction frac = fraction(xml, current, tick);
+      if (frac == score()->endTick()) {
+            // Write a location tag if the spanner ends on the last tick of the score
+            Location spannerEndLoc = Location::absolute();
+            spannerEndLoc.setFrac(frac);
+            spannerEndLoc.setMeasure(0);
+            spannerEndLoc.setTrack(track);
+            spannerEndLoc.setVoice(track2voice(track));
+            spannerEndLoc.setStaff(staffIdx());
+
+            Location prevLoc = Location::absolute();
+            prevLoc.setFrac(xml.curTick());
+            prevLoc.setMeasure(0);
+            prevLoc.setTrack(track);
+            prevLoc.setVoice(track2voice(track));
+            prevLoc.setStaff(staffIdx());
+
+            spannerEndLoc.toRelative(prevLoc);
+            if (spannerEndLoc.frac() != Fraction(0, 1))
+                  spannerEndLoc.write(xml);
+            }
       SpannerWriter w(xml, current, this, track, frac, false);
       w.write();
       }
@@ -1355,7 +1427,7 @@ void SpannerWriter::fillSpannerPosition(Location& l, const MeasureBase* m, const
             }
       else {
             if (!m) {
-                  qWarning("fillSpannerPosition: couldn't find spanner's endpoint's measure");
+                  qDebug("fillSpannerPosition: couldn't find spanner's endpoint's measure");
                   l.setMeasure(0);
                   l.setFrac(tick);
                   return;
@@ -1374,7 +1446,7 @@ SpannerWriter::SpannerWriter(XmlWriter& xml, const Element* current, const Spann
       {
       const bool clipboardmode = xml.clipboardmode();
       if (!sp->startElement() || !sp->endElement()) {
-            qWarning("SpannerWriter: spanner (%s) doesn't have an endpoint!", sp->name());
+            qDebug("SpannerWriter: spanner (%s) doesn't have an endpoint!", sp->name());
             return;
             }
       if (current->isMeasure() || current->isSegment() || (sp->startElement()->type() != current->type())) {
@@ -1446,7 +1518,7 @@ void SpannerSegment::autoplaceSpannerSegment()
                   if (d > -md)
                         yd = d + md;
                   }
-            if (yd != 0.0) {
+            if (!qFuzzyIsNull(yd)) {
                   if (offsetChanged() != OffsetChange::NONE) {
                         // user moved element within the skyline
                         // we may need to adjust minDistance, yd, and/or offset

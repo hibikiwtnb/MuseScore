@@ -10,23 +10,23 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
+//#include "barline.h"
 #include "box.h"
-#include "textframe.h"
-#include "text.h"
-#include "score.h"
-#include "barline.h"
-#include "repeat.h"
-#include "symbol.h"
-#include "system.h"
+#include "fret.h"
+#include "icon.h"
 #include "image.h"
 #include "layoutbreak.h"
-#include "fret.h"
-#include "mscore.h"
-#include "stafftext.h"
-#include "icon.h"
-#include "xml.h"
 #include "measure.h"
+#include "mscore.h"
+#include "repeat.h"
+#include "score.h"
+#include "stafftext.h"
+#include "symbol.h"
+#include "system.h"
+#include "text.h"
+#include "textframe.h"
 #include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -139,7 +139,7 @@ void Box::editDrag(EditData& ed)
             _boxHeight += Spatium(ed.delta.y() / spatium());
             if (ed.vRaster) {
                   qreal vRaster = 1.0 / MScore::vRaster();
-                  int n = lrint(_boxHeight.val() / vRaster);
+                  int n = (int)lrint(_boxHeight.val() / vRaster);
                   _boxHeight = Spatium(vRaster * n);
                   }
             bbox().setRect(0.0, 0.0, system()->width(), point(boxHeight()));
@@ -150,7 +150,7 @@ void Box::editDrag(EditData& ed)
             _boxWidth += Spatium(ed.delta.x() / spatium());
             if (ed.hRaster) {
                   qreal hRaster = 1.0 / MScore::hRaster();
-                  int n = lrint(_boxWidth.val() / hRaster);
+                  int n = (int)lrint(_boxWidth.val() / hRaster);
                   _boxWidth = Spatium(hRaster * n);
                   }
             triggerLayout();
@@ -515,6 +515,11 @@ bool Box::acceptDrop(EditData& data) const
             case ElementType::STAFF_TEXT:
             case ElementType::IMAGE:
             case ElementType::SYMBOL:
+            case ElementType::VBOX:
+            case ElementType::HBOX:
+            case ElementType::TBOX:
+            case ElementType::MEASURE_LIST:
+            case ElementType::MEASURE:
                   return true;
             case ElementType::ICON:
                   switch (toIcon(data.dropElement)->iconType()) {
@@ -571,7 +576,7 @@ Element* Box::drop(EditData& data)
                               }
                         break;
                         }
-                  lb->setTrack(-1);       // these are system elements
+                  lb->setTrack(0);       // these are system elements
                   lb->setParent(this);
                   score()->undoAddElement(lb);
                   return lb;
@@ -587,6 +592,19 @@ Element* Box::drop(EditData& data)
                   return text;
                   }
 
+            case ElementType::HBOX:
+            case ElementType::VBOX:
+            case ElementType::TBOX:
+                  {
+                  if (auto mbSource = e->findMeasureBase()) {
+                        auto mbDestination = this->findMeasureBase();
+                        auto boxClone = mbSource->clone();
+                        boxClone->setPrev(this->prevMM());
+                        boxClone->setNext(mbDestination);
+                        score()->undo(new InsertMeasures(boxClone, boxClone));
+                        }
+                  break;
+                  }
             case ElementType::ICON:
                   switch (toIcon(e)->iconType()) {
                         case IconType::VFRAME:
@@ -641,16 +659,6 @@ QRectF HBox::drag(EditData& data)
       setOffset(QPointF(x1, 0.0));
 //      setStartDragPosition(data.delta);
       return canvasBoundingRect() | r;
-      }
-
-//---------------------------------------------------------
-//   endEditDrag
-//---------------------------------------------------------
-
-void HBox::endEditDrag(EditData&)
-      {
-      triggerLayout();
-      score()->update();
       }
 
 //---------------------------------------------------------

@@ -1,0 +1,297 @@
+name: 'Build: All'
+#run-name: "Build: All - ${{ inputs.build_mode }}"
+
+on:
+  schedule: # scheduled workflows will only run on the default branch. edit default values under gen1 below
+    - cron: '20 1 * * *' # At 01:20 on every day-of-month
+  push: # push.inputs field does not exist, use gen1 below
+    branches:
+      - 3.x
+  pull_request: # pull_request.inputs field does not exist, edit gen1 below
+  workflow_dispatch: # triggered by github web ui run "build all" workflow button
+    inputs:
+      platforms:
+        description: 'Platforms to build:'
+        default: 'linux_x64 linux_armhf linux_arm64 macos_intel macos_apple windows_x64 windows_x32 windows_portable_x32 windows_portable_x64'
+        type: string
+        required: true
+      build_mode:
+        description: 'Build mode: devel, nightly, testing, stable'
+        default: 'devel'
+        type: string
+        required: true
+      runtest:
+        description: 'Check: Unit tests (mtests) (in linux yml)'
+        default: 'on'
+        type: string
+        required: false
+      runvisualtest:
+        description: 'Check: Unit tests (vtest)'
+        default: 'off'
+        type: string
+        required: false
+      publish:
+        description: 'Publish to FTP when nightly generated (obsolete)'
+        default: 'off'
+        type: string
+        required: false
+      notarize:
+        description: 'Notarize (in macos yml): on, off'
+        default: 'on'
+        type: string
+        required: true
+      runtestjob:
+        description: 'run test job dummy (in buildall yml)'
+        default: 'off'
+        type: string
+        required: false
+      execfrom:
+        description: 'workflow github.event_name workaround, leave as is'
+        default: 'buildall'
+        type: string
+        required: true
+  workflow_call: # triggered by "uses" from other yml files. copy paste of workflow_dispatch for simplicity. "default" fields ignored (unsure)
+    inputs:
+      platforms:
+        description: 'Platforms to build:'
+        default: 'linux_x64 linux_armhf linux_arm64 macos_intel macos_apple windows_x64 windows_x32 windows_portable_x32 windows_portable_x64'
+        type: string
+        required: true
+      build_mode:
+        description: 'Build mode: devel, nightly, testing, stable'
+        default: 'devel'
+        type: string
+        required: true
+      runtest:
+        description: 'Check: Unit tests (mtests) (in linux yml)'
+        default: 'on'
+        type: string
+        required: false
+      runvisualtest:
+        description: 'Check: Unit tests (vtest)'
+        default: 'on'
+        type: string
+        required: false
+      publish:
+        description: 'Publish to FTP when nightly generated (obsolete)'
+        default: 'off'
+        type: string
+        required: false
+      notarize:
+        description: 'Notarize (in macos yml): on, off'
+        default: 'on'
+        type: string
+        required: true
+      runtestjob:
+        description: 'run test job dummy (in buildall yml)'
+        default: 'off'
+        type: string
+        required: false
+      execfrom:
+        description: 'workflow github.event_name workaround, leave as is'
+        default: 'buildall'
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    name: Setup (build all yml)
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.gen1.outputs.platforms }}
+      build_mode: ${{ steps.gen1.outputs.build_mode }}
+      runtest: ${{ steps.gen1.outputs.runtest }}
+      runvisualtest: ${{ steps.gen1.outputs.runvisualtest }}
+      publish: ${{ steps.gen1.outputs.publish }}
+      notarize: ${{ steps.gen1.outputs.notarize }}
+      runtestjob: ${{ steps.gen1.outputs.runtestjob }}
+      execfrom: ${{ steps.gen1.outputs.execfrom }}
+    steps:
+    - id: gen1
+      name: Set or pass values
+      run: |
+        if [[ "${{ inputs.execfrom }}" == "publishdev" ]]; then
+
+          echo "triggered by on.push/pull_request/schedule of publishdev , on.workflow_call of build all"
+
+          echo "platforms=${{ inputs.platforms }}" | tee -a "$GITHUB_OUTPUT"
+          echo "build_mode=${{ inputs.build_mode }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runtest=${{ inputs.runtest }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runvisualtest=${{ inputs.runvisualtest }}" | tee -a "$GITHUB_OUTPUT"
+          echo "publish=${{ inputs.publish }}" | tee -a "$GITHUB_OUTPUT"
+          echo "notarize=${{ inputs.notarize }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runtestjob=${{ inputs.runtestjob }}" | tee -a "$GITHUB_OUTPUT"
+          echo "execfrom=${{ inputs.execfrom }}" | tee -a "$GITHUB_OUTPUT"
+
+        elif [[ "${{ github.event_name }}" == "pull_request" ]];  then
+
+          echo "triggered by 1. on.pull_request of build all or 2. on.pull_request of workflows other than publishdev that triggers on.workflow_call of build all"
+
+          echo "platforms=linux_x64 linux_armhf linux_arm64 macos_intel macos_apple windows_x64 windows_x32 windows_portable_x32 windows_portable_x64" | tee -a "$GITHUB_OUTPUT"
+          echo "build_mode=devel" | tee -a "$GITHUB_OUTPUT"   # copied from make_build_mode_env.sh
+          echo "runtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runvisualtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "publish=off" | tee -a "$GITHUB_OUTPUT"
+          echo "notarize=off" | tee -a "$GITHUB_OUTPUT"                # pull_request notarize off
+          echo "runtestjob=off" | tee -a "$GITHUB_OUTPUT"
+          if [[ -z "${{ inputs.execfrom }}" ]]; then
+            echo "execfrom=buildall" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "execfrom=${{ inputs.execfrom }}" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+        elif [[ "${{ github.event_name }}" == "schedule" ]];  then
+
+          echo "triggered by 1. on.schedule of build all or 2. on.schedule of workflows other than publishdev that triggers on.workflow_call of build all"
+
+          echo "platforms=linux_x64 linux_armhf linux_arm64 macos_intel macos_apple windows_x64 windows_x32 windows_portable_x32 windows_portable_x64" | tee -a "$GITHUB_OUTPUT"
+          echo "build_mode=nightly" | tee -a "$GITHUB_OUTPUT"  # copied from make_build_mode_env.sh
+          echo "runtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runvisualtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "publish=off" | tee -a "$GITHUB_OUTPUT"
+          echo "notarize=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runtestjob=off" | tee -a "$GITHUB_OUTPUT"
+          if [[ -z "${{ inputs.execfrom }}" ]]; then
+            echo "execfrom=buildall" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "execfrom=${{ inputs.execfrom }}" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+        elif [[ "${{ github.event_name }}" == "push" ]]; then
+
+          echo "triggered by 1. on.push of build all or 2. on.push of workflows other than publishdev that triggers on.workflow_call of build all"
+
+          echo "platforms=linux_x64 linux_armhf linux_arm64 macos_intel macos_apple windows_x64 windows_x32 windows_portable_x32 windows_portable_x64" | tee -a "$GITHUB_OUTPUT"
+          echo "build_mode=devel" | tee -a "$GITHUB_OUTPUT"   # copied from make_build_mode_env.sh
+          echo "runtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runvisualtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "publish=off" | tee -a "$GITHUB_OUTPUT"
+          echo "notarize=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runtestjob=off" | tee -a "$GITHUB_OUTPUT"
+          if [[ -z "${{ inputs.execfrom }}" ]]; then
+            echo "execfrom=buildall" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "execfrom=${{ inputs.execfrom }}" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+        else
+
+          echo "platforms=${{ inputs.platforms }}" | tee -a "$GITHUB_OUTPUT"
+          echo "build_mode=${{ inputs.build_mode }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runtest=${{ inputs.runtest }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runvisualtest=${{ inputs.runvisualtest }}" | tee -a "$GITHUB_OUTPUT"
+          echo "publish=${{ inputs.publish }}" | tee -a "$GITHUB_OUTPUT"
+          echo "notarize=${{ inputs.notarize }}" | tee -a "$GITHUB_OUTPUT"
+          echo "runtestjob=${{ inputs.runtestjob }}" | tee -a "$GITHUB_OUTPUT"
+          echo "execfrom=${{ inputs.execfrom }}" | tee -a "$GITHUB_OUTPUT"
+
+        fi
+
+  linux:
+    name: Linux and Unit tests (mtest)
+    needs:
+      - plan
+    uses: ./.github/workflows/build_linux.yml
+    secrets: inherit
+    with:
+      platforms: ${{ needs.plan.outputs.platforms }}
+      build_mode: ${{ needs.plan.outputs.build_mode }}
+      runtest: ${{ needs.plan.outputs.runtest }}
+      publish: ${{ needs.plan.outputs.publish }}
+      execfrom: ${{ needs.plan.outputs.execfrom }}
+
+  macos:
+    name: macOS
+    needs:
+      - plan
+    uses: ./.github/workflows/build_macos.yml
+    secrets: inherit
+    with:
+      platforms: ${{ needs.plan.outputs.platforms }}
+      build_mode: ${{ needs.plan.outputs.build_mode }}
+      publish: ${{ needs.plan.outputs.publish }}
+      notarize: ${{ needs.plan.outputs.notarize }}
+      execfrom: ${{ needs.plan.outputs.execfrom }}
+
+  windows:
+    name: Windows
+    needs:
+      - plan
+    uses: ./.github/workflows/build_windows.yml
+    secrets: inherit
+    with:
+      platforms: ${{ needs.plan.outputs.platforms }}
+      build_mode: ${{ needs.plan.outputs.build_mode }}
+      publish: ${{ needs.plan.outputs.publish }}
+      execfrom: ${{ needs.plan.outputs.execfrom }}
+
+  vtest:
+    name: Unit tests (vtest)
+    if: needs.plan.outputs.runvisualtest == 'on'
+    needs:
+      - plan
+    uses: ./.github/workflows/check_visual_tests.yml
+    secrets: inherit
+
+  #commented out for better workflow graph on github
+  # Dummy build for testing purposes.
+  # dummy:
+  #   if: needs.plan.outputs.runtestjob == 'on'
+  #   needs:
+  #     - plan
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       # Expose edge cases like different command versions, CRLF line endings, etc.
+  #       # Use same OS versions as used in real build workflows.
+  #       os:
+  #       - ubuntu-22.04 # linux_x64, backend, linux_arm32, linux_arm64
+  #       - macos-15
+  #       - windows-2025 # windows_x64, windows_portable
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #   - name: Clone repository
+  #     uses: actions/checkout@v7
+  #   - name: Prepare dummy artifact
+  #     run: |
+  #       ARTIFACTS_DIR="build.artifacts"
+  #       echo "ARTIFACTS_DIR=${ARTIFACTS_DIR}" | tee -a "${GITHUB_ENV}"
+
+  #       build/ci/tools/make_build_mode_env.sh -e "${{ github.event_name }}" -m "${{ needs.plan.outputs.build_mode }}"
+  #       BUILD_MODE="$(<"${ARTIFACTS_DIR}/env/build_mode.env")"
+
+  #       case "${BUILD_MODE}" in
+  #       testing)  MUSE_APP_BUILD_MODE=testing;;
+  #       stable)   MUSE_APP_BUILD_MODE=release;;
+  #       *)        MUSE_APP_BUILD_MODE=dev;;
+  #       esac
+
+  #       build/ci/tools/make_build_number.sh
+  #       BUILD_NUMBER="$(<"${ARTIFACTS_DIR}/env/build_number.env")"
+
+  #       build/ci/tools/make_version_env.sh "${BUILD_NUMBER}"
+  #       BUILD_VERSION="$(<"${ARTIFACTS_DIR}/env/build_version.env")"
+
+  #       build/ci/tools/make_branch_env.sh
+  #       BUILD_BRANCH="$(<"${ARTIFACTS_DIR}/env/build_branch.env")"
+
+  #       build/ci/tools/make_release_channel_env.sh -c "${MUSE_APP_BUILD_MODE}"
+  #       build/ci/tools/make_revision_env.sh "$(git rev-parse --short=7 HEAD)"
+
+  #       build/ci/tools/make_artifact_name_env.sh "MuseScore-Dummy-${BUILD_VERSION}-${{ matrix.os }}-${HOSTTYPE}.txt"
+  #       ARTIFACT_NAME="$(<"${ARTIFACTS_DIR}/env/artifact_name.env")"
+
+  #       echo "Hello, world!" >"${ARTIFACTS_DIR}/${ARTIFACT_NAME}"
+  #       build/ci/tools/checksum.sh
+
+  #       UPLOAD_ARTIFACT_NAME="$(tr '":<>|*?/\\’' '_' <<<"MU4_${BUILD_NUMBER}_Dummy-${{ matrix.os }}_${BUILD_BRANCH}")"
+  #       echo "UPLOAD_ARTIFACT_NAME=${UPLOAD_ARTIFACT_NAME}" | tee -a "${GITHUB_ENV}"
+  #   - name: Upload artifacts to GitHub
+  #     uses: actions/upload-artifact@v7
+  #     with:
+  #       name: ${{ env.UPLOAD_ARTIFACT_NAME }}
+  #       path: ${{ env.ARTIFACTS_DIR }}

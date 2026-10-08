@@ -22,19 +22,6 @@
 namespace Ms {
 
 //---------------------------------------------------------
-//   KeySigEvent
-//---------------------------------------------------------
-
-KeySigEvent::KeySigEvent(const KeySigEvent& k)
-      {
-      _key        = k._key;
-      _mode       = k._mode;
-      _custom     = k._custom;
-      _keySymbols = k._keySymbols;
-      _forInstrumentChange = k._forInstrumentChange;
-      }
-
-//---------------------------------------------------------
 //   enforceLimits - ensure _key
 //   is within acceptable limits (-7 .. +7).
 //   see KeySig::layout()
@@ -238,16 +225,24 @@ void AccidentalState::init(const KeySigEvent& keySig, ClefType clef)
       {
       if (keySig.custom()) {
             memset(state, ACC_STATE_NATURAL, MAX_ACC_STATE);
+            bool used[7] = { false };
             for (const KeySym& s : keySig.keySymbols()) {
                   AccidentalVal a = sym2accidentalVal(s.sym);
                   int line = int(s.spos.y() * 2);
-                  int idx       = relStep(line, clef) % 7;
-                  for (int octave = 0; octave < (11 * 7); octave += 7) {
-                        int i = idx + octave ;
-                        if (i >= MAX_ACC_STATE)
-                              break;
-                        state[i] = int(a) - int(AccidentalVal::MIN);
+                  int step = absStep(line, clef);
+                  int idx = step % 7;
+                  if (used[idx]) { // accidental for this step already used, so apply only to this octave
+                        state[step] = int(a) - int(AccidentalVal::MIN);
                         }
+                  else {
+                        for (int octave = 0; octave < (11 * 7); octave += 7) {
+                              int i = idx + octave;
+                              if (i >= MAX_ACC_STATE)
+                                    break;
+                              state[i] = int(a) - int(AccidentalVal::MIN);
+                              }
+                        }
+                  used[idx] = true;
                   }
             }
       else {

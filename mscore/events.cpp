@@ -10,27 +10,26 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "scoreview.h"
-#include "zoombox.h"
+#include "fotomode.h"
 #include "musescore.h"
+#include "scoreview.h"
 #include "seq.h"
 #include "texttools.h"
-#include "fotomode.h"
-#include "tourhandler.h"
-#include "scoreaccessibility.h"
-#include "libmscore/score.h"
+#include "zoombox.h"
+
+#include "libmscore/chordrest.h"
 #include "libmscore/keysig.h"
-#include "libmscore/timesig.h"
-#include "libmscore/segment.h"
-#include "libmscore/utils.h"
-#include "libmscore/text.h"
 #include "libmscore/measure.h"
-#include "libmscore/stafflines.h"
-#include "libmscore/chord.h"
-#include "libmscore/shadownote.h"
 #include "libmscore/repeatlist.h"
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
 #include "libmscore/select.h"
+#include "libmscore/shadownote.h"
 #include "libmscore/staff.h"
+#include "libmscore/stafflines.h"
+#include "libmscore/text.h"
+#include "libmscore/timesig.h"
+#include "libmscore/utils.h"
 
 namespace Ms {
 
@@ -148,6 +147,15 @@ void ScoreView::wheelEvent(QWheelEvent* event)
       int dx = 0, dy = 0, n = 0;
       qreal nReal = 0.0;
 
+// pixelDelta is unreliable on X11
+#ifdef Q_OS_LINUX
+      if (std::getenv("WAYLAND_DISPLAY") == NULL) {
+          // Ignore pixelsScrolled unless Wayland is used
+          pixelsScrolled.setX(0);
+          pixelsScrolled.setY(0);
+      }
+#endif
+
       if (!pixelsScrolled.isNull()) {
             dx = pixelsScrolled.x();
             dy = pixelsScrolled.y();
@@ -175,7 +183,11 @@ void ScoreView::wheelEvent(QWheelEvent* event)
 
       if (event->modifiers() & Qt::ControlModifier) { // Windows touch pad pinches also execute this
             QApplication::sendPostedEvents(this, 0);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+            zoomBySteps(nReal, true, event->position());
+#else
             zoomBySteps(nReal, true, event->posF());
+#endif
             return;
             }
 
@@ -562,7 +574,19 @@ void ScoreView::mousePressEvent(QMouseEvent* ev)
                   bool restMode = _score->inputState().rest();
                   if (ev->button() == Qt::RightButton)
                         _score->inputState().setRest(!restMode);
-                  _score->putNote(editData.startMove, ev->modifiers() & Qt::ShiftModifier, ev->modifiers() & Qt::ControlModifier);
+                  if (MScore::disableMouseEntry) {
+                        if (auto el = elementAt(editData.pos)) {
+                              if (!el->isStaffLines()) {
+                                    _score->select(el);
+                                    if (el->isNote() || el->isRest())
+                                          _score->inputState().moveInputPos(el);
+                                    else changeState(ViewState::NORMAL);
+                                    //adjustCanvasPosition(el, true);
+                                    }
+                              }
+                        }
+                  else _score->putNote(editData.startMove, ev->modifiers() & Qt::ShiftModifier, ev->modifiers() & Qt::ControlModifier);
+
                   if (ev->button() == Qt::RightButton)
                         _score->inputState().setRest(restMode);
                   _score->endCmd();
@@ -1110,6 +1134,19 @@ void ScoreView::changeState(ViewState s)
             return;
 
       qDebug("changeState %s  -> %s", stateName(state), stateName(s));
+
+      auto& selection = _score->selection();
+
+      if (selection.hasTemporaryFilter()) {
+            auto& sf = score()->selectionFilter();
+            sf.setFiltered(SelectionFilterType::ALL, true);
+            sf.setFiltered(SelectionFilterType::FIRST_VOICE, true);
+            sf.setFiltered(SelectionFilterType::SECOND_VOICE, true);
+            sf.setFiltered(SelectionFilterType::THIRD_VOICE, true);
+            sf.setFiltered(SelectionFilterType::FOURTH_VOICE, true);
+            selection.hasTemporaryFilter(false);
+            }
+
       //
       //    end current state
       //

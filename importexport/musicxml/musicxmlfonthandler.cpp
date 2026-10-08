@@ -21,7 +21,6 @@
  MusicXML font handling support.
  */
 
-#include "libmscore/sym.h"
 #include "libmscore/xml.h"
 #include "musicxmlfonthandler.h"
 
@@ -35,10 +34,11 @@ namespace Ms {
 #if 0
 static QString charFormat2QString(const CharFormat& f)
       {
-      return QString("b %1 i %2 u %3 va %4 fs %5 fam %6")
+      return QString("b %1 i %2 u %3 s %4 va %5 fs %6 fam %7")
             .arg(f.bold())
             .arg(f.italic())
             .arg(f.underline())
+            .arg(f.strike())
             .arg(static_cast<int>(f.valign()))
             .arg(f.fontSize())
             .arg(f.fontFamily())
@@ -82,6 +82,7 @@ MScoreTextToMXML::MScoreTextToMXML(const QString& tag, const QString& attr, cons
       oldFormat.setBold(false);
       oldFormat.setItalic(false);
       oldFormat.setUnderline(false);
+      oldFormat.setStrike(false);
       }
 
 //---------------------------------------------------------
@@ -231,7 +232,7 @@ bool MScoreTextToMXML::split(const QList<TextFragment>& in, const int pos, const
 
 void MScoreTextToMXML::writeTextFragments(const QList<TextFragment>& fr, XmlWriter& xml)
       {
-      //qDebug("MScoreTextToMXML::writeTextFragments defFmt %s", qPrintable(charFormat2QString(oldFormat)));
+      //qDebug("MScoreTextToMXML::writeTextFragments");
       //dumpText(fr);
       bool firstTime = true; // write additional attributes only the first time characters are written
       for (const TextFragment& f : fr) {
@@ -252,7 +253,7 @@ static QString attribute(bool needed, bool value, QString trueString, QString fa
       QString res;
       if (needed)
             res = value ? trueString : falseString;
-      if (res != "")
+      if (!res.isEmpty())
             res = " " + res;
       return res;
       }
@@ -272,6 +273,7 @@ QString MScoreTextToMXML::updateFormat()
       res += attribute(newFormat.bold() != oldFormat.bold(), newFormat.bold(), "font-weight=\"bold\"", "font-weight=\"normal\"");
       res += attribute(newFormat.italic() != oldFormat.italic(), newFormat.italic(), "font-style=\"italic\"", "font-style=\"normal\"");
       res += attribute(newFormat.underline() != oldFormat.underline(), newFormat.underline(), "underline=\"1\"", "underline=\"0\"");
+      res += attribute(newFormat.strike() != oldFormat.strike(), newFormat.strike(), "line-through=\"1\"", "line-through=\"0\"");
       res += attribute(newFormat.fontFamily() != oldFormat.fontFamily(), true, QString("font-family=\"%1\"").arg(newFormat.fontFamily()), "");
       bool needSize = newFormat.fontSize() < 0.99 * oldFormat.fontSize() || newFormat.fontSize() > 1.01 * oldFormat.fontSize();
       res += attribute(needSize, true, QString("font-size=\"%1\"").arg(newFormat.fontSize()), "");

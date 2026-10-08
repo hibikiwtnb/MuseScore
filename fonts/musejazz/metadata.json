@@ -3094,11 +3094,11 @@
         "repeatDot": {
             "bBoxNE": [
                 0.636,
-                0.762
+                0.266
             ],
             "bBoxSW": [
                 0.0,
-                0.23
+                -0.266
             ]
         },
         "repeatDots": {
@@ -4162,7 +4162,28 @@
             ]
         }
     },
-    "glyphsWithAlternates": {},
+    "glyphsWithAlternates": {
+        "brace":{
+            "alternates":[
+                {
+                    "codepoint":"U+F400",
+                    "name":"braceSmall"
+                },
+                {
+                    "codepoint":"U+F401",
+                    "name":"braceLarge"
+                },
+                {
+                    "codepoint":"U+F402",
+                    "name":"braceLarger"
+                },
+                {
+                    "codepoint":"U+F403",
+                    "name":"braceFlat"
+                }
+            ]
+        }
+    },
     "glyphsWithAnchors": {
         "accidentalBakiyeFlat": {
             "cutOutNE": [

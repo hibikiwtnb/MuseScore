@@ -10,25 +10,22 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "rest.h"
-#include "score.h"
-#include "xml.h"
-#include "style.h"
-#include "utils.h"
-#include "tuplet.h"
-#include "sym.h"
-#include "stafftext.h"
 #include "articulation.h"
 #include "chord.h"
-#include "note.h"
-#include "measure.h"
-#include "undo.h"
-#include "staff.h"
-#include "harmony.h"
-#include "segment.h"
-#include "stafftype.h"
 #include "icon.h"
 #include "image.h"
+#include "measure.h"
+#include "note.h"
+#include "rest.h"
+#include "score.h"
+#include "segment.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "style.h"
+#include "sym.h"
+#include "undo.h"
+#include "utils.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -153,7 +150,7 @@ void Rest::draw(QPainter* painter) const
 void Rest::setOffset(const QPointF& o)
       {
       qreal _spatium = spatium();
-      int line = lrint(o.y()/_spatium);
+      int line = (int)lrint(o.y()/_spatium);
 
       if (_sym == SymId::restWhole && (line <= -2 || line >= 3))
             _sym = SymId::restWholeLegerLine;
@@ -218,7 +215,6 @@ bool Rest::acceptDrop(EditData& data) const
          || (type == ElementType::STAFF_STATE)
          || (type == ElementType::INSTRUMENT_CHANGE)
          || (type == ElementType::DYNAMIC)
-         || (type == ElementType::HAIRPIN)
          || (type == ElementType::HARMONY)
          || (type == ElementType::TEMPO_TEXT)
          || (type == ElementType::REHEARSAL_MARK)
@@ -230,7 +226,8 @@ bool Rest::acceptDrop(EditData& data) const
          ) {
             return true;
             }
-      return false;
+      // prevent 'hanging' slurs, avoid crash on tie
+      return type != ElementType::SLUR && type != ElementType::TIE && e->isSpanner();
       }
 
 //---------------------------------------------------------
@@ -430,7 +427,7 @@ void Rest::layout()
       const Staff* stf = staff();
       const StaffType*  st = stf ? stf->staffTypeForElement(this) : 0;
       qreal lineDist = st ? st->lineDistance().val() : 1.0;
-      int userLine   = yOff == 0.0 ? 0 : lrint(yOff / (lineDist * _spatium));
+      int userLine   = qFuzzyIsNull(yOff) ? 0 : (int)lrint(yOff / (lineDist * _spatium));
       int lines      = st ? st->lines() : 5;
       int lineOffset = computeLineOffset(lines);
 
@@ -520,7 +517,7 @@ int Rest::getDotline(TDuration::DurationType durationType)
 int Rest::computeLineOffset(int lines)
       {
       Segment* s = segment();
-      bool offsetVoices = s && measure() && measure()->hasVoices(staffIdx(), tick(), actualTicks());
+      bool offsetVoices = s && measure() && (voice() > 0 || measure()->hasVoices(staffIdx(), tick(), actualTicks()));
       if (offsetVoices && voice() == 0) {
             // do not offset voice 1 rest if there exists a matching invisible rest in voice 2;
             Element* e = s->element(track() + 1);
@@ -532,8 +529,9 @@ int Rest::computeLineOffset(int lines)
                   }
             }
 
-      if (offsetVoices) {
-            // if the staff contains slash notation then don't offset voices
+      if (offsetVoices && voice() < 2) {
+            // in slash notation voices 1 and 2 are not offset outside the staff
+            // if the staff contains slash notation then only offset rests in voices 3 and 4
             int baseTrack = staffIdx() * VOICES;
             for (int v = 0; v < VOICES; ++v) {
                   Element* e = s->element(baseTrack + v);
@@ -774,23 +772,13 @@ void Rest::setTrack(int val)
       }
 
 //---------------------------------------------------------
-//   reset
-//---------------------------------------------------------
-
-void Rest::reset()
-      {
-      undoChangeProperty(Pid::BEAM_MODE, int(Beam::Mode::NONE));
-      ChordRest::reset();
-      }
-
-//---------------------------------------------------------
 //   mag
 //---------------------------------------------------------
 
 qreal Rest::mag() const
       {
       qreal m = staff() ? staff()->mag(this) : 1.0;
-      if (small())
+      if (isSmall())
             m *= score()->styleD(Sid::smallNoteMag);
       return m;
       }
@@ -802,7 +790,7 @@ qreal Rest::mag() const
 int Rest::upLine() const
       {
       qreal _spatium = spatium();
-      return lrint((pos().y() + bbox().top() + _spatium) * 2 / _spatium);
+      return (int)lrint((pos().y() + bbox().top() + _spatium) * 2 / _spatium);
       }
 
 //---------------------------------------------------------
@@ -811,8 +799,8 @@ int Rest::upLine() const
 
 int Rest::downLine() const
       {
-      qreal _spatium = spatium();
-      return lrint((pos().y() + bbox().top() + _spatium) * 2 / _spatium);
+      // for rests, downLine() is the same as upLine()
+      return Rest::upLine();
       }
 
 //---------------------------------------------------------
@@ -862,13 +850,20 @@ qreal Rest::rightEdge() const
       return x() + width();
       }
 
+qreal Rest::centerX() const
+      {
+      SymId sym = this->sym();
+      const auto& bbox = symBbox(sym);
+      return symWidth(sym) / 2 + bbox.bottomLeft().x();
+      }
+
 //---------------------------------------------------------
 //   accent
 //---------------------------------------------------------
 
 bool Rest::accent()
       {
-      return (voice() >= 2 && small());
+      return (voice() >= 2 && isSmall());
       }
 
 //---------------------------------------------------------
@@ -968,6 +963,7 @@ void Rest::write(XmlWriter& xml) const
             return;
       writeBeam(xml);
       xml.stag(this);
+      writeStyledProperties(xml);
       ChordRest::writeProperties(xml);
       el().write(xml);
       bool write_dots = false;
@@ -1011,6 +1007,8 @@ void Rest::read(XmlReader& e)
                   dot->read(e);
                   add(dot);
                   }
+            else if (readStyledProperty(e, tag))
+                  ;
             else if (ChordRest::readProperties(e))
                   ;
             else

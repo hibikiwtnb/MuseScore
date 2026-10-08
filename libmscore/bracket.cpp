@@ -11,17 +11,16 @@
 //=============================================================================
 
 #include "bracket.h"
-#include "xml.h"
-#include "style.h"
-#include "utils.h"
-#include "measure.h"
-#include "staff.h"
-#include "system.h"
-#include "score.h"
-#include "system.h"
-#include "sym.h"
-#include "mscore.h"
 #include "bracketItem.h"
+#include "measure.h"
+#include "mscore.h"
+#include "score.h"
+#include "staff.h"
+#include "style.h"
+#include "sym.h"
+#include "system.h"
+#include "utils.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -81,7 +80,7 @@ qreal Bracket::width() const
       qreal w;
       switch (bracketType()) {
             case BracketType::BRACE:
-                  if (score()->styleSt(Sid::MusicalSymbolFont) == "Emmentaler" || score()->styleSt(Sid::MusicalSymbolFont) == "Gonville")
+                  if (score()->styleSt(Sid::musicalSymbolFont) == "Emmentaler" || score()->styleSt(Sid::musicalSymbolFont) == "Gonville")
                         w = score()->styleP(Sid::akkoladeWidth) + score()->styleP(Sid::akkoladeBarDistance);
                   else
                         w = (symWidth(_braceSymbol) * _magx) + score()->styleP(Sid::akkoladeBarDistance);
@@ -113,14 +112,22 @@ void Bracket::setStaffSpan(int a, int b)
       _lastStaff = b;
 
       if (bracketType() == BracketType::BRACE &&
-         score()->styleSt(Sid::MusicalSymbolFont) != "Emmentaler" && score()->styleSt(Sid::MusicalSymbolFont) != "Gonville")
+         score()->styleSt(Sid::musicalSymbolFont) != "Emmentaler" && score()->styleSt(Sid::musicalSymbolFont) != "Gonville")
             {
             int v = _lastStaff - _firstStaff + 1;
-            if (score()->styleSt(Sid::MusicalSymbolFont) == "Leland")
+
+            // if staves inner staves are hidden, decrease span
+            for (int staffIndex = _firstStaff; staffIndex <= _lastStaff; ++staffIndex) {
+                  if (system() && !system()->staff(staffIndex)->show())
+                        --v;
+                  }
+
+            if (score()->styleSt(Sid::musicalSymbolFont) == "Leland")
                   v = qMin(4, v);
-            // total default height of a system of n staves / height of a 5 line staff
-            qreal dist = score()->enableVerticalSpread() ? score()->styleS(Sid::maxAkkoladeDistance).val() : score()->styleS(Sid::akkoladeDistance).val();
-            _magx = v + ((v - 1) * dist / 4.0);
+
+            // 1.625 is a "magic" number based on akkoladeDistance/4.0 (default value 6.5).
+            _magx = v + ((v - 1) * 1.625);
+
             if (v == 1)
                   _braceSymbol = SymId::braceSmall;
             else if (v <= 2)
@@ -139,13 +146,13 @@ void Bracket::setStaffSpan(int a, int b)
 void Bracket::layout()
       {
       path = QPainterPath();
-      if (h2 == 0.0)
+      if (qFuzzyIsNull(h2 ))
             return;
 
       _shape.clear();
       switch (bracketType()) {
             case BracketType::BRACE: {
-                  if (score()->styleSt(Sid::MusicalSymbolFont) == "Emmentaler" || score()->styleSt(Sid::MusicalSymbolFont) == "Gonville") {
+                  if (score()->styleSt(Sid::musicalSymbolFont) == "Emmentaler" || score()->styleSt(Sid::musicalSymbolFont) == "Gonville") {
                         _braceSymbol = SymId::noSym;
                         qreal w = score()->styleP(Sid::akkoladeWidth);
 
@@ -191,7 +198,7 @@ void Bracket::layout()
                   qreal w = score()->styleP(Sid::bracketWidth) * .5;
                   qreal x = -w;
 
-                  qreal bd   = (score()->styleSt(Sid::MusicalSymbolFont) == "Leland") ? _spatium * .5 : _spatium * .25;
+                  qreal bd   = (score()->styleSt(Sid::musicalSymbolFont) == "Leland") ? _spatium * .5 : _spatium * .25;
                   _shape.add(QRectF(x, -bd, w * 2, 2 * (h2+bd)));
                   _shape.add(symBbox(SymId::bracketTop).translated(QPointF(-w, -bd)));
                   _shape.add(symBbox(SymId::bracketBottom).translated(QPointF(-w, bd + 2*h2)));
@@ -234,7 +241,7 @@ void Bracket::layout()
 
 void Bracket::draw(QPainter* painter) const
       {
-      if (h2 == 0.0)
+      if (qFuzzyIsNull(h2 ))
             return;
       switch (bracketType()) {
             case BracketType::BRACE: {
@@ -258,7 +265,7 @@ void Bracket::draw(QPainter* painter) const
                   qreal h        = 2 * h2;
                   qreal _spatium = spatium();
                   qreal w        = score()->styleP(Sid::bracketWidth);
-                  qreal bd       = (score()->styleSt(Sid::MusicalSymbolFont) == "Leland") ? _spatium * .5 : _spatium * .25;
+                  qreal bd       = (score()->styleSt(Sid::musicalSymbolFont) == "Leland") ? _spatium * .5 : _spatium * .25;
                   QPen pen(curColor(), w, Qt::SolidLine, Qt::FlatCap);
                   painter->setPen(pen);
                   painter->drawLine(QLineF(0.0, -bd - w * .5, 0.0, h + bd + w * .5));

@@ -18,16 +18,13 @@
 //=============================================================================
 
 #include "notetweakerdialog.h"
+#include "pianorolledittool.h"
 
 #include "libmscore/segment.h"
 #include "libmscore/score.h"
 #include "libmscore/staff.h"
 #include "libmscore/chord.h"
-#include "libmscore/rest.h"
 #include "libmscore/note.h"
-#include "libmscore/slur.h"
-#include "libmscore/tie.h"
-#include "libmscore/tuplet.h"
 #include "libmscore/noteevent.h"
 #include "libmscore/undo.h"
 
@@ -73,13 +70,13 @@ void NoteTweakerDialog::setNoteOffTime()
       QStringList parts = s.split("/");
       int num = parts[0].toInt();
       double denom = parts[1].toInt();
-      double gapTicks = MScore::division * num / denom;
+      double gapTicks = DIVISION * num / denom;
 
       Score* score = _staff->score();
 
       score->startCmd();
 
-      for (Note* note: noteList) {
+      for (Note*& note: noteList) {
             if (!note->selected())
                   continue;
 
@@ -119,10 +116,10 @@ void NoteTweakerDialog::setStaff(Staff* s)
 //   addChord
 //---------------------------------------------------------
 
-void NoteTweakerDialog::addChord(Chord* chord, int voice)
+void NoteTweakerDialog::addChord(Chord* chord)
       {
       for (Chord* c : chord->graceNotes())
-            addChord(c, voice);
+            addChord(c);
       for (Note* note : chord->notes()) {
             if (note->tieBack())
                   continue;
@@ -142,17 +139,16 @@ void NoteTweakerDialog::updateNotes()
             return;
             }
 
-      int staffIdx = _staff->idx();
-      if (staffIdx == -1)
-            return;
+      const Score* const score = _staff->score();
+      const QVector<int> tracks =
+            pianoRollScopeTracks(_staff, PianoRollScope::STAFF);
 
-      SegmentType st = SegmentType::ChordRest;
-      for (Segment* s = _staff->score()->firstSegment(st); s; s = s->next1(st)) {
-            for (int voice = 0; voice < VOICES; ++voice) {
-                  int track = voice + staffIdx * VOICES;
+      const SegmentType st = SegmentType::ChordRest;
+      for (Segment* s = score->firstSegment(st); s; s = s->next1(st)) {
+            for (int track : tracks) {
                   Element* e = s->element(track);
                   if (e && e->isChord())
-                        addChord(toChord(e), voice);
+                        addChord(toChord(e));
                   }
             }
 

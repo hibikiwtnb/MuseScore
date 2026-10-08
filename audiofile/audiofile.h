@@ -30,7 +30,7 @@ class AudioFile {
       SF_INSTRUMENT inst;
       bool hasInstrument { false };
       QByteArray buf;  // used during read of Sample
-      int idx { 0 };
+      sf_count_t idx { 0 };
       FormatType _type { fltp };
 
    public:
@@ -39,6 +39,7 @@ class AudioFile {
 
       bool open(const QByteArray&);
       const char* error() const     { return sf_strerror(sf); }
+      sf_count_t readData(float* data, sf_count_t frames);
       sf_count_t readData(short* data, sf_count_t frames);
 
       int channels() const   { return info.channels; }

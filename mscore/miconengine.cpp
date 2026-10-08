@@ -149,7 +149,7 @@ void MIconEnginePrivate::loadDataForModeAndState(QSvgRenderer* renderer, QIcon::
                                     auto colorName = Ms::preferences.getColor(PREF_UI_BUTTON_HIGHLIGHT_COLOR_ENABLED_DARK_ON).name().toLatin1();
                                     ba.replace("#3b3f45", colorName).replace("#3B3F45", colorName).replace("rgb(59,63,69)", colorName);
                                     }
-			            else {
+                              else {
                                     auto colorName = Ms::preferences.getColor(PREF_UI_BUTTON_HIGHLIGHT_COLOR_ENABLED_DARK_OFF).name().toLatin1();
                                     ba.replace("#3b3f45", colorName).replace("#3B3F45", colorName).replace("rgb(59,63,69)", colorName);
                                     }
@@ -162,7 +162,7 @@ void MIconEnginePrivate::loadDataForModeAndState(QSvgRenderer* renderer, QIcon::
                               else {
                                     auto colorName = Ms::preferences.getColor(PREF_UI_BUTTON_HIGHLIGHT_COLOR_ENABLED_LIGHT_OFF).name().toLatin1();
                                     ba.replace("#3b3f45", colorName).replace("#3B3F45", colorName).replace("rgb(59,63,69)", colorName);
-                              }
+                                    }
                               }
                         }
                   renderer->load(ba);

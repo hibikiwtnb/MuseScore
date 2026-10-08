@@ -15,6 +15,9 @@
 
 #include "ui_masterpalette.h"
 
+class QLabel;
+class QToolButton;
+
 namespace Ms {
 
 class Palette;
@@ -35,11 +38,16 @@ class MasterPalette : public QWidget, Ui::MasterPalette
       QTreeWidgetItem* timeItem;
       QTreeWidgetItem* symbolItem;
 
+      QLabel* zoomLabel = nullptr;
+      QToolButton* zoomResetButton = nullptr;
+
       int idxAllSymbols = -1;
 
       virtual void closeEvent(QCloseEvent*);
       Palette* createPalette(int w, int h, bool grid, double mag = 1.0);
       void addPalette(Palette* sp);
+      Palette* currentZoomPalette() const;
+      void updateZoomControls();
 
    signals:
       void closed(bool);

@@ -10,19 +10,18 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "stem.h"
-#include "staff.h"
 #include "chord.h"
-#include "score.h"
-#include "stafftype.h"
 #include "hook.h"
-#include "tremolo.h"
 #include "note.h"
-#include "xml.h"
-
+#include "score.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "stem.h"
 // TEMPORARY HACK!!
 #include "sym.h"
 // END OF HACK
+#include "tremolo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -308,7 +307,7 @@ void Stem::reset()
 bool Stem::acceptDrop(EditData& data) const
       {
       Element* e = data.dropElement;
-      if ((e->type() == ElementType::TREMOLO) && (toTremolo(e)->tremoloType() <= TremoloType::R64)) {
+      if ((e->type() == ElementType::TREMOLO) && (toTremolo(e)->tremoloType() <= TremoloType::R256)) {
             return true;
             }
       return false;
@@ -384,7 +383,7 @@ QVariant Stem::propertyDefault(Pid id) const
       {
       switch (id) {
             case Pid::USER_LEN:
-                  return 0.0;
+                  return Spatium(0.0);
 //            case Pid::LINE_WIDTH:
 //                  return score()->styleP(Sid::stemWidth);
             case Pid::STEM_DIRECTION:

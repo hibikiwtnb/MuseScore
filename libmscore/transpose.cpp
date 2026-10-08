@@ -10,21 +10,21 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "utils.h"
-#include "score.h"
-#include "pitchspelling.h"
-#include "key.h"
-#include "staff.h"
-#include "note.h"
-#include "harmony.h"
-#include "segment.h"
-#include "undo.h"
-#include "keysig.h"
-#include "stafftype.h"
 #include "chord.h"
-#include "measure.h"
 #include "fret.h"
+#include "harmony.h"
+#include "key.h"
+#include "keysig.h"
+#include "measure.h"
+#include "note.h"
 #include "part.h"
+#include "pitchspelling.h"
+#include "score.h"
+#include "segment.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "undo.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -239,6 +239,7 @@ bool Score::transpose(Note* n, Interval interval, bool useDoubleSharpsFlats)
 bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKey,
   int transposeInterval, bool trKeys, bool transposeChordNames, bool useDoubleSharpsFlats)
       {
+      bool result = true;
       bool rangeSelection = selection().isRange();
       int startStaffIdx   = 0;
       int endStaffIdx     = 0;
@@ -312,8 +313,10 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                         if (mode == TransposeMode::DIATONICALLY)
                               note->transposeDiatonic(transposeInterval, trKeys, useDoubleSharpsFlats);
                         else {
-                              if (!transpose(note, interval, useDoubleSharpsFlats))
-                                    return false;
+                              if (!transpose(note, interval, useDoubleSharpsFlats)) {
+                                    result = false;
+                                    continue;
+                                    }
                               }
                         }
                   else if (e->isHarmony() && transposeChordNames) {
@@ -350,7 +353,6 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                               }
                         }
                   }
-            return true;
             }
 
       //--------------------------
@@ -382,6 +384,8 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
             }
 
       Segment* s1 = _selection.startSegment();
+      if (!s1)
+            return result;
       // if range start on mmRest, get the actual segment instead
       if (s1->measure()->isMMRest())
             s1 = tick2segment(s1->tick(), true, s1->segmentType(), false);
@@ -408,8 +412,10 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                               if (mode == TransposeMode::DIATONICALLY)
                                     n->transposeDiatonic(transposeInterval, trKeys, useDoubleSharpsFlats);
                               else {
-                                    if (!transpose(n, interval, useDoubleSharpsFlats))
-                                          return false;
+                                    if (!transpose(n, interval, useDoubleSharpsFlats)) {
+                                          result = false;
+                                          continue;
+                                          }
                                     }
                               }
                         for (Chord* g : chord->graceNotes()) {
@@ -417,8 +423,10 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                                     if (mode == TransposeMode::DIATONICALLY)
                                           n->transposeDiatonic(transposeInterval, trKeys, useDoubleSharpsFlats);
                                     else {
-                                          if (!transpose(n, interval, useDoubleSharpsFlats))
-                                                return false;
+                                          if (!transpose(n, interval, useDoubleSharpsFlats)) {
+                                                result = false;
+                                                continue;
+                                                }
                                           }
                                     }
                               }
@@ -426,7 +434,7 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                   else if (e->isKeySig() && trKeys && mode != TransposeMode::DIATONICALLY) {
                         KeySig* ks = toKeySig(e);
                         Fraction tick = segment->tick();
-                        bool startKey = tick == s1->tick();
+                        bool startKey = tick == s1->tick() && !isFirstSystemKeySig(ks);
                         bool addKey = ks->isChange();
                         if ((startKey || addKey) && !ks->isCustom() && !ks->isAtonal()) {
                               Staff* staff = ks->staff();
@@ -497,7 +505,7 @@ bool Score::transpose(TransposeMode mode, TransposeDirection direction, Key trKe
                         }
                   }
             }
-      return true;
+      return result;
       }
 
 //---------------------------------------------------------

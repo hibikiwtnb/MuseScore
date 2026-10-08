@@ -40,6 +40,11 @@ HPiano::HPiano(QWidget* parent)
       setMidLineWidth(0);
 
       setScene(new QGraphicsScene);
+      // A spatial index has nothing to offer for 88 keys that never move, and its
+      // BSP tree has been observed to go stale after hours of use: the scene then
+      // no longer finds the keys in part of the keyboard, so they stop being drawn
+      // and stop responding to clicks until MuseScore gets restarted
+      scene()->setItemIndexMethod(QGraphicsScene::NoIndex);
       setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
       setResizeAnchor(QGraphicsView::AnchorUnderMouse);
       setMouseTracking(true);
@@ -171,12 +176,32 @@ void HPiano::pressPitch(int pitch)
       }
 
 //---------------------------------------------------------
+//   pressPlaybackPitch
+//---------------------------------------------------------
+
+void HPiano::pressPlaybackPitch(int pitch)
+      {
+      _pressedPlaybackPitches.insert(pitch);
+      updateAllKeys();
+      }
+
+//---------------------------------------------------------
 //   releasePitch
 //---------------------------------------------------------
 
 void HPiano::releasePitch(int pitch)
       {
       _pressedPitches.remove(pitch);
+      updateAllKeys();
+      }
+
+//---------------------------------------------------------
+//   releasePlaybackPitch
+//---------------------------------------------------------
+
+void HPiano::releasePlaybackPitch(int pitch)
+      {
+      _pressedPlaybackPitches.remove(pitch);
       updateAllKeys();
       }
 
@@ -199,6 +224,8 @@ void HPiano::changeSelection(const Selection& selection)
             }
       for (PianoKeyItem* key : qAsConst(keys))
             key->update();
+      // Force redraw
+      scene()->invalidate();
       }
 
 // used when currentScore() is NULL; same as above except the for loop
@@ -209,6 +236,21 @@ void HPiano::clearSelection()
             key->setSelected(false);
             key->update();
             }
+      // Force redraw
+      scene()->invalidate();
+      }
+
+//---------------------------------------------------------
+//   setPlaybackActive
+//---------------------------------------------------------
+
+void HPiano::setPlaybackActive(bool active)
+      {
+      if (_playbackActive == active)
+            return;
+
+      _playbackActive = active;
+      updateAllKeys();
       }
 
 //---------------------------------------------------------
@@ -222,6 +264,8 @@ void HPiano::updateAllKeys()
                             || _pressedPlaybackPitches.contains(key->pitch()));
             key->update();
             }
+      // Force redraw
+      scene()->invalidate();
       }
 
 void HPiano::setMaximum(bool top_level) {
@@ -247,9 +291,11 @@ PianoKeyItem::PianoKeyItem(HPiano* _piano, int p)
       _highlighted = false;
       type = -1;
 
-      const char* pitchNames[] = {"C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"}; // keep in sync with `valu` in limbscore/utils.cpp
-      QString text = qApp->translate("utils", pitchNames[_pitch % 12]) + QString::number((_pitch / 12) - 1);
-      setToolTip(text);
+      if (preferences.getBool(PREF_UI_PIANO_SHOWPITCHHELP)) { // changes to that setting take effect only after restarting MuseScore though
+            const char* pitchNames[] = {"C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"}; // keep in sync with `valu` in limbscore/utils.cpp
+            QString text = qApp->translate("utils", pitchNames[_pitch % 12]) + QString::number((_pitch / 12) - 1);
+            setToolTip(text);
+            }
       }
 
 //---------------------------------------------------------
@@ -382,29 +428,31 @@ void PianoKeyItem::mouseReleaseEvent(QGraphicsSceneMouseEvent*)
 
 void PianoKeyItem::paint(QPainter* p, const QStyleOptionGraphicsItem* /*o*/, QWidget*)
       {
+      const bool isBlackKey = (type >= 7);
+      const bool showSelectionState = !piano->playbackActive();
       p->setRenderHint(QPainter::Antialiasing, true);
       p->setPen(QPen(Qt::black, .8));
       if (_pressed) {
-            QColor c(preferences.getColor(PREF_UI_PIANO_HIGHLIGHTCOLOR));
+            QColor c(preferences.getColor(PREF_UI_PIANO_USER_INPUT_COLOR));
             c.setAlpha(180);
             p->setBrush(c);
             }
-      else if (_selected) {
+      else if (showSelectionState && _selected) {
             QColor c(preferences.getColor(PREF_UI_PIANO_HIGHLIGHTCOLOR));
             c.setAlpha(100);
             p->setBrush(c);
             }
-      else if (_highlighted)
-            p->setBrush(type >= 7 ? QColor(125, 125, 125) : QColor(200, 200, 200));
+      else if (showSelectionState && _highlighted)
+            p->setBrush(isBlackKey ? QColor(125, 125, 125) : QColor(200, 200, 200));
       else
-            p->setBrush(type >= 7 ? Qt::black : Qt::white);
+            p->setBrush(isBlackKey ? MScore::pianoBlackKeysColor : MScore::pianoWhiteKeysColor);
       p->drawPath(path());
       if (preferences.getBool(PREF_UI_PIANO_SHOWPITCHHELP) && _pitch % 12 == 0) {
             QFont f("Edwin", 6);
             p->setFont(f);
             QString text = "C" + QString::number((_pitch / 12) - 1);
             p->drawText(QRectF(KEY_WIDTH / 2, KEY_HEIGHT - 8, 0, 0),
-               Qt::AlignCenter | Qt::TextDontClip, text);
+               static_cast<int>(Qt::AlignCenter) | static_cast<int>(Qt::TextDontClip), text);
             }
       }
 
@@ -448,8 +496,8 @@ void PianoTools::setPlaybackNotes(QList<const Ms::Note *> notes)
       {
       QSet<int> pitches;
       for (const Note* note : notes) {
-          pitches.insert(note->ppitch());
-          }
+            pitches.insert(note->ppitch());
+            }
       _piano->setPressedPlaybackPitches(pitches);
       }
 
@@ -486,6 +534,7 @@ void HPiano::wheelEvent(QWheelEvent* event)
                   }
             setScale(mag);
             }
+      updateAllKeys();
       }
 
 //---------------------------------------------------------

@@ -78,6 +78,7 @@ void MuseScore::showMasterPalette(const QString& s)
 Palette* MasterPalette::createPalette(int w, int h, bool grid, double mag)
       {
       Palette* sp = new Palette;
+      sp->setContentZoomEnabled(true);
       PaletteScrollArea* psa = new PaletteScrollArea(sp);
       psa->setRestrictHeight(false);
       sp->setMag(mag);
@@ -130,7 +131,14 @@ QString MasterPalette::selectedItem()
 
 void MasterPalette::addPalette(Palette* sp)
       {
+      constexpr qreal MASTER_PALETTE_GRID_SCALE = 1.30;
+
+      sp->setGrid(qRound(sp->gridWidth() * MASTER_PALETTE_GRID_SCALE),
+                  qRound(sp->gridHeight() * MASTER_PALETTE_GRID_SCALE));
+
+      sp->setContentZoomEnabled(true);
       sp->setReadOnly(true);
+
       PaletteScrollArea* psa = new PaletteScrollArea(sp);
       psa->setRestrictHeight(false);
       QTreeWidgetItem* item = new QTreeWidgetItem(QStringList(sp->name()));
@@ -150,6 +158,26 @@ MasterPalette::MasterPalette(QWidget* parent)
       setObjectName("MasterPalette");
       setupUi(this);
       setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
+
+      QHBoxLayout* zoomLayout = new QHBoxLayout;
+      zoomLayout->setContentsMargins(0, 0, 0, 0);
+      zoomLayout->setSpacing(6);
+
+      zoomLayout->addStretch();
+
+      zoomLabel = new QLabel(this);
+      zoomResetButton = new QToolButton(this);
+      zoomResetButton->setText(tr("Reset"));
+
+      zoomLayout->addWidget(zoomLabel);
+      zoomLayout->addWidget(zoomResetButton);
+
+      verticalLayout->addLayout(zoomLayout);
+
+      connect(zoomResetButton, &QToolButton::clicked, this, [this]() {
+            if (Palette* p = currentZoomPalette())
+                  p->resetContentZoom();
+            });
 
       treeWidget->clear();
 
@@ -211,9 +239,19 @@ MasterPalette::MasterPalette(QWidget* parent)
             stack->addWidget(new SymbolDialog(s));
             }
 
+      for (Palette* p : findChildren<Palette*>()) {
+            if (p->contentZoomEnabled()) {
+                  connect(p, &Palette::contentZoomChanged, this, [this](qreal) {
+                        updateZoomControls();
+                        });
+                  }
+            }
+
       connect(treeWidget, &QTreeWidget::currentItemChanged, this, &MasterPalette::currentChanged);
       connect(treeWidget, &QTreeWidget::itemClicked, this, &MasterPalette::clicked);
       retranslate(true);
+
+      updateZoomControls();
 
       MuseScore::restoreGeometry(this);
       }
@@ -229,6 +267,9 @@ void MasterPalette::retranslate(bool firstTime)
       symbolItem->setText(0, qApp->translate("MasterPalette", "Symbols"));
       if (!firstTime)
             retranslateUi(this);
+
+      zoomResetButton->setText(tr("Reset"));
+      updateZoomControls();
       }
 
 //---------------------------------------------------------
@@ -240,6 +281,43 @@ void MasterPalette::currentChanged(QTreeWidgetItem* item, QTreeWidgetItem*)
       int idx = item->data(0, Qt::UserRole).toInt();
       if (idx != -1)
             stack->setCurrentIndex(idx);
+
+      updateZoomControls();
+      }
+
+//---------------------------------------------------------
+//   currentZoomPalette
+//---------------------------------------------------------
+
+Palette* MasterPalette::currentZoomPalette() const
+      {
+      QWidget* current = stack->currentWidget();
+      if (!current)
+            return nullptr;
+
+      const QList<Palette*> palettes = current->findChildren<Palette*>();
+
+      for (Palette* p : palettes) {
+            if (p->contentZoomEnabled())
+                  return p;
+            }
+
+      return nullptr;
+      }
+
+//---------------------------------------------------------
+//   updateZoomControls
+//---------------------------------------------------------
+
+void MasterPalette::updateZoomControls()
+      {
+      Palette* p = currentZoomPalette();
+      const bool enabled = p != nullptr;
+
+      zoomLabel->setEnabled(enabled);
+      zoomResetButton->setEnabled(enabled);
+
+      zoomLabel->setText(paletteZoomLabelText(p));
       }
 
 //---------------------------------------------------------

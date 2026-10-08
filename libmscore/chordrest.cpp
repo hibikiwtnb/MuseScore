@@ -19,18 +19,15 @@
 #include "staff.h"
 #include "tuplet.h"
 #include "score.h"
-#include "sym.h"
 #include "slur.h"
 #include "beam.h"
 #include "breath.h"
 #include "barline.h"
 #include "articulation.h"
 #include "tempo.h"
-#include "tempotext.h"
 #include "note.h"
 #include "arpeggio.h"
 #include "dynamic.h"
-#include "stafftext.h"
 #include "sig.h"
 #include "clef.h"
 #include "lyrics.h"
@@ -48,6 +45,7 @@
 #include "hook.h"
 #include "rehearsalmark.h"
 #include "instrchange.h"
+#include "mcursor.h"
 
 namespace Ms {
 
@@ -63,7 +61,7 @@ ChordRest::ChordRest(Score* s)
       _tabDur      = 0;
       _up          = true;
       _beamMode    = Beam::Mode::AUTO;
-      _small       = false;
+      m_isSmall    = false;
       _melismaEnd  = false;
       _crossMeasure = CrossMeasure::UNKNOWN;
       }
@@ -79,7 +77,7 @@ ChordRest::ChordRest(const ChordRest& cr, bool link)
 
       _beamMode     = cr._beamMode;
       _up           = cr._up;
-      _small        = cr._small;
+      m_isSmall     = cr.m_isSmall;
       _melismaEnd   = cr._melismaEnd;
       _crossMeasure = cr._crossMeasure;
 
@@ -258,18 +256,18 @@ bool ChordRest::readProperties(XmlReader& e)
                   bm = Beam::Mode(val.toInt());
             _beamMode = Beam::Mode(bm);
             }
-      else if (tag == "Articulation") {
+      else if (tag == "Articulation" || tag == "Ornament") { // + 4.x compat
             Articulation* atr = new Articulation(score());
             atr->setTrack(track());
             atr->read(e);
             add(atr);
             }
       else if (tag == "leadingSpace" || tag == "trailingSpace") {
-            qDebug("ChordRest: %s obsolete", tag.toLocal8Bit().data());
+            qDebug("ChordRest: %s obsolete", tag.toLocal8Bit().constData());
             e.skipCurrentElement();
             }
       else if (tag == "small")
-            _small = e.readInt();
+            m_isSmall = e.readInt();
       else if (tag == "duration")
             setTicks(e.readFraction());
       else if (tag == "ticklen") {      // obsolete (version < 1.12)
@@ -332,14 +330,14 @@ void ChordRest::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
                         spanner->setStartElement(this);
                         if (pasteMode) {
                               score()->undoAddElement(spanner);
-                              for (ScoreElement* ee : spanner->linkList()) {
-                                    if (ee == spanner)
+                              for (ScoreElement*& linkedSpanner : spanner->linkList()) {
+                                    if (linkedSpanner == spanner)
                                           continue;
-                                    Spanner* ls = toSpanner(ee);
+                                    Spanner* ls = toSpanner(linkedSpanner);
                                     ls->setTick(spanner->tick());
-                                    for (ScoreElement* eee : linkList()) {
-                                          ChordRest* cr = toChordRest(eee);
-                                          if (cr->score() == eee->score() && cr->staffIdx() == ls->staffIdx()) {
+                                    for (ScoreElement*& linkedCR : linkList()) {
+                                          ChordRest* cr = toChordRest(linkedCR);
+                                          if (cr->score() == linkedSpanner->score() && cr->staffIdx() == ls->staffIdx()) {
                                                 ls->setTrack(cr->track());
                                                 if (ls->isSlur())
                                                       ls->setStartElement(cr);
@@ -356,14 +354,14 @@ void ChordRest::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
                         spanner->setTick2(tick());
                         spanner->setEndElement(this);
                         if (pasteMode) {
-                              for (ScoreElement* ee : spanner->linkList()) {
-                                    if (ee == spanner)
+                              for (ScoreElement*& linkedSpanner : spanner->linkList()) {
+                                    if (linkedSpanner == spanner)
                                           continue;
-                                    Spanner* ls = static_cast<Spanner*>(ee);
+                                    Spanner* ls = static_cast<Spanner*>(linkedSpanner);
                                     ls->setTick2(spanner->tick2());
-                                    for (ScoreElement* eee : linkList()) {
-                                          ChordRest* cr = toChordRest(eee);
-                                          if (cr->score() == eee->score() && cr->staffIdx() == ls->staffIdx()) {
+                                    for (ScoreElement*& linkedCR : linkList()) {
+                                          ChordRest* cr = toChordRest(linkedCR);
+                                          if (cr->score() == linkedSpanner->score() && cr->staffIdx() == ls->staffIdx()) {
                                                 ls->setTrack2(cr->track());
                                                 if (ls->type() == ElementType::SLUR)
                                                       ls->setEndElement(cr);
@@ -388,7 +386,7 @@ void ChordRest::readAddConnector(ConnectorInfoReader* info, bool pasteMode)
 
 void ChordRest::setSmall(bool val)
       {
-      _small = val;
+      m_isSmall = val;
       }
 
 //---------------------------------------------------------
@@ -441,7 +439,7 @@ Element* ChordRest::drop(EditData& data)
                               return m->drop(data);
 
                         BarLine* obl = 0;
-                        for (Staff* st  : staff()->staffList()) {
+                        for (Staff*& st  : staff()->staffList()) {
                               Score* score = st->score();
                               Measure* measure = score->tick2measure(m->tick());
                               Segment* seg = measure->undoGetSegmentR(SegmentType::BarLine, rtick());
@@ -508,16 +506,17 @@ Element* ChordRest::drop(EditData& data)
 
             case ElementType::NOTE: {
                   Note* note = toNote(e);
-                  NoteVal nval;
-                  nval.pitch = note->pitch();
-                  nval.tpc1 = note->tpc1();
-                  nval.headGroup = note->headGroup();
-                  nval.fret = note->fret();
-                  nval.string = note->string();
-                  score()->setNoteRest(segment(), track(), nval, ticks(), Direction::AUTO);
-                  delete e;
+                  Segment* seg = segment();
+                  score()->undoRemoveElement(this);
+                  Chord* chord = new Chord(score());
+                  chord->setTrack(track());
+                  chord->setDurationType(durationType());
+                  chord->setTicks(ticks());
+                  chord->setTuplet(tuplet());
+                  chord->add(note);
+                  score()->undoAddCR(chord, seg->measure(), seg->tick());
+                  return note;
                   }
-                  break;
 
             case ElementType::HARMONY:
                   {
@@ -562,10 +561,14 @@ Element* ChordRest::drop(EditData& data)
                         InstrumentChange* ic = toInstrumentChange(e);
                         ic->setParent(segment());
                         ic->setTrack((track() / VOICES) * VOICES);
-                        Instrument* instr = ic->instrument();
-                        Instrument* prevInstr = part()->instrument(tick());
-                        if (instr && instr->isDifferentInstrument(*prevInstr))
-                              ic->setupInstrument(instr);
+
+                        const Instrument* instr = part()->instrument(tick());
+                        if (!instr) {
+                            delete e;
+                            return 0;
+                        }
+
+                        ic->setInstrument(*instr);
                         score()->undoAddElement(ic);
                         return e;
                         }
@@ -627,17 +630,15 @@ Element* ChordRest::drop(EditData& data)
                   }
                   break;
 
-            case ElementType::HAIRPIN:
-                  {
-                  Hairpin* hairpin = toHairpin(e);
-                  hairpin->setTick(tick());
-                  hairpin->setTrack(track());
-                  hairpin->setTrack2(track());
-                  score()->undoAddElement(hairpin);
-                  }
-                  return e;
-
             default:
+                  if (e->isSpanner()) {
+                        Spanner* spanner = toSpanner(e);
+                        spanner->setTick(tick());
+                        spanner->setTrack(track());
+                        spanner->setTrack2(track());
+                        score()->undoAddElement(spanner);
+                        return e;
+                        }
                   qDebug("cannot drop %s", e->name());
                   delete e;
                   return 0;
@@ -716,7 +717,8 @@ QString ChordRest::durationUserName() const
                         tupletType = QObject::tr("Nonuplet");
                         break;
                   default:
-                        tupletType = QObject::tr("Custom tuplet");
+                        //: %1 is tuplet ratio numerator (i.e. the number of notes in the tuplet)
+                        tupletType = QObject::tr("%1 note tuplet").arg(tuplet()->ratio().numerator());
                   }
             }
       QString dotString = "";
@@ -848,7 +850,7 @@ void ChordRest::localSpatiumChanged(qreal oldValue, qreal newValue)
 QVariant ChordRest::getProperty(Pid propertyId) const
       {
       switch (propertyId) {
-            case Pid::SMALL:      return QVariant(small());
+            case Pid::SMALL:      return QVariant::fromValue(isSmall());
             case Pid::BEAM_MODE:  return int(beamMode());
             case Pid::STAFF_MOVE: return staffMove();
             case Pid::DURATION_TYPE: return QVariant::fromValue(actualDurationType());
@@ -1093,6 +1095,8 @@ Element* ChordRest::nextElement()
       Element* e = score()->selection().element();
       if (!e && !score()->selection().elements().isEmpty())
             e = score()->selection().elements().first();
+      if (!e)
+            return nullptr;
       switch (e->type()) {
             case ElementType::ARTICULATION:
             case ElementType::LYRICS: {
@@ -1124,6 +1128,8 @@ Element* ChordRest::prevElement()
       Element* e = score()->selection().element();
       if (!e && !score()->selection().elements().isEmpty())
             e = score()->selection().elements().last();
+      if (!e)
+            return nullptr;
       switch (e->type()) {
             case ElementType::ARTICULATION:
             case ElementType::LYRICS: {
@@ -1140,6 +1146,11 @@ Element* ChordRest::prevElement()
                   break;
                   }
             }
+
+      Tuplet* tuplet = this->tuplet();
+      if (tuplet && this == tuplet->elements().front())
+            return tuplet;
+
       int staffId = e->staffIdx();
       return segment()->prevElement(staffId);
       }
@@ -1256,8 +1267,8 @@ Shape ChordRest::shape() const
       {
       Shape shape;
       {
-      qreal x1 = 1000000.0;
-      qreal x2 = -1000000.0;
+      qreal x1 = DBL_MAX;
+      qreal x2 = -DBL_MAX;
       bool adjustWidth = false;
       for (Lyrics* l : _lyrics) {
             if (!l || !l->addToSkyline())
@@ -1279,8 +1290,8 @@ Shape ChordRest::shape() const
       }
 
       {
-      qreal x1 = 1000000.0;
-      qreal x2 = -1000000.0;
+      qreal x1 = DBL_MAX;
+      qreal x2 = -DBL_MAX;
       bool adjustWidth = false;
       for (Element* e : segment()->annotations()) {
             if (!e || !e->addToSkyline())
@@ -1288,11 +1299,36 @@ Shape ChordRest::shape() const
             if (e->isHarmony() && e->staffIdx() == staffIdx()) {
                   Harmony* h = toHarmony(e);
                   // calculate bbox only (do not reset position)
-                  h->layout1();
+                  if (h->bbox().isEmpty()) h->layout1();
                   const qreal margin = styleP(Sid::minHarmonyDistance) * 0.5;
                   x1 = qMin(x1, e->bbox().x() - margin + e->pos().x());
                   x2 = qMax(x2, e->bbox().x() + e->bbox().width() + margin + e->pos().x());
                   adjustWidth = true;
+                  }
+            else if (e->isFretDiagram()) {
+                  FretDiagram* fd = toFretDiagram(e);
+                  qreal margin = styleP(Sid::fretMinDistance) * 0.5;
+                  bool firstBeat = tick() == measure()->tick();
+                  if (fd->pos().x() == 0)
+                        fd->layoutHorizontal();
+                  else if (fd->bbox().isEmpty())
+                        fd->calculateBoundingRect();
+                  qreal leftX = firstBeat ? 0 : e->bbox().x() - margin + e->pos().x();
+                  qreal rightX = e->bbox().x() + e->bbox().width() + margin + e->pos().x();
+                  x1 = qMin(x1, leftX);
+                  x2 = qMax(x2, rightX);
+                  adjustWidth = true;
+                  if (fd->harmony()) {
+                        Harmony* h = fd->harmony();
+                        margin = styleP(Sid::minHarmonyDistance) * 0.5;
+                        if (h->bbox().isEmpty())
+                              h->layout1();
+                        leftX = firstBeat ? 0 : h->bbox().x() - margin + h->pos().x() + e->pos().x();
+                        rightX = h->bbox().x() + h->bbox().width() + margin + h->pos().x() + e->pos().x();
+                        x1 = qMin(x1, leftX);
+                        x2 = qMax(x2, rightX);
+                        adjustWidth = true;
+                        }
                   }
             }
       if (adjustWidth)
@@ -1310,6 +1346,15 @@ Shape ChordRest::shape() const
 //---------------------------------------------------------
 //   lyrics
 //---------------------------------------------------------
+
+Lyrics* ChordRest::lyrics(int no) const
+      {
+      for (Lyrics* l : _lyrics) {
+            if (l->no() == no)
+                  return l;
+            }
+      return 0;
+      }
 
 Lyrics* ChordRest::lyrics(int no, Placement p) const
       {
@@ -1361,7 +1406,7 @@ void ChordRest::removeMarkings(bool /* keepTremolo */)
 bool ChordRest::isBefore(const ChordRest* o) const
       {
       if (!o || this == o)
-            return true;
+            return false;
       int otick = o->tick().ticks();
       int t     = tick().ticks();
       if (t == otick) { // At least one of the chord is a grace, order the grace notes
@@ -1370,8 +1415,11 @@ bool ChordRest::isBefore(const ChordRest* o) const
             bool oGrace      = o->isGrace();
             bool grace       = isGrace();
             // normal note are initialized at graceIndex 0 and graceIndex is 0 based
-            int oGraceIndex  = oGrace ? toChord(o)->graceIndex() +  1 : 0;
-            int graceIndex   = grace ? toChord(this)->graceIndex() + 1 : 0;
+            int oGraceIndex  = toChord(o)->graceIndex();
+            int graceIndex   = toChord(this)->graceIndex();
+            // Smaller indexes are further away from the note, and larger indexes are closer to the note.
+            // We want to reverse that. Subtracting a 0-based index from the size results in a 1-based index,
+            // which is exactly what we want.
             if (oGrace)
                   oGraceIndex = toChord(o->parent())->graceNotes().size() - oGraceIndex;
             if (grace)
@@ -1396,6 +1444,63 @@ void ChordRest::undoAddAnnotation(Element* a)
       a->setTrack(a->systemFlag() ? 0 : track());
       a->setParent(seg);
       score()->undoAddElement(a);
+      }
+
+//----------------------------------------------------------------
+//    getNotesAtPosition - Get all notes corresponding
+//          to the vertical segment of a ChordRest input. Only one
+//          instrument - the ChordRest's instrument - is taken into
+//          account if onlyOne = true, else the entire score -
+//          currently not implemented for pianoview
+//----------------------------------------------------------------
+
+void ChordRest::getNotesAtPosition(std::vector<Note*>& notesAtPosition, bool onlyOne)
+      {
+      auto part = staff()->part();
+      auto firstTrackOfPart = onlyOne ? part->startTrack()  : 0;
+      auto lastTrackOfPart  = onlyOne ? part->endTrack()    : score()->ntracks();
+      auto currentPosition = tick();
+
+      MCursor c;
+      c.setScore(score()->masterScore());
+      if (!notesAtPosition.empty())
+            notesAtPosition.clear();
+      for (int track = firstTrackOfPart; track < lastTrackOfPart; track++) {
+            c.move(track, currentPosition);
+            if (auto e = c.currentElement()) {
+                  if (e->isChord()) {
+                        auto notes = toChord(e)->notes();
+                        for (auto note : notes) {
+                              notesAtPosition.emplace_back(note);
+                              }
+                        }
+                  }
+            }
+      }
+
+//----------------------------------------------------------------
+//    getChordRestsAtPosition - same as getNotesAtPosition except
+//          now stores ChordRests to include rests for the purposes
+//          of vertical movement of selection of the same tick
+//----------------------------------------------------------------
+
+void ChordRest::getChordRestsAtPosition(std::vector<ChordRest*>& chordRestsAtPosition, bool onlyOne)
+      {
+      auto part = staff()->part();
+      auto firstTrackOfPart = onlyOne ? part->startTrack() : 0;
+      auto lastTrackOfPart  = onlyOne ? part->endTrack()   : score()->ntracks();
+      auto currentPosition = tick();
+
+      MCursor c;
+      c.setScore(score()->masterScore());
+      if (!chordRestsAtPosition.empty())
+            chordRestsAtPosition.clear();
+      for (int track = firstTrackOfPart; track < lastTrackOfPart; track++) {
+            c.move(track, currentPosition);
+            if (auto e = c.currentElement())
+                  if (e->isChord() || e->isRest())
+                        chordRestsAtPosition.emplace_back(toChordRest(e));
+            }
       }
 
 }

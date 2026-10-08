@@ -10,15 +10,14 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "stafftype.h"
-
 #include "chord.h"
 #include "measure.h"
 #include "mscore.h"
 #include "navigate.h"
-#include "staff.h"
-#include "xml.h"
 #include "score.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "xml.h"
 
 #define TAB_DEFAULT_LINE_SP   (1.5)
 #define TAB_RESTSYMBDISPL     2.0
@@ -204,11 +203,11 @@ void StaffType::write(XmlWriter& xml) const
             xml.tag("name", _xmlName);
       if (_lines != 5)
             xml.tag("lines", _lines);
-      if (_lineDistance.val() != 1.0)
+      if (!qFuzzyCompare(_lineDistance.val(), 1.0))
             xml.tag("lineDistance", _lineDistance.val());
-      if (_yoffset.val() != 0.0)
+      if (!qFuzzyIsNull(_yoffset.val()))
             xml.tag("yoffset", _yoffset.val());
-      if (_userMag != 1.0)
+      if (!qFuzzyCompare(_userMag, 1.0))
             xml.tag("mag", _userMag);
       if (_small)
             xml.tag("small", _small);
@@ -634,7 +633,7 @@ static const QString unknownFret = QString("?");
 
 QString StaffType::fretString(int fret, int string, bool ghost) const
       {
-      if (fret == FRET_NONE)
+      if (fret == INVALID_FRET_INDEX)
             return unknownFret;
       if (ghost)
             return _fretFonts[_fretFontIdx].ghostChar;
@@ -1385,7 +1384,7 @@ void StaffType::initStaffTypes()
 
 qreal StaffType::spatium(Score* score) const
       {
-      return score->spatium() * (small() ? score->styleD(Sid::smallStaffMag) : 1.0) * userMag();
+      return score->spatium() * (isSmall() ? score->styleD(Sid::smallStaffMag) : 1.0) * userMag();
       }
 
 } // namespace Ms

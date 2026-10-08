@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Change transpose</work-title>
@@ -100,12 +100,25 @@
           <fifths>2</fifths>
           </key>
         </attributes>
+      <print>
+        <part-name-display>
+          <display-text>A Clarinet</display-text>
+          </part-name-display>
+        <part-abbreviation-display>
+          <display-text>A Cl.</display-text>
+          </part-abbreviation-display>
+        </print>
       <attributes>
         <transpose>
           <diatonic>-1</diatonic>
           <chromatic>-2</chromatic>
           </transpose>
         </attributes>
+      <sound>
+        <instrument-change id="P1-I2">
+          <instrument-sound>wind.reed.clarinet.bflat</instrument-sound>
+          </instrument-change>
+        </sound>
       <direction placement="above">
         <direction-type>
           <words font-weight="bold" font-size="12">To B♭ Clarinet</words>

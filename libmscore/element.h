@@ -14,11 +14,11 @@
 #define __ELEMENT_H__
 
 #include "elementgroup.h"
-#include "spatium.h"
 #include "fraction.h"
 #include "scoreElement.h"
 #include "shape.h"
 #include "sig.h"
+#include "spatium.h"
 #include "sym.h"
 
 namespace Ms {
@@ -35,14 +35,14 @@ namespace Ms {
 
 class XmlReader;
 class XmlWriter;
-enum class Pid;
+enum class Pid : short;
 class StaffType;
 
 //---------------------------------------------------------
 //   Grip
 //---------------------------------------------------------
 
-enum class Grip {
+enum class Grip : signed char{
       NO_GRIP = -1,
       START = 0, END = 1,                         // arpeggio etc.
           MIDDLE = 2, APERTURE = 3,               // Line
@@ -55,7 +55,7 @@ enum class Grip {
 //   OffsetChange
 //---------------------------------------------------------
 
-enum class OffsetChange {
+enum class OffsetChange : signed char {
       RELATIVE_OFFSET   = -1,
       NONE              =  0,
       ABSOLUTE_OFFSET   =  1
@@ -175,7 +175,7 @@ class Element : public ScoreElement {
       uint _tag;                  ///< tag bitmask
 
    public:
-      enum class EditBehavior {
+      enum class EditBehavior : char {
             SelectOnly,
             Edit,
             };
@@ -209,7 +209,9 @@ class Element : public ScoreElement {
 
       virtual bool isElement() const override { return true;        }
 
-      qreal spatium() const;
+      virtual qreal spatium() const;
+      std::pair<int, float>barbeat() const;
+      QString accessibleBarbeat() const;
 
       inline void setFlag(ElementFlag f, bool v)       { if (v) _flags |= f; else _flags &= ~ElementFlags(f); }
       inline void setFlag(ElementFlag f, bool v) const { if (v) _flags |= f; else _flags &= ~ElementFlags(f); }
@@ -511,6 +513,7 @@ class Element : public ScoreElement {
 
       virtual void triggerLayout() const;
       virtual void triggerLayoutAll() const;
+      virtual void triggerLayoutToEnd() const;
       virtual void drawEditMode(QPainter*, EditData&);
 
       void autoplaceSegmentElement(bool above, bool add);        // helper functions

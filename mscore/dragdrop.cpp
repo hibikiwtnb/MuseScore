@@ -10,25 +10,23 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "libmscore/score.h"
-#include "libmscore/element.h"
-#include "libmscore/note.h"
-#include "libmscore/rest.h"
-#include "libmscore/measure.h"
-#include "libmscore/system.h"
-#include "libmscore/segment.h"
-#include "libmscore/page.h"
-#include "libmscore/image.h"
-#include "libmscore/text.h"
-#include "libmscore/spanner.h"
-#include "libmscore/chord.h"
-#include "libmscore/icon.h"
-#include "libmscore/xml.h"
-#include "libmscore/stafflines.h"
 #include "musescore.h"
-#include "scoreview.h"
 #include "continuouspanel.h"
+#include "scoreview.h"
 #include "tourhandler.h"
+
+#include "libmscore/element.h"
+#include "libmscore/icon.h"
+#include "libmscore/image.h"
+#include "libmscore/measure.h"
+#include "libmscore/note.h"
+#include "libmscore/page.h"
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
+#include "libmscore/spanner.h"
+#include "libmscore/stafflines.h"
+#include "libmscore/system.h"
+#include "libmscore/xml.h"
 
 namespace Ms {
 
@@ -166,11 +164,15 @@ bool ScoreView::dragMeasureAnchorElement(const QPointF& pos)
             if (pos.x() >= (b.x() + b.width() * .5) && m != _score->lastMeasureMM() && m->nextMeasure()->system() == m->system())
                   m = m->nextMeasure();
             QPointF anchor(m->canvasBoundingRect().x(), y);
-            setDropAnchorLines({ QLineF(pos, anchor) });
+
+            const bool dropAccepted = m->acceptDrop(editData);
+            if (dropAccepted)
+                  setDropAnchorLines({ QLineF(pos, anchor) });
+
             editData.dropElement->score()->addRefresh(editData.dropElement->canvasBoundingRect());
             editData.dropElement->setTrack(track);
             editData.dropElement->score()->addRefresh(editData.dropElement->canvasBoundingRect());
-            return true;
+            return dropAccepted;
             }
       editData.dropElement->score()->addRefresh(editData.dropElement->canvasBoundingRect());
       setDropTarget(0);
@@ -273,7 +275,7 @@ void ScoreView::dragEnterEvent(QDragEnterEvent* event)
             return;
             }
       qDebug("unknown drop format: formats:");
-      for (const QString& s : dta->formats())
+      for (QString& s : dta->formats())
             qDebug("  <%s>", qPrintable(s));
       event->ignore();
       }
@@ -334,8 +336,9 @@ void ScoreView::dragMoveEvent(QDragMoveEvent* event)
       QPointF pos(imatrix.map(QPointF(event->pos())));
       editData.pos       = pos;
       editData.modifiers = event->keyboardModifiers();
+      auto dropType = editData.dropElement->type();
 
-      switch (editData.dropElement->type()) {
+      switch (dropType) {
             case ElementType::VOLTA:
                   event->setAccepted(dragMeasureAnchorElement(pos));
                   break;
@@ -394,6 +397,9 @@ void ScoreView::dragMoveEvent(QDragMoveEvent* event)
             case ElementType::LYRICS:
             case ElementType::FRET_DIAGRAM:
             case ElementType::STAFFTYPE_CHANGE:
+            case ElementType::VBOX:
+            case ElementType::TBOX:
+            case ElementType::HBOX:
                   event->setAccepted(getDropTarget(editData));
                   break;
             default:
@@ -428,9 +434,12 @@ void ScoreView::dropEvent(QDropEvent* event)
             Q_ASSERT(editData.dropElement->score() == score());
             _score->addRefresh(editData.dropElement->canvasBoundingRect());
             switch (editData.dropElement->type()) {
+                  case ElementType::TEXTLINE:
+                        firstStaffOnly = editData.dropElement->systemFlag();
+                        // fall-thru
                   case ElementType::VOLTA:
                         // voltas drop to first staff by default, or closest staff if Control is held
-                        firstStaffOnly = !(editData.modifiers & Qt::ControlModifier);
+                        firstStaffOnly = firstStaffOnly || !(editData.modifiers & Qt::ControlModifier);
                         // fall-thru
                   case ElementType::OTTAVA:
                   case ElementType::TRILL:
@@ -439,7 +448,6 @@ void ScoreView::dropEvent(QDropEvent* event)
                   case ElementType::VIBRATO:
                   case ElementType::PALM_MUTE:
                   case ElementType::HAIRPIN:
-                  case ElementType::TEXTLINE:
                         {
                         Spanner* spanner = static_cast<Spanner*>(editData.dropElement);
                         score()->cmdAddSpanner(spanner, pos, firstStaffOnly);
@@ -494,6 +502,7 @@ void ScoreView::dropEvent(QDropEvent* event)
                         break;
                   case ElementType::HBOX:
                   case ElementType::VBOX:
+                  case ElementType::TBOX:
                   case ElementType::KEYSIG:
                   case ElementType::CLEF:
                   case ElementType::TIMESIG:

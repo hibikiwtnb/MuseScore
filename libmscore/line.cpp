@@ -51,11 +51,6 @@ bool LineSegment::readProperties(XmlReader& e)
       else if (tag == "off2") {
             setUserOff2(e.readPoint() * score()->spatium());
             }
-/*      else if (tag == "pos") {
-            setOffset(QPointF());
-            e.readNext();
-            }
-      */
       else if (!SpannerSegment::readProperties(e)) {
             e.unknown();
             return false;
@@ -117,7 +112,7 @@ QPointF LineSegment::rightAnchorPosition(const qreal& systemPositionY) const
     {
 
     if (isMiddleType() || isBeginType())
-          return QPointF(system()->lastMeasure()->abbox().right(), systemPositionY);
+          return QPointF(system()->lastNoteRestSegmentX(true), systemPositionY);
 
     QPointF result;
 
@@ -187,7 +182,8 @@ void LineSegment::startDrag(EditData& ed)
       {
       SpannerSegment::startDrag(ed);
       ElementEditData* eed = ed.getData(this);
-      eed->pushProperty(Pid::OFFSET2);
+      if (eed)
+            eed->pushProperty(Pid::OFFSET2);
       }
 
 //---------------------------------------------------------
@@ -403,8 +399,11 @@ Segment* LineSegment::findSegmentForGrip(Grip grip, QPointF pos) const
       System* sys = oldSeg->system();
       const QList<System*> foundSystems = score()->searchSystem(pos, sys, spacingFactor);
 
-      if (!foundSystems.empty() && !foundSystems.contains(sys))
+      if (!foundSystems.empty() && !foundSystems.contains(sys) && foundSystems[0]->staves()->size())
             sys = foundSystems[0];
+
+      if (!sys)
+            return nullptr;
 
       // Restrict searching segment to the correct staff
       pos.setY(sys->staffCanvasYpage(oldStaffIndex));
@@ -707,13 +706,16 @@ void LineSegment::localSpatiumChanged(qreal ov, qreal nv)
 
 Element* LineSegment::propertyDelegate(Pid pid)
       {
-      if (pid == Pid::DIAGONAL
-         || pid == Pid::COLOR
-         || pid ==   Pid::LINE_WIDTH
-         || pid ==   Pid::LINE_STYLE
-         || pid ==   Pid::DASH_LINE_LEN
-         || pid ==   Pid::DASH_GAP_LEN)
-            return spanner();
+      switch (pid) {
+            case Pid::COLOR:
+            case Pid::DASH_GAP_LEN:
+            case Pid::DASH_LINE_LEN:
+            case Pid::DIAGONAL:
+            case Pid::LINE_WIDTH:
+            case Pid::LINE_STYLE:
+                  return spanner();
+            default: break;
+            }
       return SpannerSegment::propertyDelegate(pid);
       }
 
@@ -772,7 +774,7 @@ SLine::SLine(const SLine& s)
 QPointF SLine::linePos(Grip grip, System** sys) const
       {
       qreal x = 0.0;
-      qreal sp = staff()->spatium(tick());
+      qreal sp = staff() ? staff()->spatium(tick()) : 0.0;
       switch (anchor()) {
             case Spanner::Anchor::SEGMENT:
                   {
@@ -988,8 +990,9 @@ QPointF SLine::linePos(Grip grip, System** sys) const
                                     }
                               }
                         }
-                  if (score()->styleB(Sid::createMultiMeasureRests))
-                        m = m->mmRest1();
+
+                  m = m->coveringMMRestOrThis();
+
                   Q_ASSERT(m->system());
                   *sys = m->system();
                   }
@@ -1003,6 +1006,7 @@ QPointF SLine::linePos(Grip grip, System** sys) const
                   System* s = n->chord()->segment()->system();
                   if (s == 0) {
                         qDebug("no system: %s  start %s chord parent %s\n", name(), n->name(), n->chord()->parent()->name());
+                        *sys = s;
                         return QPointF();
                         }
                   *sys = s;
@@ -1071,13 +1075,13 @@ SpannerSegment* SLine::layoutSystem(System* system)
                   System* s;
                   QPointF p1 = linePos(Grip::START, &s);
                   lineSegm->setPos(p1);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   lineSegm->setPos2(QPointF(x2 - p1.x(), 0.0));
                   }
                   break;
             case SpannerSegmentType::MIDDLE: {
                   qreal x1 = system->firstNoteRestSegmentX(true);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   System* s;
                   QPointF p1 = linePos(Grip::START, &s);
                   lineSegm->setPos(QPointF(x1, p1.y()));
@@ -1184,14 +1188,14 @@ void SLine::layout()
                   // start segment
                   lineSegm->setSpannerSegmentType(SpannerSegmentType::BEGIN);
                   lineSegm->setPos(p1);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   lineSegm->setPos2(QPointF(x2 - p1.x(), 0.0));
                   }
             else if (i > 0 && i != sysIdx2) {
                   // middle segment
                   lineSegm->setSpannerSegmentType(SpannerSegmentType::MIDDLE);
                   qreal x1 = system->firstNoteRestSegmentX(true);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   lineSegm->setPos(QPointF(x1, p1.y()));
                   lineSegm->setPos2(QPointF(x2 - x1, 0.0));
                   }
@@ -1225,7 +1229,6 @@ void SLine::writeProperties(XmlWriter& xml) const
             xml.tag("diagonal", _diagonal);
       writeProperty(xml, Pid::LINE_WIDTH);
       writeProperty(xml, Pid::LINE_STYLE);
-      writeProperty(xml, Pid::COLOR);
       writeProperty(xml, Pid::ANCHOR);
       writeProperty(xml, Pid::DASH_LINE_LEN);
       writeProperty(xml, Pid::DASH_GAP_LEN);
@@ -1307,7 +1310,17 @@ bool SLine::readProperties(XmlReader& e)
       else if (tag == "lineWidth")
             _lineWidth = e.readDouble() * spatium();
       else if (tag == "lineStyle")
-            _lineStyle = Qt::PenStyle(e.readInt());
+            if (score()->mscVersion() > MSCVERSION) { // 4.x compat
+                  QString lineStyle = e.readElementText();
+                  if (lineStyle == "dashed")
+                        _lineStyle = Qt::DashLine;
+                  else if (lineStyle == "dotted")
+                        _lineStyle = Qt::DotLine;
+                  else
+                        _lineStyle = Qt::SolidLine;
+                  }
+            else
+                  _lineStyle = Qt::PenStyle(e.readInt());
       else if (tag == "dashLineLength")
             _dashLineLen = e.readDouble();
       else if (tag == "dashGapLength")

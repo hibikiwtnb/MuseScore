@@ -20,7 +20,8 @@ namespace Ms {
 static const char* toolbars[] = {
       QT_TRANSLATE_NOOP("toolbar", "Note Input"),
       QT_TRANSLATE_NOOP("toolbar", "File Operations"),
-      QT_TRANSLATE_NOOP("toolbar", "Playback Controls")
+      QT_TRANSLATE_NOOP("toolbar", "Playback Controls"),
+      QT_TRANSLATE_NOOP("toolbar", "Alternative Options")
       };
 
 //---------------------------------------------------------
@@ -54,6 +55,7 @@ ToolbarEditor::ToolbarEditor(QWidget* parent)
       new_toolbars->push_back(mscore->noteInputMenuEntries());
       new_toolbars->push_back(mscore->fileOperationEntries());
       new_toolbars->push_back(mscore->playbackControlEntries());
+      new_toolbars->push_back(mscore->alternativeEntries());
 
       connect(toolbarList, SIGNAL(currentRowChanged(int)), SLOT(toolbarChanged(int)));
       connect(add, SIGNAL(clicked()), SLOT(addAction()));
@@ -94,6 +96,8 @@ void ToolbarEditor::init()
       new_toolbars->at(0) = mscore->noteInputMenuEntries();
       new_toolbars->at(1) = mscore->fileOperationEntries();
       new_toolbars->at(2) = mscore->playbackControlEntries();
+      new_toolbars->at(3) = mscore->alternativeEntries();
+
       toolbarChanged(toolbarList->currentRow());  // populate lists
       }
 
@@ -119,9 +123,11 @@ void ToolbarEditor::accepted()
       mscore->setNoteInputMenuEntries(*(new_toolbars->at(0)));
       mscore->setFileOperationEntries(*(new_toolbars->at(1)));
       mscore->setPlaybackControlEntries(*(new_toolbars->at(2)));
+      mscore->setAlternativeEntries(*(new_toolbars->at(3)));
       mscore->populateNoteInputMenu();
       mscore->populateFileOperations();
       mscore->populatePlaybackControls();
+      mscore->populateAlternativeOperations();
       WorkspacesManager::currentWorkspace()->setDirty(true);
       }
 
@@ -270,6 +276,10 @@ void ToolbarEditor::toolbarChanged(int tb)
                   break;
             case 2:     //PlaybackControls
                   populateLists(MuseScore::allPlaybackControlEntries(), new_toolbars->at(tb));
+                  break;
+            case 3:     //AlternativeOptions
+                  populateLists(MuseScore::allAlternativeEntries(), new_toolbars->at(tb));
+                  break;
             }
       }
 

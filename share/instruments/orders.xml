@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <museScore>
-    <Order id="orchestral">
-        <name>Orchestral</name>
+    <Order id="orchestra">
+        <name>Orchestra</name>
         <section id="woodwind" showSystemMarkings="true">
             <family>flutes</family>
             <family>oboes</family>
@@ -16,6 +16,8 @@
             <family>cornets</family>
             <family>flugelhorns</family>
             <family>trombones</family>
+            <family>baritone-horns</family>
+            <family>euphoniums</family>
             <family>tubas</family>
         </section>
         <section id="timpani">
@@ -178,7 +180,7 @@
             <family>voices</family>
         </section>
         <section id="guitars" thinBrackets="false">
-            <family>plucked-strings</family>
+            <family>guitars</family>
         </section>
         <family>drums</family>
         <unsorted/>
@@ -278,6 +280,8 @@
             <family>cornets</family>
             <family>flugelhorns</family>
             <family>horns</family>
+            <family>baritone-horns</family>
+            <family>euphoniums</family>
             <family>trombones</family>
             <family>tubas</family>
         </section>

@@ -94,6 +94,7 @@ class ZoomBox : public QComboBox {
 
       qreal _previousLogicalLevel;
       ScoreView* _previousScoreView;
+      bool _mousePopupSelection { false };
 
    private slots:
       void indexChanged(int);
@@ -101,6 +102,9 @@ class ZoomBox : public QComboBox {
 
    signals:
       void zoomChanged(const ZoomIndex zoomIndex, const qreal logicalFreeZoomLevel = 0.0);
+
+   protected:
+      void hidePopup() override;
 
    public:
       ZoomBox(QWidget* parent = 0);
@@ -113,6 +117,7 @@ class ZoomBox : public QComboBox {
       QString currentText() const { return QComboBox::currentText(); }
       int count() const { return QComboBox::count(); }
       void removeItem(int i) { QComboBox::removeItem(i); }
+      void acceptCurrentText() { textChanged(); }
       };
 
 

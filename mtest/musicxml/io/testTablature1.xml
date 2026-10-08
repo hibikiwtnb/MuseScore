@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Tablature 1</work-title>
@@ -37,16 +37,15 @@
     <measure number="1">
       <attributes>
         <divisions>1</divisions>
-        <key>
+        <key print-object="no">
           <fifths>0</fifths>
           </key>
-        <time>
+        <time print-object="no">
           <beats>3</beats>
           <beat-type>4</beat-type>
           </time>
         <clef>
           <sign>TAB</sign>
-          <line>5</line>
           </clef>
         <staff-details>
           <staff-lines>6</staff-lines>
@@ -74,6 +73,7 @@
             <tuning-step>E</tuning-step>
             <tuning-octave>5</tuning-octave>
             </staff-tuning>
+          <staff-size>150</staff-size>
           </staff-details>
         </attributes>
       <note>

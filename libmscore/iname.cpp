@@ -10,12 +10,12 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "score.h"
 #include "iname.h"
 #include "measure.h"
+#include "part.h"
+#include "score.h"
 #include "staff.h"
 #include "system.h"
-#include "part.h"
 #include "undo.h"
 
 namespace Ms {
@@ -68,7 +68,26 @@ void InstrumentName::setInstrumentNameType(const QString& s)
             qDebug("InstrumentName::setSubtype: unknown <%s>", qPrintable(s));
       }
 
-//---------------------------------------------------------
+qreal InstrumentName::spatium() const
+      {
+      if (systemFlag() || (parent() && parent()->systemFlag()))
+            return Element::spatium();
+
+      // Get spatium for instrument names from largest staff of part,
+      // instead of staff it is attached to
+      Part* p = part();
+      if (!part())
+            return Element::spatium();
+      qreal largestSpatium = 0;
+      for (Staff*& s: *p->staves()) {
+            double sp = s->spatium(tick());
+            if (sp > largestSpatium)
+                largestSpatium = sp;
+            }
+      return largestSpatium;
+      }
+
+ //---------------------------------------------------------
 //   setInstrumentNameType
 //---------------------------------------------------------
 
@@ -128,7 +147,6 @@ bool InstrumentName::setProperty(Pid id, const QVariant& v)
                   _layoutPos = v.toInt();
                   break;
             case Pid::VISIBLE:
-            case Pid::COLOR:
                   // not supported
                   break;
             default:

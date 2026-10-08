@@ -10,73 +10,91 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#include "inspector.h"
-#include "inspectorTextBase.h"
-#include "inspectorBeam.h"
-#include "inspectorImage.h"
-#include "inspectorLasso.h"
-#include "inspectorGroupElement.h"
-#include "inspectorVolta.h"
-#include "inspectorOttava.h"
-#include "inspectorTrill.h"
-#include "inspectorHairpin.h"
-#include "inspectorTextLine.h"
-#include "inspectorMarker.h"
-#include "inspectorJump.h"
-#include "inspectorGlissando.h"
-#include "inspectorArpeggio.h"
-#include "inspectorNote.h"
-#include "inspectorAmbitus.h"
-#include "inspectorFret.h"
-#include "inspectorText.h"
-#include "inspectorBarline.h"
-#include "inspectorFingering.h"
-#include "inspectorDynamic.h"
-#include "inspectorHarmony.h"
-#include "inspectorLetRing.h"
-#include "inspectorPedal.h"
-#include "inspectorPalmMute.h"
-#include "inspectorVibrato.h"
-#include "inspectorNoteDot.h"
-#include "inspectorInstrchange.h"
-#include "inspectorMeasureNumber.h"
-#include "inspectorBend.h"
-#include "inspectorTremoloBar.h"
+#include <QStackedWidget>
+
 #include "musescore.h"
 #include "scoreview.h"
-#include "icons.h"
 
-#include "libmscore/element.h"
-#include "libmscore/score.h"
-#include "libmscore/box.h"
-#include "libmscore/undo.h"
-#include "libmscore/spacer.h"
-#include "libmscore/note.h"
-#include "libmscore/chord.h"
-#include "libmscore/segment.h"
-#include "libmscore/rest.h"
-#include "libmscore/beam.h"
-#include "libmscore/clef.h"
-#include "libmscore/notedot.h"
-#include "libmscore/hook.h"
-#include "libmscore/stem.h"
-#include "libmscore/keysig.h"
-#include "libmscore/timesig.h"
-#include "libmscore/barline.h"
-#include "libmscore/staff.h"
-#include "libmscore/measure.h"
-#include "libmscore/tuplet.h"
-#include "libmscore/slur.h"
-#include "libmscore/breath.h"
-#include "libmscore/lyrics.h"
+#include "inspector.h"
+#include "inspectorAmbitus.h"
+#include "inspectorArpeggio.h"
+#include "inspectorBarline.h"
+#include "inspectorBeam.h"
+#include "inspectorBend.h"
+#include "inspectorDynamic.h"
+#include "inspectorFingering.h"
+#include "inspectorFret.h"
+#include "inspectorGlissando.h"
+#include "inspectorGroupElement.h"
+#include "inspectorHairpin.h"
+#include "inspectorHarmony.h"
+#include "inspectorImage.h"
+#include "inspectorInstrchange.h"
+#include "inspectorJump.h"
+#include "inspectorLasso.h"
+#include "inspectorLetRing.h"
+#include "inspectorMarker.h"
+#include "inspectorMeasureNumber.h"
+#include "inspectorNote.h"
+#include "inspectorNoteDot.h"
+#include "inspectorPalmMute.h"
+#include "inspectorPedal.h"
+#include "inspectorText.h"
+#include "inspectorTextBase.h"
+#include "inspectorTextLine.h"
+#include "inspectorTremoloBar.h"
+#include "inspectorTrill.h"
+#include "inspectorOttava.h"
+#include "inspectorVibrato.h"
+#include "inspectorVolta.h"
+
 #include "libmscore/accidental.h"
 #include "libmscore/articulation.h"
+#include "libmscore/beam.h"
+#include "libmscore/breath.h"
+#include "libmscore/chord.h"
+#include "libmscore/element.h"
 #include "libmscore/fermata.h"
-#include "libmscore/stafftypechange.h"
+#include "libmscore/hook.h"
+#include "libmscore/keysig.h"
+#include "libmscore/measure.h"
 #include "libmscore/mscore.h"
+#include "libmscore/note.h"
+#include "libmscore/notedot.h"
+#include "libmscore/rest.h"
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
+#include "libmscore/slurtie.h"
+#include "libmscore/staff.h"
 #include "libmscore/stafftextbase.h"
+#include "libmscore/stafftypechange.h"
+#include "libmscore/stem.h"
+#include "libmscore/timesig.h"
+#include "libmscore/tuplet.h"
+#include "libmscore/undo.h"
 
 namespace Ms {
+
+class InspectorStackedWidget : public QStackedWidget {
+   public:
+      explicit InspectorStackedWidget(QWidget* parent = nullptr)
+         : QStackedWidget(parent)
+            {
+            }
+
+      QSize sizeHint() const override
+            {
+            QWidget* w = currentWidget();
+            return w ? w->sizeHint() : QStackedWidget::sizeHint();
+            }
+
+      QSize minimumSizeHint() const override
+            {
+            QWidget* w = currentWidget();
+            return w ? w->minimumSizeHint()
+                     : QStackedWidget::minimumSizeHint();
+            }
+      };
 
 //---------------------------------------------------------
 //   showInspector
@@ -113,13 +131,19 @@ Inspector::Inspector(QWidget* parent)
 //      setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
 //      sa->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Expanding);
 
+      inspectorStack = new InspectorStackedWidget;
+      sa->setWidget(inspectorStack);
+
       setWidget(sa);
       sa->setFocusPolicy(Qt::NoFocus);
 
       _inspectorEdit = false;
       ie             = 0;
+      noteInspector  = 0;
+      restInspector  = 0;
       oe             = 0;
       oSameTypes     = true;
+      oSameSubtypes  = true;
       _score         = 0;
 //      retranslate();
       setWindowTitle(tr("Inspector"));
@@ -133,8 +157,28 @@ void Inspector::retranslate()
       {
       setWindowTitle(tr("Inspector"));
       sa->setAccessibleName(tr("Inspector Subwindow"));
+
       Score* s = _score;
-      update(0);
+
+      // Cached inspector pages contain translated UI strings, so force
+      // them to be reconstructed following a language change:
+      if (noteInspector) {
+            if (ie == noteInspector)
+                  ie = nullptr;
+            inspectorStack->removeWidget(noteInspector);
+            noteInspector->deleteLater();
+            noteInspector = nullptr;
+            }
+
+      if (restInspector) {
+            if (ie == restInspector)
+                  ie = nullptr;
+            inspectorStack->removeWidget(restInspector);
+            restInspector->deleteLater();
+            restInspector = nullptr;
+            }
+
+      update(nullptr);
       update(s);
       }
 
@@ -201,11 +245,38 @@ void Inspector::update(Score* s)
                         sameSubtypes = false;
                   }
             }
-      if (oe != element() || oSameTypes != sameTypes || (sameTypes && !sameSubtypes)) {
-            delete ie;
+      // The Note and Rest inspectors are used continuously during normal
+      // score traversal. Reuse the current inspector when its type still
+      // matches the selected element:
+      if (ie && element() && sameTypes && oSameTypes == sameTypes && oSameSubtypes == sameSubtypes) {
+            bool reuse = false;
+
+            if (element()->type() == ElementType::NOTE
+                && ie == noteInspector) {
+                  reuse = true;
+                  }
+            else if (element()->type() == ElementType::REST
+                     && !toRest(element())->measure()->isMMRest()
+                     && ie == restInspector) {
+                  reuse = true;
+                  }
+
+            if (reuse) {
+                  oe = element();
+                  ie->setElement();
+                  return;
+                  }
+            }
+
+      if (oe != element() ||
+          (oSameTypes != sameTypes) ||
+          (oSameSubtypes != sameSubtypes)) {
+            bool reusedInspector = false;
+
             ie  = 0;
             oe  = element();
             oSameTypes = sameTypes;
+            oSameSubtypes = sameSubtypes;
             if (!element())
                   ie = new InspectorEmpty(this);
             else if (!sameTypes)
@@ -232,7 +303,14 @@ void Inspector::update(Score* s)
                               ie = new InspectorSpacer(this);
                               break;
                         case ElementType::NOTE:
-                              ie = new InspectorNote(this);
+                              if (noteInspector) {
+                                    ie = noteInspector;
+                                    reusedInspector = true;
+                                    }
+                              else {
+                                    noteInspector = new InspectorNote(this);
+                                    ie = noteInspector;
+                                    }
                               break;
                         case ElementType::ACCIDENTAL:
                               ie = new InspectorAccidental(this);
@@ -240,8 +318,14 @@ void Inspector::update(Score* s)
                         case ElementType::REST:
                               if (toRest(element())->measure()->isMMRest())
                                     ie = new InspectorMMRest(this);
-                              else
-                                    ie = new InspectorRest(this);
+                              else if (restInspector) {
+                                    ie = restInspector;
+                                    reusedInspector = true;
+                                    }
+                              else {
+                                    restInspector = new InspectorRest(this);
+                                    ie = restInspector;
+                                    }
                               break;
                         case ElementType::CLEF:
                               ie = new InspectorClef(this);
@@ -399,30 +483,58 @@ void Inspector::update(Score* s)
                               break;
                         }
                   }
-            connect(ie, &InspectorBase::elementChanged, this, QOverload<>::of(&Inspector::update), Qt::QueuedConnection);
-            sa->setWidget(ie);      // will destroy previous set widget
+            if (!ie)
+                  return;
 
-            //focus policies were set by hand in each inspector_*.ui. this code just helps keeping them like they are
-            //also fixes mac problem. on Mac Qt::TabFocus doesn't work, but Qt::StrongFocus works
-            QList<QWidget*> widgets = ie->findChildren<QWidget*>();
-            for (int i = 0; i < widgets.size(); i++) {
-                  QWidget* currentWidget = widgets.at(i);
-                  switch (currentWidget->focusPolicy()) {
-                        case Qt::WheelFocus:
-                        case Qt::StrongFocus:
-                              if (currentWidget->inherits("QComboBox")                  ||
-                                  currentWidget->parent()->inherits("QAbstractSpinBox") ||
-                                  currentWidget->inherits("QAbstractSpinBox")           ||
-                                  currentWidget->inherits("QLineEdit")) ; //leave it like it is
-                              else
-                                   currentWidget->setFocusPolicy(Qt::TabFocus);
-                              break;
-                        case Qt::NoFocus:
-                        case Qt::ClickFocus:
+            if (!reusedInspector)
+                  connect(ie, &InspectorBase::elementChanged,
+                          this, QOverload<>::of(&Inspector::update),
+                          Qt::QueuedConnection);
+
+            QWidget* oldInspector = inspectorStack->currentWidget();
+
+            // Ordinary inspector pages retain the old behavior: once we
+            // leave them, dispose of them. Note and Rest are cached because
+            // normal score traversal switches rapidly between the two
+            if (oldInspector
+                && oldInspector != ie
+                && oldInspector != noteInspector
+                && oldInspector != restInspector) {
+                  inspectorStack->removeWidget(oldInspector);
+                  oldInspector->deleteLater();
+                  }
+
+            // A newly constructed inspector is not in the stack yet.
+            // Cached Note/Rest inspectors will already be present
+            if (inspectorStack->indexOf(ie) == -1)
+                  inspectorStack->addWidget(ie);
+
+            inspectorStack->setCurrentWidget(ie);
+            inspectorStack->updateGeometry();
+
+            // Focus policies only need initialization when the inspector
+            // widget itself is first constructed
+            if (!reusedInspector) {
+                  QList<QWidget*> widgets = ie->findChildren<QWidget*>();
+                  for (int i = 0; i < widgets.size(); i++) {
+                        QWidget* currentWidget = widgets.at(i);
+                        switch (currentWidget->focusPolicy()) {
+                              case Qt::WheelFocus:
+                              case Qt::StrongFocus:
+                                    if (currentWidget->inherits("QComboBox")                  ||
+                                        currentWidget->parent()->inherits("QAbstractSpinBox") ||
+                                        currentWidget->inherits("QAbstractSpinBox")           ||
+                                        currentWidget->inherits("QLineEdit")) ; //leave it like it is
+                                    else
+                                          currentWidget->setFocusPolicy(Qt::TabFocus);
+                                    break;
+                              case Qt::NoFocus:
+                              case Qt::ClickFocus:
                                     currentWidget->setFocusPolicy(Qt::NoFocus);
-                              break;
-                        case Qt::TabFocus:
-                              break;
+                                    break;
+                              case Qt::TabFocus:
+                                    break;
+                              }
                         }
                   }
             }
@@ -488,7 +600,8 @@ InspectorSectionBreak::InspectorSectionBreak(QWidget* parent)
             { Pid::PAUSE,                    0, scb.pause,                  scb.resetPause                  },
             { Pid::START_WITH_LONG_NAMES,    0, scb.startWithLongNames,     scb.resetStartWithLongNames     },
             { Pid::START_WITH_MEASURE_ONE,   0, scb.startWithMeasureOne,    scb.resetStartWithMeasureOne    },
-            { Pid::FIRST_SYSTEM_INDENTATION, 0, scb.firstSystemIndentation, scb.resetFirstSystemIndentation }
+            { Pid::FIRST_SYSTEM_INDENTATION, 0, scb.firstSystemIndentation, scb.resetFirstSystemIndentation },
+            { Pid::SHOW_COURTESY,            0, scb.showCourtesy,           scb.resetShowCourtesy           }
             };
       pList = { { scb.title, scb.panel } };
       mapSignals();
@@ -505,7 +618,7 @@ InspectorStaffTypeChange::InspectorStaffTypeChange(QWidget* parent)
 
       iList = {
             { Pid::STAFF_YOFFSET,          0, sl.yoffset,         sl.resetYoffset         },
-            { Pid::SMALL,                  0, sl.small,           sl.resetSmall           },
+            { Pid::SMALL,                  0, sl.isSmall,         sl.resetSmall           },
             { Pid::MAG,                    0, sl.scale,           sl.resetScale           },
             { Pid::STAFF_LINES,            0, sl.lines,           sl.resetLines           },
             { Pid::STEP_OFFSET,            0, sl.stepOffset,      sl.resetStepOffset      },
@@ -525,7 +638,9 @@ InspectorStaffTypeChange::InspectorStaffTypeChange(QWidget* parent)
       sl.noteheadScheme->clear();
       for (auto i : { NoteHead::Scheme::HEAD_NORMAL,
          NoteHead::Scheme::HEAD_PITCHNAME,
+         NoteHead::Scheme::HEAD_PITCHNAME_NO_ACCIDENTALS,
          NoteHead::Scheme::HEAD_PITCHNAME_GERMAN,
+         NoteHead::Scheme::HEAD_PITCHNAME_GERMAN_NO_ACCIDENTALS,
          NoteHead::Scheme::HEAD_SOLFEGE,
          NoteHead::Scheme::HEAD_SOLFEGE_FIXED,
          NoteHead::Scheme::HEAD_SHAPE_NOTE_4,
@@ -742,7 +857,7 @@ InspectorRest::InspectorRest(QWidget* parent)
 
       const std::vector<InspectorItem> iiList = {
             { Pid::LEADING_SPACE,  1, s.leadingSpace,  s.resetLeadingSpace  },
-            { Pid::SMALL,          0, r.small,         r.resetSmall         },
+            { Pid::SMALL,          0, r.isSmall,       r.resetSmall         },
             };
       const std::vector<InspectorPanel> ppList = {
             { s.title, s.panel },
@@ -918,8 +1033,6 @@ InspectorTimeSig::InspectorTimeSig(QWidget* parent)
             { Pid::SCALE,          0, t.scale,          t.resetScale         },
 //          { Pid::TIMESIG,        0, t.timesigZ,       t.resetTimesig       },
 //          { Pid::TIMESIG,        0, t.timesigN,       t.resetTimesig       },
-//          { Pid::TIMESIG_GLOBAL, 0, t.globalTimesigZ, t.resetGlobalTimesig },
-//          { Pid::TIMESIG_GLOBAL, 0, t.globalTimesigN, t.resetGlobalTimesig }
             };
       const std::vector<InspectorPanel> ppList = {
             { s.title, s.panel },
@@ -984,6 +1097,7 @@ InspectorKeySig::InspectorKeySig(QWidget* parent)
       k.keysigMode->addItem(tr("Phrygian"),   int(KeyMode::PHRYGIAN));
       k.keysigMode->addItem(tr("Lydian"),     int(KeyMode::LYDIAN));
       k.keysigMode->addItem(tr("Mixolydian"), int(KeyMode::MIXOLYDIAN));
+      k.keysigMode->addItem(tr("Aeolian"),    int(KeyMode::AEOLIAN));
       k.keysigMode->addItem(tr("Ionian"),     int(KeyMode::IONIAN));
       k.keysigMode->addItem(tr("Locrian"),    int(KeyMode::LOCRIAN));
       mapSignals(iiList, ppList);
@@ -1037,7 +1151,7 @@ InspectorAccidental::InspectorAccidental(QWidget* parent)
       a.setupUi(addWidget());
 
       const std::vector<InspectorItem> iiList = {
-            { Pid::SMALL,               0, a.small,    a.resetSmall    },
+            { Pid::SMALL,               0, a.isSmall,  a.resetSmall    },
             { Pid::ACCIDENTAL_BRACKET,  0, a.bracket,  a.resetBracket  }
             };
       a.bracket->clear();

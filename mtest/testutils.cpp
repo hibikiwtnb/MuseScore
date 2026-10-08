@@ -15,7 +15,6 @@
 #include "config.h"
 #include "libmscore/score.h"
 #include "libmscore/note.h"
-#include "libmscore/chord.h"
 #include "libmscore/instrtemplate.h"
 #include "omr/omr.h"
 #include "testutils.h"
@@ -31,15 +30,18 @@
 
 static void initMyResources() {
       Q_INIT_RESOURCE(mtest);
+      Q_INIT_RESOURCE(musescorefonts_Campania);
+      Q_INIT_RESOURCE(musescorefonts_Leland);
+      Q_INIT_RESOURCE(musescorefonts_Edwin);
       Q_INIT_RESOURCE(musescorefonts_MScore);
       Q_INIT_RESOURCE(musescorefonts_Gootville);
       Q_INIT_RESOURCE(musescorefonts_Bravura);
-      Q_INIT_RESOURCE(musescorefonts_Leland);
       Q_INIT_RESOURCE(musescorefonts_MuseJazz);
-      Q_INIT_RESOURCE(musescorefonts_Edwin);
-      Q_INIT_RESOURCE(musescorefonts_FreeSerif);
       Q_INIT_RESOURCE(musescorefonts_Free);
+      Q_INIT_RESOURCE(musescorefonts_FreeSerif);
       Q_INIT_RESOURCE(musescorefonts_Petaluma);
+      Q_INIT_RESOURCE(musescorefonts_FinaleMaestro);
+      Q_INIT_RESOURCE(musescorefonts_FinaleBroadway);
       }
 
 namespace Ms {
@@ -134,7 +136,7 @@ MasterScore* MTest::readCreatedScore(const QString& name)
             rv = Score::FileError::FILE_UNKNOWN_TYPE;
 
       if (rv != Score::FileError::FILE_NO_ERROR) {
-            QWARN(qPrintable(QString("readScore: cannot load <%1> type <%2>\n").arg(name).arg(csl)));
+            QWARN(qPrintable(QString("readScore: cannot load <%1> type <%2>\n").arg(name, csl)));
             delete score;
             score = 0;
             }
@@ -178,7 +180,7 @@ bool MTest::compareFilesFromPaths(const QString& f1, const QString& f2)
             //   qPrintable(QString(root + "/" + saveName)));
             QTextStream outputText(stdout);
             outputText << QString(ba);
-            outputText << QString("   <diff -u %1 %2 failed").arg(f2).arg(f1);
+            outputText << QString("   <diff -u %1 %2 failed").arg(f2, f1);
             return false;
             }
       return true;
@@ -245,7 +247,7 @@ bool MTest::savePdf(MasterScore* cs, const QString& saveName)
       if ((toPage < 0) || (toPage >= pages))
                   toPage = pages - 1;
 
-      for (int copy = 0; copy < printerDev.numCopies(); ++copy) {
+      for (int copy = 0; copy < printerDev.copyCount(); ++copy) {
                   bool firstPage = true;
                   for (int n = fromPage; n <= toPage; ++n) {
                               if (!firstPage)
@@ -253,7 +255,7 @@ bool MTest::savePdf(MasterScore* cs, const QString& saveName)
                               firstPage = false;
 
                               cs->print(&p, n);
-                              if ((copy + 1) < printerDev.numCopies())
+                              if ((copy + 1) < printerDev.copyCount())
                                           printerDev.newPage();
                               }
                   }
@@ -341,9 +343,9 @@ void MTest::initMTest()
       synti  = new MasterSynthesizer();
       mscore = new MScore;
       new MuseScoreCore;
-      mscore->init();
-
       preferences.init(true);
+
+      mscore->init();
 
       root = TESTROOT "/mtest";
       loadInstrumentTemplates(":/instruments.xml");

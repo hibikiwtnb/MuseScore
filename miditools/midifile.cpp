@@ -11,6 +11,7 @@
 //=============================================================================
 
 #include <QFile>
+
 #include "midifile.h"
 
 //---------------------------------------------------------
@@ -104,9 +105,9 @@ bool MidiFile::readTrack()
                   break;
             }
       if (curPos != endPos) {
-            qWarning("bad track len: %lld != %lld, %lld bytes too much\n", endPos, curPos, endPos - curPos);
+            qDebug("bad track len: %lld != %lld, %lld bytes too much\n", endPos, curPos, endPos - curPos);
             if (curPos < endPos) {
-                  qWarning("  skip %lld\n", endPos-curPos);
+                  qDebug("  skip %lld\n", endPos-curPos);
                   skip(endPos - curPos);
                   }
             }
@@ -169,7 +170,8 @@ void MidiFile::skip(qint64 len)
       {
       if (len <= 0)
             return;
-      char tmp[len];
+      std::vector<char> buffer(len);
+      char *tmp = buffer.data();
       read(tmp, len);
       }
 
@@ -230,7 +232,6 @@ int MidiFile::readEvent(MidiEvent* event)
                   break;
             }
 
-      uchar* data;
       int dataLen;
 
       if (me == 0xf0 || me == 0xf7) {
@@ -238,17 +239,15 @@ int MidiFile::readEvent(MidiEvent* event)
             int len = getvl();
             if (len == -1)
                   throw(QString("readEvent: error 3"));
-            data    = new unsigned char[len+1];
             dataLen = len;
-            read(data, len);
-            data[dataLen] = 0;    // always terminate with zero
-            if (data[len-1] != 0xf7) {
+            std::vector<unsigned char> data(len + 1);
+            read(data.data(), len);
+            if (data[len - 1] != 0xf7) {
                   qDebug("SYSEX does not end with 0xf7!");
                   // more to come?
                   }
             else
                   dataLen--;      // don't count 0xf7
-            delete[] data;
 #if 0
             event->setType(MidiEventType::SYSEX);
             event->setData(data);
@@ -257,18 +256,17 @@ int MidiFile::readEvent(MidiEvent* event)
 #endif
             return 1;
             }
-
-      if (me == 0xff) { // MidiEventType::META) {
+      else if (me == 0xff) { // MidiEventType::META) {
             status = -1;                  // no running status
             uchar type;
             read(&type, 1);
             dataLen = getvl();                // read len
             if (dataLen == -1)
                   throw(QString("readEvent: error 6"));
-            data = new unsigned char[dataLen + 1];
+            std::vector<unsigned char> data(dataLen + 1);
             if (dataLen)
-                  read(data, dataLen);
-            data[dataLen] = 0;      // always terminate with zero so we get valid C++ strings
+                  read(data.data(), dataLen);
+
             if (type == META_TEMPO) {
                   unsigned tempo = data[2] + (data[1] << 8) + (data[0] << 16);
                   double t = 1000000.0 / double(tempo);
@@ -276,7 +274,6 @@ int MidiFile::readEvent(MidiEvent* event)
                   }
 //else
 //printf("META %02x\n", type);
-            delete[] data;
             if (type == META_EOT)
                   return 2;
             return 1;
@@ -401,8 +398,15 @@ void MidiFile::writeEvent(const MidiEvent& event)
             case MidieEventType::META:
                   put(MidiEventType::META);
                   put(event.metaType());
-                  putvl(event.len());
-                  write(event.edata(), event.len());
+                  // Don't null terminate text meta events
+                  if (event.metaType() >= 0x1 && event.metaType() <= 0x14) {
+                        putvl(event.len() - 1);
+                        write(event.edata(), event.len() - 1);
+                        }
+                  else {
+                        putvl(event.len());
+                        write(event.edata(), event.len());
+                        }
                   resetRunningStatus();     // really ?!
                   break;
 

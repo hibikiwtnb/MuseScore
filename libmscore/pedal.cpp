@@ -11,7 +11,6 @@
 //=============================================================================
 
 #include "pedal.h"
-#include "sym.h"
 #include "xml.h"
 #include "system.h"
 #include "measure.h"
@@ -42,6 +41,7 @@ static const ElementStyle pedalStyle {
       { Sid::pedalBeginTextOffset,               Pid::END_TEXT_OFFSET         },
       { Sid::pedalLineWidth,                     Pid::LINE_WIDTH              },
       { Sid::pedalPlacement,                     Pid::PLACEMENT               },
+      { Sid::pedalLineStyle,                     Pid::LINE_STYLE              },
       { Sid::pedalPosBelow,                      Pid::OFFSET                  },
       };
 
@@ -107,8 +107,19 @@ void Pedal::read(XmlReader& e)
       if (score()->mscVersion() < 301)
             e.addSpanner(e.intAttribute("id", -1), this);
       while (e.readNextStartElement()) {
-            if (!TextLineBase::readProperties(e))
+            const QStringRef& tag(e.name());
+            if (readStyledProperty(e, tag))
+                  ;
+            else if (!TextLineBase::readProperties(e))
                   e.unknown();
+            }
+      if (score()->mscVersion() > 410) { // Mu4.2+ compat, which seems to rely on those defaults
+            if (beginHookType() == HookType::NONE && beginText().isEmpty())
+                  setBeginText("<sym>keyboardPedalPed</sym>");
+            if (beginHookType() == HookType::NONE && continueText().isEmpty())
+                  setContinueText("(<sym>keyboardPedalPed</sym>)");
+            if (!lineVisible() && endHookType() == HookType::NONE && endText().isEmpty())
+                  setEndText("<sym>keyboardPedalUp</sym>");
             }
       }
 

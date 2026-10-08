@@ -21,7 +21,6 @@
  MusicXML support.
  */
 
-#include "libmscore/accidental.h"
 #include "libmscore/articulation.h"
 #include "libmscore/chord.h"
 #include "libmscore/sym.h"
@@ -31,9 +30,57 @@
 
 namespace Ms {
 
+const static QMap<QString, AccidentalType> smuflAccidentalTypes {
+      { "accidentalDoubleFlatOneArrowDown",                AccidentalType::DOUBLE_FLAT_ONE_ARROW_DOWN },
+      { "accidentalFlatOneArrowDown",                      AccidentalType::FLAT_ONE_ARROW_DOWN },
+      { "accidentalNaturalOneArrowDown",                   AccidentalType::NATURAL_ONE_ARROW_DOWN },
+      { "accidentalSharpOneArrowDown",                     AccidentalType::SHARP_ONE_ARROW_DOWN },
+      { "accidentalDoubleSharpOneArrowDown",               AccidentalType::DOUBLE_SHARP_ONE_ARROW_DOWN },
+      { "accidentalDoubleFlatOneArrowUp",                  AccidentalType::DOUBLE_FLAT_ONE_ARROW_UP },
+      { "accidentalFlatOneArrowUp",                        AccidentalType::FLAT_ONE_ARROW_UP },
+      { "accidentalNaturalOneArrowUp",                     AccidentalType::NATURAL_ONE_ARROW_UP },
+      { "accidentalSharpOneArrowUp",                       AccidentalType::SHARP_ONE_ARROW_UP },
+      { "accidentalDoubleSharpOneArrowUp",                 AccidentalType::DOUBLE_SHARP_ONE_ARROW_UP },
+      { "accidentalDoubleFlatTwoArrowsDown",               AccidentalType::DOUBLE_FLAT_TWO_ARROWS_DOWN },
+      { "accidentalFlatTwoArrowsDown",                     AccidentalType::FLAT_TWO_ARROWS_DOWN },
+      { "accidentalNaturalTwoArrowsDown",                  AccidentalType::NATURAL_TWO_ARROWS_DOWN },
+      { "accidentalSharpTwoArrowsDown",                    AccidentalType::SHARP_TWO_ARROWS_DOWN },
+      { "accidentalDoubleSharpTwoArrowsDown",              AccidentalType::DOUBLE_SHARP_TWO_ARROWS_DOWN },
+      { "accidentalDoubleFlatTwoArrowsUp",                 AccidentalType::DOUBLE_FLAT_TWO_ARROWS_UP },
+      { "accidentalFlatTwoArrowsUp",                       AccidentalType::FLAT_TWO_ARROWS_UP },
+      { "accidentalNaturalTwoArrowsUp",                    AccidentalType::NATURAL_TWO_ARROWS_UP },
+      { "accidentalSharpTwoArrowsUp",                      AccidentalType::SHARP_TWO_ARROWS_UP },
+      { "accidentalDoubleSharpTwoArrowsUp",                AccidentalType::DOUBLE_SHARP_TWO_ARROWS_UP },
+      { "accidentalDoubleFlatThreeArrowsDown",             AccidentalType::DOUBLE_FLAT_THREE_ARROWS_DOWN },
+      { "accidentalFlatThreeArrowsDown",                   AccidentalType::FLAT_THREE_ARROWS_DOWN },
+      { "accidentalNaturalThreeArrowsDown",                AccidentalType::NATURAL_THREE_ARROWS_DOWN },
+      { "accidentalSharpThreeArrowsDown",                  AccidentalType::SHARP_THREE_ARROWS_DOWN },
+      { "accidentalDoubleSharpThreeArrowsDown",            AccidentalType::DOUBLE_SHARP_THREE_ARROWS_DOWN },
+      { "accidentalDoubleFlatThreeArrowsUp",               AccidentalType::DOUBLE_FLAT_THREE_ARROWS_UP },
+      { "accidentalFlatThreeArrowsUp",                     AccidentalType::FLAT_THREE_ARROWS_UP },
+      { "accidentalNaturalThreeArrowsUp",                  AccidentalType::NATURAL_THREE_ARROWS_UP },
+      { "accidentalSharpThreeArrowsUp",                    AccidentalType::SHARP_THREE_ARROWS_UP },
+      { "accidentalDoubleSharpThreeArrowsUp",              AccidentalType::DOUBLE_SHARP_THREE_ARROWS_UP },
+      { "accidentalLowerOneSeptimalComma",                 AccidentalType::LOWER_ONE_SEPTIMAL_COMMA },
+      { "accidentalRaiseOneSeptimalComma",                 AccidentalType::RAISE_ONE_SEPTIMAL_COMMA },
+      { "accidentalLowerTwoSeptimalCommas",                AccidentalType::LOWER_TWO_SEPTIMAL_COMMAS },
+      { "accidentalRaiseTwoSeptimalCommas",                AccidentalType::RAISE_TWO_SEPTIMAL_COMMAS },
+      { "accidentalLowerOneUndecimalQuartertone",          AccidentalType::LOWER_ONE_UNDECIMAL_QUARTERTONE },
+      { "accidentalRaiseOneUndecimalQuartertone",          AccidentalType::RAISE_ONE_UNDECIMAL_QUARTERTONE },
+      { "accidentalLowerOneTridecimalQuartertone",         AccidentalType::LOWER_ONE_TRIDECIMAL_QUARTERTONE },
+      { "accidentalRaiseOneTridecimalQuartertone",         AccidentalType::RAISE_ONE_TRIDECIMAL_QUARTERTONE },
+      { "accidentalDoubleFlatEqualTempered",               AccidentalType::DOUBLE_FLAT_EQUAL_TEMPERED },
+      { "accidentalFlatEqualTempered",                     AccidentalType::FLAT_EQUAL_TEMPERED },
+      { "accidentalNaturalEqualTempered",                  AccidentalType::NATURAL_EQUAL_TEMPERED },
+      { "accidentalSharpEqualTempered",                    AccidentalType::SHARP_EQUAL_TEMPERED },
+      { "accidentalDoubleSharpEqualTempered",              AccidentalType::DOUBLE_SHARP_EQUAL_TEMPERED },
+      { "accidentalQuarterFlatEqualTempered",              AccidentalType::QUARTER_FLAT_EQUAL_TEMPERED },
+      { "accidentalQuarterSharpEqualTempered",             AccidentalType::QUARTER_SHARP_EQUAL_TEMPERED }
+      };
+
 NoteList::NoteList()
       {
-      for (int i = 0; i < MAX_STAVES; ++i)
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
             _staffNoteLists << StartStopList();
       }
 
@@ -43,19 +90,19 @@ void NoteList::addNote(const int startTick, const int endTick, const int staff)
             _staffNoteLists[staff] << StartStop(startTick, endTick);
       }
 
-void NoteList::dump(const QString& voice) const
+void NoteList::dump(const int& voice) const
       {
       // dump contents
-      for (int i = 0; i < MAX_STAVES; ++i) {
-            printf("voice %s staff %d:", qPrintable(voice), i);
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i) {
+            printf("voice %d staff %d:", voice, i);
             for (int j = 0; j < _staffNoteLists.at(i).size(); ++j)
                   printf(" %d-%d", _staffNoteLists.at(i).at(j).first, _staffNoteLists.at(i).at(j).second);
             printf("\n");
             }
       // show overlap
-      printf("overlap voice %s:", qPrintable(voice));
-      for (int i = 0; i < MAX_STAVES - 1; ++i)
-            for (int j = i + 1; j < MAX_STAVES; ++j)
+      printf("overlap voice %d:", voice);
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES - 1; ++i)
+            for (int j = i + 1; j < MAX_VOICE_DESC_STAVES; ++j)
                   stavesOverlap(i, j);
       printf("\n");
       }
@@ -93,8 +140,8 @@ bool NoteList::stavesOverlap(const int staff1, const int staff2) const
 
 bool NoteList::anyStaffOverlaps() const
       {
-      for (int i = 0; i < MAX_STAVES - 1; ++i)
-            for (int j = i + 1; j < MAX_STAVES; ++j)
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES - 1; ++i)
+            for (int j = i + 1; j < MAX_VOICE_DESC_STAVES; ++j)
                   if (stavesOverlap(i, j))
                         return true;
       return false;
@@ -102,10 +149,10 @@ bool NoteList::anyStaffOverlaps() const
 
 VoiceOverlapDetector::VoiceOverlapDetector()
       {
-      // qDebug("VoiceOverlapDetector::VoiceOverlapDetector(staves %d)", MAX_STAVES);
+      qDebug("VoiceOverlapDetector::VoiceOverlapDetector(staves %d)", MAX_VOICE_DESC_STAVES);
       }
 
-void VoiceOverlapDetector::addNote(const int startTick, const int endTick, const QString& voice, const int staff)
+void VoiceOverlapDetector::addNote(const int startTick, const int endTick, const int& voice, const int staff)
       {
       // if necessary, create the note list for voice
       if (!_noteLists.contains(voice))
@@ -116,7 +163,7 @@ void VoiceOverlapDetector::addNote(const int startTick, const int endTick, const
 void VoiceOverlapDetector::dump() const
       {
       // qDebug("VoiceOverlapDetector::dump()");
-      QMapIterator<QString, NoteList> i(_noteLists);
+      QMapIterator<int, NoteList> i(_noteLists);
       while (i.hasNext()) {
             i.next();
             i.value().dump(i.key());
@@ -129,7 +176,7 @@ void VoiceOverlapDetector::newMeasure()
       _noteLists.clear();
       }
 
-bool VoiceOverlapDetector::stavesOverlap(const QString& voice) const
+bool VoiceOverlapDetector::stavesOverlap(const int& voice) const
       {
       if (_noteLists.contains(voice))
             return _noteLists.value(voice).anyStaffOverlaps();
@@ -188,7 +235,7 @@ void ValidatorMessageHandler::handleMessage(QtMsgType type, const QString& descr
             .arg(descText);
 
       // append error, separated by newline if necessary
-      if (errors != "")
+      if (!errors.isEmpty())
             errors += "\n";
       errors += errorStr;
       }
@@ -251,6 +298,29 @@ void domNotImplemented(const QDomElement& e)
             qDebug("  text node <%s>", qPrintable(e.toText().data()));
       }
 
+
+//---------------------------------------------------------
+//   xmlReaderLocation
+//---------------------------------------------------------
+
+QString xmlReaderLocation(const QXmlStreamReader& e)
+      {
+      return QObject::tr("line %1 column %2").arg(e.lineNumber()).arg(e.columnNumber());
+      }
+
+//---------------------------------------------------------
+//   checkAtEndElement
+//---------------------------------------------------------
+
+QString checkAtEndElement(const QXmlStreamReader& e, const QString& expName)
+      {
+      if (e.isEndElement() && e.name() == expName)
+            return QString();
+
+      QString res = QObject::tr("expected token type and name 'EndElement %1', actual '%2 %3'")
+                    .arg(expName, e.tokenString(), e.name().toString());
+      return res;
+      }
 
 //---------------------------------------------------------
 //   stringToInt
@@ -414,22 +484,30 @@ QString accSymId2MxmlString(const SymId id)
             case SymId::accidentalBakiyeFlat:            s = "slash-flat";           break;
             case SymId::accidentalBuyukMucennebFlat:     s = "double-slash-flat";    break;
 
-            //case SymId::noSym:                           s = "sharp1";               break;
-            //case SymId::noSym:                           s = "sharp2";               break;
-            //case SymId::noSym:                           s = "sharp3";               break;
-            //case SymId::noSym:                           s = "sharp4";               break;
-            //case SymId::noSym:                           s = "flat1";                break;
-            //case SymId::noSym:                           s = "flat2";                break;
-            //case SymId::noSym:                           s = "flat3";                break;
-            //case SymId::noSym:                           s = "flat4";                break;
+            case SymId::accidental1CommaSharp:           s = "sharp1";               break;
+            case SymId::accidental2CommaSharp:           s = "sharp2";               break;
+            case SymId::accidental3CommaSharp:           s = "sharp3";               break;
+            case SymId::accidental5CommaSharp:           s = "sharp5";               break;
+            case SymId::accidental1CommaFlat:            s = "flat1";                break;
+            case SymId::accidental2CommaFlat:            s = "flat2";                break;
+            case SymId::accidental3CommaFlat:            s = "flat3";                break;
+            case SymId::accidental4CommaFlat:            s = "flat4";                break;
 
             case SymId::accidentalSori:                  s = "sori";                 break;
             case SymId::accidentalKoron:                 s = "koron";                break;
             default:
-                  //s = "other"; // actually pick up the SMuFL name or SymId
-                  qDebug("accSymId2MxmlString: unknown accidental %d", static_cast<int>(id));
+                  s = "other";
             }
       return s;
+      }
+
+//---------------------------------------------------------
+//   accSymId2SmuflMxmlString
+//---------------------------------------------------------
+
+QString accSymId2SmuflMxmlString(const SymId id)
+      {
+      return Sym::id2name(id);
       }
 
 //---------------------------------------------------------
@@ -437,7 +515,7 @@ QString accSymId2MxmlString(const SymId id)
 // see https://github.com/w3c/musicxml/blob/6e3a667b85855b04d7e4548ea508b537bc29fc52/schema/musicxml.xsd#L1392-L1439
 //---------------------------------------------------------
 
-SymId mxmlString2accSymId(const QString mxmlName)
+SymId mxmlString2accSymId(const QString mxmlName, const QString smufl)
       {
       QMap<QString, SymId> map; // map MusicXML accidental name to MuseScore enum SymId
       map["sharp"] = SymId::accidentalSharp;
@@ -477,22 +555,22 @@ SymId mxmlString2accSymId(const QString mxmlName)
       map["slash-flat"] = SymId::accidentalBakiyeFlat;
       map["double-slash-flat"] = SymId::accidentalBuyukMucennebFlat;
 
-      //map["sharp1"] = SymId::noSym;
-      //map["sharp2"] = SymId::noSym;
-      //map["sharp3"] = SymId::noSym;
-      //map["sharp4"] = SymId::noSym;
-      //map["flat1"] = SymId::noSym;
-      //map["flat2"] = SymId::noSym;
-      //map["flat3"] = SymId::noSym;
-      //map["flat3"] = SymId::noSym;
+      map["sharp-1"] = SymId::accidental1CommaSharp;
+      map["sharp-2"] = SymId::accidental2CommaSharp;
+      map["sharp-3"] = SymId::accidental3CommaSharp;
+      map["sharp-5"] = SymId::accidental5CommaSharp;
+      map["flat-1"] = SymId::accidental1CommaFlat;
+      map["flat-2"] = SymId::accidental2CommaFlat;
+      map["flat-3"] = SymId::accidental3CommaFlat;
+      map["flat-4"] = SymId::accidental4CommaFlat;
 
       map["sori"] = SymId::accidentalSori;
       map["koron"] = SymId::accidentalKoron;
 
-      //map["other"] = SymId::noSym; // actually pick up the SMuFL name or SymId
-
       if (map.contains(mxmlName))
             return map.value(mxmlName);
+      else if (mxmlName == "other")
+            return Sym::name2id(smufl);
       else
             qDebug("mxmlString2accSymId: unknown accidental '%s'", qPrintable(mxmlName));
 
@@ -545,22 +623,31 @@ QString accidentalType2MxmlString(const AccidentalType type)
             case AccidentalType::FLAT_SLASH:         s = "slash-flat";           break;
             case AccidentalType::FLAT_SLASH2:        s = "double-slash-flat";    break;
 
-            //case AccidentalType::NONE:               s = "sharp1";               break;
-            //case AccidentalType::NONE:               s = "sharp2";               break;
-            //case AccidentalType::NONE:               s = "sharp3";               break;
-            //case AccidentalType::NONE:               s = "sharp4";               break;
-            //case AccidentalType::NONE:               s = "flat1";                break;
-            //case AccidentalType::NONE:               s = "flat2";                break;
-            //case AccidentalType::NONE:               s = "flat3";                break;
-            //case AccidentalType::NONE:               s = "flat3";                break;
+            case AccidentalType::ONE_COMMA_SHARP:    s = "sharp-1";              break;
+            case AccidentalType::TWO_COMMA_SHARP:    s = "sharp-2";              break;
+            case AccidentalType::THREE_COMMA_SHARP:  s = "sharp-3";              break;
+            //case AccidentalType::FOUR_COMMA_SHARP:   s = "sharp";                break; // uses a regular sharp glyph
+            case AccidentalType::FIVE_COMMA_SHARP:   s = "sharp-5";              break;
+            case AccidentalType::ONE_COMMA_FLAT:     s = "flat-1";               break;
+            case AccidentalType::TWO_COMMA_FLAT:     s = "flat-2";               break;
+            case AccidentalType::THREE_COMMA_FLAT:   s = "flat-3";               break;
+            case AccidentalType::FOUR_COMMA_FLAT:    s = "flat-4";               break;
 
             case AccidentalType::SORI:               s = "sori";                 break;
             case AccidentalType::KORON:              s = "koron";                break;
             default:
-                  //s = "other"; // actually pick up the SMuFL name or SymId
-                  qDebug("accidentalType2MxmlString: unknown accidental %d", static_cast<int>(type));
+                  s = "other";
             }
       return s;
+      }
+
+//---------------------------------------------------------
+//   accidentalType2SmuflMxmlString
+//---------------------------------------------------------
+
+QString accidentalType2SmuflMxmlString(const AccidentalType type)
+      {
+      return smuflAccidentalTypes.key(type);
       }
 
 //---------------------------------------------------------
@@ -572,7 +659,7 @@ QString accidentalType2MxmlString(const AccidentalType type)
  see https://github.com/w3c/musicxml/blob/6e3a667b85855b04d7e4548ea508b537bc29fc52/schema/musicxml.xsd#L1392-L1439
  */
 
-AccidentalType mxmlString2accidentalType(const QString mxmlName)
+AccidentalType mxmlString2accidentalType(const QString mxmlName, const QString smufl)
       {
       QMap<QString, AccidentalType> map; // map MusicXML accidental name to MuseScore enum AccidentalType
       map["sharp"] = AccidentalType::SHARP;
@@ -582,8 +669,8 @@ AccidentalType mxmlString2accidentalType(const QString mxmlName)
       map["sharp-sharp"] = AccidentalType::SHARP2;
       //map["double-flat"] = AccidentalType::FLAT2; // shouldn't harm, but doesn't exist in MusicXML
       map["flat-flat"] = AccidentalType::FLAT2;
-      map["natural-sharp"] = AccidentalType::SHARP;
-      map["natural-flat"] = AccidentalType::FLAT;
+      map["natural-sharp"] = AccidentalType::NATURAL_SHARP;
+      map["natural-flat"] = AccidentalType::NATURAL_FLAT;
 
       map["quarter-flat"] = AccidentalType::MIRRORED_FLAT;
       map["quarter-sharp"] = AccidentalType::SHARP_SLASH;
@@ -612,25 +699,49 @@ AccidentalType mxmlString2accidentalType(const QString mxmlName)
       map["slash-flat"] = AccidentalType::FLAT_SLASH;
       map["double-slash-flat"] = AccidentalType::FLAT_SLASH2;
 
-      //map["sharp1"] = AccidentalType::NONE;
-      //map["sharp2"] = AccidentalType::NONE;
-      //map["sharp3"] = AccidentalType::NONE;
-      //map["sharp4"] = AccidentalType::NONE;
-      //map["flat1"] = AccidentalType::NONE;
-      //map["flat2"] = AccidentalType::NONE;
-      //map["flat3"] = AccidentalType::NONE;
-      //map["flat4"] = AccidentalType::NONE;
+      map["sharp-1"] = AccidentalType::ONE_COMMA_SHARP;
+      map["sharp-2"] = AccidentalType::TWO_COMMA_SHARP;
+      map["sharp-3"] = AccidentalType::THREE_COMMA_SHARP;
+      map["sharp-5"] = AccidentalType::FIVE_COMMA_SHARP;
+      map["flat-1"] = AccidentalType::ONE_COMMA_FLAT;
+      map["flat-2"] = AccidentalType::TWO_COMMA_FLAT;
+      map["flat-3"] = AccidentalType::THREE_COMMA_FLAT;
+      map["flat-4"] = AccidentalType::FOUR_COMMA_FLAT;
 
       map["sori"] = AccidentalType::SORI;
       map["koron"] = AccidentalType::KORON;
 
-      //map["other"] = AccidentalType::NONE; // actually pick up the SMuFL name or SymId
+      if (map.contains(mxmlName))
+            return map.value(mxmlName);
+      else if (mxmlName == "other" && smuflAccidentalTypes.contains(smufl))
+            return smuflAccidentalTypes.value(smufl);
+      else
+            qDebug("mxmlString2accidentalType: unknown accidental '%s'", qPrintable(mxmlName));
+      return AccidentalType::NONE;
+      }
+
+//---------------------------------------------------------
+//   mxmlAccidentalTextToChar
+//---------------------------------------------------------
+
+/**
+ Convert a MusicXML accidental text to a accidental character.
+ */
+
+QString mxmlAccidentalTextToChar(const QString mxmlName)
+      {
+      static QMap<QString, QString> map;   // map MusicXML accidental name to MuseScore enum AccidentalType
+      if (map.empty()) {
+            map["sharp"] = "♯";
+            map["natural"] = "♮";
+            map["flat"] = "♭";
+            }
 
       if (map.contains(mxmlName))
             return map.value(mxmlName);
       else
-            qDebug("mxmlString2accidentalType: unknown accidental '%s'", qPrintable(mxmlName));
-      return AccidentalType::NONE;
+            qDebug("mxmlAccidentalTextToChar: unsupported accidental '%s'", qPrintable(mxmlName));
+      return "";
       }
 
 //---------------------------------------------------------

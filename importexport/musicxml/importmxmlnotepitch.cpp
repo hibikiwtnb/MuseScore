@@ -29,26 +29,38 @@ namespace Ms {
 
 static Accidental* accidental(QXmlStreamReader& e, Score* score)
       {
-      Q_ASSERT(e.isStartElement() && e.name() == "accidental");
+      const bool cautionary = e.attributes().value("cautionary") == "yes";
+      const bool editorial = e.attributes().value("editorial") == "yes";
+      const bool parentheses = e.attributes().value("parentheses") == "yes";
+      const bool noParentheses = e.attributes().value("parentheses") == "no";
+      const bool brackets = e.attributes().value("bracket") == "yes";
+      const bool noBrackets = e.attributes().value("bracket") == "no";
+      const bool smallAccid = e.attributes().value("size") == "cue" || e.attributes().value("size") == "grace-cue";
+      const QColor accColor = e.attributes().value("color").toString();
+      const QString smufl = e.attributes().value("smufl").toString();
 
-      bool cautionary = e.attributes().value("cautionary") == "yes";
-      bool editorial = e.attributes().value("editorial") == "yes";
-      bool parentheses = e.attributes().value("parentheses") == "yes";
-
-      const auto s = e.readElementText();
-      const auto type = mxmlString2accidentalType(s);
+      const QString s = e.readElementText();
+      const AccidentalType type = mxmlString2accidentalType(s, smufl);
 
       if (type != AccidentalType::NONE) {
-            auto a = new Accidental(score);
+            Accidental* a = new Accidental(score);
             a->setAccidentalType(type);
-            if (editorial || cautionary || parentheses) {
-                  a->setBracket(AccidentalBracket(cautionary || parentheses));
+            if (cautionary || editorial) // no way to tell one from the other
                   a->setRole(AccidentalRole::USER);
-                  }
+            // except via the use of parenthesis vs. brackets
+            if (noParentheses || noBrackets) // explicitly none wanted
+                  ;
+            else if (parentheses || cautionary) // set to "yes", or for a "cautionary" and not set at all
+                  a->setBracket(AccidentalBracket(AccidentalBracket::PARENTHESIS));
+            else if (brackets || editorial) // set to "yes", or for an "editorial" and not set at all
+                  a->setBracket(AccidentalBracket(AccidentalBracket::BRACKET));
+            if (accColor.isValid()/* && preferences.getBool(PREF_IMPORT_MUSICXML_IMPORTLAYOUT)*/)
+                  a->setColor(accColor);
+            a->setSmall(smallAccid);
             return a;
             }
 
-      return 0;
+      return nullptr;
       }
 
 //---------------------------------------------------------
@@ -61,12 +73,9 @@ static Accidental* accidental(QXmlStreamReader& e, Score* score)
 
 void mxmlNotePitch::displayStepOctave(QXmlStreamReader& e)
       {
-      Q_ASSERT(e.isStartElement()
-               && (e.name() == "rest" || e.name() == "unpitched"));
-
       while (e.readNextStartElement()) {
             if (e.name() == "display-step") {
-                  const auto step = e.readElementText();
+                  const QString step = e.readElementText();
                   int pos = QString("CDEFGAB").indexOf(step);
                   if (step.size() == 1 && pos >=0 && pos < 7)
                         _displayStep = pos;
@@ -75,7 +84,7 @@ void mxmlNotePitch::displayStepOctave(QXmlStreamReader& e)
                         qDebug("invalid step '%s'", qPrintable(step));        // TODO
                   }
             else if (e.name() == "display-octave") {
-                  const auto oct = e.readElementText();
+                  const QString oct = e.readElementText();
                   bool ok;
                   _displayOctave = oct.toInt(&ok);
                   if (!ok || _displayOctave < 0 || _displayOctave > 9) {
@@ -99,31 +108,34 @@ void mxmlNotePitch::displayStepOctave(QXmlStreamReader& e)
 
 void mxmlNotePitch::pitch(QXmlStreamReader& e)
       {
-      Q_ASSERT(e.isStartElement() && e.name() == "pitch");
-
       // defaults
       _step = -1;
       _alter = 0;
+      _tuning = 0.0;
       _octave = -1;
 
       while (e.readNextStartElement()) {
             if (e.name() == "alter") {
-                  const auto alter = e.readElementText();
+                  const QString alter = e.readElementText();
                   bool ok;
                   _alter = MxmlSupport::stringToInt(alter, &ok);       // fractions not supported by mscore
                   if (!ok || _alter < -2 || _alter > 2) {
                         _logger->logError(QString("invalid alter '%1'").arg(alter), &e);
                         bool ok2;
-                        const auto altervalue = alter.toDouble(&ok2);
+                        const double altervalue = alter.toDouble(&ok2);
                         if (ok2 && (qAbs(altervalue) < 2.0) && (_accType == AccidentalType::NONE)) {
                               // try to see if a microtonal accidental is needed
                               _accType = microtonalGuess(altervalue);
+
+                              // If it's not a microtonal accidental we will use tuning
+                              if (_accType == AccidentalType::NONE)
+                                    _tuning = 100 * altervalue;
                               }
                         _alter = 0;
                         }
                   }
             else if (e.name() == "octave") {
-                  const auto oct = e.readElementText();
+                  const QString oct = e.readElementText();
                   bool ok;
                   _octave = oct.toInt(&ok);
                   if (!ok || _octave < 0 || _octave > 9) {
@@ -132,8 +144,8 @@ void mxmlNotePitch::pitch(QXmlStreamReader& e)
                         }
                   }
             else if (e.name() == "step") {
-                  const auto step = e.readElementText();
-                  const auto pos = QString("CDEFGAB").indexOf(step);
+                  const QString step = e.readElementText();
+                  const int pos = QString("CDEFGAB").indexOf(step);
                   if (step.size() == 1 && pos >=0 && pos < 7)
                         _step = pos;
                   else

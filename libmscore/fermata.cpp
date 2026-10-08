@@ -10,17 +10,18 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "fermata.h"
-#include "score.h"
+#include "barline.h"
 #include "chordrest.h"
-#include "system.h"
+#include "fermata.h"
 #include "measure.h"
+#include "page.h"
+#include "rest.h"
+#include "score.h"
 #include "staff.h"
 #include "stafftype.h"
-#include "undo.h"
-#include "page.h"
-#include "barline.h"
 #include "sym.h"
+#include "system.h"
+#include "undo.h"
 #include "xml.h"
 
 namespace Ms {
@@ -43,7 +44,6 @@ Fermata::Fermata(Score* s)
       {
       setPlacement(Placement::ABOVE);
       _symId         = SymId::noSym;
-      _timeStretch   = 1.0;
       setPlay(true);
       initElementStyle(&fermataStyle);
       }
@@ -51,7 +51,7 @@ Fermata::Fermata(Score* s)
 Fermata::Fermata(SymId id, Score* s)
    : Fermata(s)
       {
-      setSymId(id);
+      setSymIdAndTimeStretch(id);
       }
 
 //---------------------------------------------------------
@@ -77,7 +77,7 @@ bool Fermata::readProperties(XmlReader& e)
       if (tag == "subtype") {
             QString s = e.readElementText();
             SymId id = Sym::name2id(s);
-            setSymId(id);
+            setSymIdAndTimeStretch(id);
             }
       else if (tag == "play")
             setPlay(e.readBool());
@@ -108,7 +108,7 @@ void Fermata::write(XmlWriter& xml) const
             }
       xml.stag(this);
       xml.tag("subtype", Sym::id2name(_symId));
-      writeProperty(xml, Pid::TIME_STRETCH);
+      writeProperty(xml, Pid::TIME_STRETCH, true); // force writing even default settings
       writeProperty(xml, Pid::PLAY);
       writeProperty(xml, Pid::MIN_DISTANCE);
       if (!isStyled(Pid::OFFSET))
@@ -227,8 +227,12 @@ void Fermata::layout()
       if (e) {
             if (e->isChord())
                   rxpos() += score()->noteHeadWidth() * staff()->mag(Fraction(0, 1)) * .5;
+            else if (e->isRest()) {
+                  const Rest* rest = toRest(e);
+                  rxpos() += e->x() + rest->centerX();
+                  }
             else
-                  rxpos() += e->x() + e->width() * staff()->mag(Fraction(0, 1)) * .5;
+                  rxpos() += e->x() - e->shape().left() + e->width() * staff()->mag(Fraction(0, 1)) * .5;
             }
 
       QString name = Sym::id2name(_symId);
@@ -321,8 +325,26 @@ QVariant Fermata::propertyDefault(Pid propertyId) const
       switch (propertyId) {
             case Pid::PLACEMENT:
                   return int(track() & 1 ? Placement::BELOW : Placement::ABOVE);
-            case Pid::TIME_STRETCH:
+            case Pid::TIME_STRETCH: {
+                  QString programVersion = masterScore()->mscoreVersion();
+                  if ((programVersion.isEmpty() && !MScore::testMode) || programVersion > "3.6.2") { // new score or newer than from 3.6.3 (3.7 from before this change)
+                        switch (subtype()) {
+                              case int(SymId::fermataVeryShortAbove):
+                                    return 1.25;
+                              case int(SymId::fermataShortAbove):
+                              case int(SymId::fermataShortHenzeAbove):
+                                    return 1.5;
+                              case int(SymId::fermataAbove):
+                                    return 2.0;
+                              case int(SymId::fermataLongAbove):
+                              case int(SymId::fermataLongHenzeAbove):
+                                    return 3.0;
+                              case int(SymId::fermataVeryLongAbove):
+                                    return 4.0;
+                              }
+                        }
                   return 1.0; // articulationList[int(articulationType())].timeStretch;
+                  }
             case Pid::PLAY:
                   return true;
             default:
@@ -376,7 +398,16 @@ Sid Fermata::getPropertyStyle(Pid pid) const
 
 qreal Fermata::mag() const
       {
-      return staff() ? staff()->mag(tick()) * score()->styleD(Sid::articulationMag) : 1.0;
+      qreal m = staff() ? staff()->mag(tick()) * score()->styleD(Sid::articulationMag) : 1.0;
+      if (segment() && segment()->isChordRestType() && segment()->element(track()))
+            m *= toChordRest(segment()->element(track()))->mag();
+      return m;
+      }
+
+void Fermata::setSymIdAndTimeStretch(SymId id)
+      {
+      _symId = id;
+      _timeStretch = _timeStretch == -1 ? propertyDefault(Pid::TIME_STRETCH).value<qreal>() : -1;
       }
 
 //---------------------------------------------------------

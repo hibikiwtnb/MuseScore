@@ -30,7 +30,7 @@ class ChangeText;
 //---------------------------------------------------------
 
 enum class FrameType : char {
-      NO_FRAME, SQUARE, CIRCLE
+      NO_FRAME, RECTANGLE, SQUARE = RECTANGLE, CIRCLE  // keep SQUARE for plugin API compatibility
       };
 
 //---------------------------------------------------------
@@ -46,7 +46,7 @@ enum class VerticalAlignment : char {
 //---------------------------------------------------------
 
 enum class FormatId : char {
-      Bold, Italic, Underline, Valign, FontSize, FontFamily
+      Bold, Italic, Underline, Strike, Valign, FontSize, FontFamily
       };
 
 //---------------------------------------------------------
@@ -71,16 +71,20 @@ class CharFormat {
 
    public:
       CharFormat() {}
-      bool operator==(const CharFormat&) const;
+      CharFormat(const CharFormat& cf) { *this = cf; }
+      bool operator==(const CharFormat& cf) const;
+      CharFormat& operator=(const CharFormat& cf);
 
       FontStyle style() const                { return _style;                         }
       void setStyle(FontStyle s)             { _style = s;                            }
       bool bold() const                      { return _style & FontStyle::Bold;       }
       bool italic() const                    { return _style & FontStyle::Italic;     }
       bool underline() const                 { return _style & FontStyle::Underline;  }
+      bool strike() const                    { return _style & FontStyle::Strike;  }
       void setBold(bool val)                 { _style = val ? _style + FontStyle::Bold      : _style - FontStyle::Bold;      }
       void setItalic(bool val)               { _style = val ? _style + FontStyle::Italic    : _style - FontStyle::Italic;    }
       void setUnderline(bool val)            { _style = val ? _style + FontStyle::Underline : _style - FontStyle::Underline; }
+      void setStrike(bool val)               { _style = val ? _style + FontStyle::Strike    : _style - FontStyle::Strike; }
 
       bool preedit() const                   { return _preedit;     }
       VerticalAlignment valign() const       { return _valign;      }
@@ -252,6 +256,7 @@ class TextBase : public Element {
 
       QString preEdit;              // move to EditData?
       bool _layoutToParentWidth     { false };
+      bool _layoutRelativeToBottom  { false }; // used to keep footers inside page margins
 
       int  hexState                 { -1    };
       bool _primed                  { 0 };
@@ -298,11 +303,12 @@ class TextBase : public Element {
       qreal lineHeight() const;
       virtual qreal baseLine() const override;
 
-      bool empty() const                  { return xmlText().isEmpty(); }
-      void clear()                        { setXmlText(QString());      }
+      bool empty() const                        { return xmlText().isEmpty();   }
+      void clear()                              { setXmlText(QString());        }
 
-      bool layoutToParentWidth() const    { return _layoutToParentWidth; }
-      void setLayoutToParentWidth(bool v) { _layoutToParentWidth = v;   }
+      bool layoutToParentWidth() const          { return _layoutToParentWidth;  }
+      void setLayoutToParentWidth(bool v)       { _layoutToParentWidth = v;     }
+      void setLayoutRelativeToBottom(bool v)    { _layoutRelativeToBottom = v ; }
 
       virtual void startEdit(EditData&) override;
       virtual bool edit(EditData&) override;
@@ -320,10 +326,10 @@ class TextBase : public Element {
 
       virtual void write(XmlWriter& xml) const override;
       virtual void read(XmlReader&) override;
-      virtual void writeProperties(XmlWriter& xml) const { writeProperties(xml, true, true); }
+      virtual void writeProperties(XmlWriter& xml) const override { writeProperties(xml, true, true); }
       void writeProperties(XmlWriter& xml, bool writeText) const { writeProperties(xml, writeText, true); }
       void writeProperties(XmlWriter&, bool, bool) const;
-      bool readProperties(XmlReader&);
+      bool readProperties(XmlReader&) override;
 
       virtual void paste(EditData&);
 
@@ -365,8 +371,8 @@ class TextBase : public Element {
       virtual QVariant propertyDefault(Pid id) const override;
       virtual void undoChangeProperty(Pid id, const QVariant& v, PropertyFlags ps) override;
       virtual Pid propertyId(const QStringRef& xmlName) const override;
-      virtual Sid getPropertyStyle(Pid) const;
-      virtual void styleChanged();
+      virtual Sid getPropertyStyle(Pid) const override;
+      virtual void styleChanged() override;
       void editInsertText(TextCursor*, const QString&);
 
       TextCursor* cursor(const EditData&);
@@ -383,7 +389,7 @@ class TextBase : public Element {
       // helper functions
       bool hasFrame() const                      { return _frameType != FrameType::NO_FRAME; }
       bool circle() const                        { return _frameType == FrameType::CIRCLE; }
-      bool square() const                        { return _frameType == FrameType::SQUARE; }
+      bool rectangle() const                     { return _frameType == FrameType::RECTANGLE; }
 
       Tid tid() const                            { return _tid; }
       void setTid(Tid id)                        { _tid = id; }
@@ -394,9 +400,11 @@ class TextBase : public Element {
       bool bold() const                      { return _fontStyle & FontStyle::Bold;       }
       bool italic() const                    { return _fontStyle & FontStyle::Italic;     }
       bool underline() const                 { return _fontStyle & FontStyle::Underline;  }
+      bool strike() const                    { return _fontStyle & FontStyle::Strike;  }
       void setBold(bool val)                 { _fontStyle = val ? _fontStyle + FontStyle::Bold      : _fontStyle - FontStyle::Bold;      }
       void setItalic(bool val)               { _fontStyle = val ? _fontStyle + FontStyle::Italic    : _fontStyle - FontStyle::Italic;    }
       void setUnderline(bool val)            { _fontStyle = val ? _fontStyle + FontStyle::Underline : _fontStyle - FontStyle::Underline; }
+      void setStrike(bool val)               { _fontStyle = val ? _fontStyle + FontStyle::Strike    : _fontStyle - FontStyle::Strike;    }
 
       bool hasCustomFormatting() const;
 

@@ -19,8 +19,6 @@
 */
 
 #include "element.h"
-#include "spatium.h"
-#include "symbol.h"
 #include "skyline.h"
 
 namespace Ms {
@@ -63,6 +61,7 @@ class SysStaff {
       qreal y() const               { return _bbox.y() + _yOff; }
       void setYOff(qreal offset)    { _yOff = offset; }
       qreal yOffset() const         { return _yOff; }
+      qreal yBottom() const;
 
       void saveLayout();
       void restoreLayout();
@@ -95,11 +94,10 @@ class System final : public Element {
       QList<Bracket*> _brackets;
       QList<SpannerSegment*> _spannerSegments;
 
-      qreal _leftMargin              { 0.0     };     ///< left margin for instrument name, brackets etc.
-      mutable bool fixedDownDistance { false   };
-      mutable Spacer* activeSpacer   { nullptr };
-      qreal _distance                { 0.0     };     // temp. variable used during layout
-      qreal _systemHeight            { 0.0     };
+      qreal _leftMargin              { 0.0   };     ///< left margin for instrument name, brackets etc.
+      mutable bool fixedDownDistance { false };
+      qreal _distance                { 0.0   };     // temp. variable used during layout
+      qreal _systemHeight            { 0.0   };
 
       int firstVisibleSysStaff() const;
       int lastVisibleSysStaff() const;
@@ -188,18 +186,21 @@ public:
       qreal minTop() const;
       qreal minBottom() const;
       qreal spacerDistance(bool up) const;
+      Spacer* upSpacer(int staffIdx, Spacer* prevDownSpacer) const;
+      Spacer* downSpacer(int staffIdx) const;
 
       qreal firstNoteRestSegmentX(bool leading = false);
+      qreal lastNoteRestSegmentX(bool trailing = false);
 
       void moveBracket(int staffIdx, int srcCol, int dstCol);
       bool hasFixedDownDistance() const { return fixedDownDistance; }
-      Spacer* getActiveSpacer() const { return activeSpacer; }
       int firstVisibleStaff() const;
       int nextVisibleStaff(int) const;
       qreal distance() const { return _distance; }
       void setDistance(qreal d) { _distance = d; }
 
       int firstSysStaffOfPart(const Part* part) const;
+      int prevVisibleStaff(int startStaffIdx) const;
       int firstVisibleSysStaffOfPart(const Part* part) const;
       int lastSysStaffOfPart(const Part* part) const;
       int lastVisibleSysStaffOfPart(const Part* part) const;

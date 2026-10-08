@@ -1,27 +1,27 @@
-#include "importptb.h"
 #include "assert.h"
+#include "importptb.h"
 
-#include <libmscore/part.h>
-#include <libmscore/staff.h>
-#include <libmscore/measure.h>
-#include <libmscore/symbol.h>
-#include <libmscore/tie.h>
-#include <libmscore/bend.h>
-#include <libmscore/timesig.h>
-#include <libmscore/sym.h>
 #include <libmscore/articulation.h>
-#include <libmscore/tuplet.h>
-#include <libmscore/instrument.h>
-#include <libmscore/clef.h>
-#include <libmscore/rest.h>
-#include <libmscore/stafftext.h>
-#include <libmscore/chord.h>
-#include <libmscore/tempotext.h>
-#include <libmscore/excerpt.h>
-#include <libmscore/rehearsalmark.h>
-#include <libmscore/bracketItem.h>
+#include <libmscore/bend.h>
 #include <libmscore/box.h>
+#include <libmscore/bracketItem.h>
+#include <libmscore/chord.h>
+#include <libmscore/clef.h>
+#include <libmscore/excerpt.h>
+#include <libmscore/instrument.h>
+#include <libmscore/measure.h>
 #include <libmscore/palmmute.h>
+#include <libmscore/part.h>
+#include <libmscore/rehearsalmark.h>
+#include <libmscore/rest.h>
+#include <libmscore/staff.h>
+#include <libmscore/stafftext.h>
+#include <libmscore/sym.h>
+#include <libmscore/symbol.h>
+#include <libmscore/tempotext.h>
+#include <libmscore/tie.h>
+#include <libmscore/timesig.h>
+#include <libmscore/tuplet.h>
 
 namespace Ms {
 
@@ -694,7 +694,7 @@ void PowerTab::fillMeasure(tBeatList& elist, Measure* measure, int staff, std::v
                         note->setFret(n.value);
                         note->setString(n.str);
                         const StringData* sd = score->staff(staff)->part()->instrument()->stringData();
-                        int k     = int(curTrack->infos[staff].strings.size()) - n.str - 1;
+                        int k     = std::max(int(curTrack->infos[staff].strings.size()) - n.str - 1, 0);
                         int pitch = sd->stringList().at(k).pitch + n.value; //getPitch(n.str, n.value, 0);
                         note->setPitch(pitch);
                         note->setTpcFromPitch();
@@ -825,7 +825,7 @@ void PowerTab::addToScore(ptSection& sec)
       if (!sec.partName.empty() && lastPart != sec.partMarker) {
             lastPart = sec.partMarker;
             RehearsalMark* t = new RehearsalMark(score);
-            t->setFrameType(FrameType::SQUARE);
+            t->setFrameType(FrameType::RECTANGLE);
             t->setPlainText(QString(sec.partMarker));
             t->setTrack(0);
             auto seg = measure->getSegment(SegmentType::ChordRest, measure->tick());
@@ -1238,7 +1238,7 @@ Score::FileError PowerTab::read()
                   parts[i] = sec.beats[i];
             }
 
-      score->style().set(Sid::ArpeggioHiddenInStdIfTab, true);
+      score->style().set(Sid::arpeggioHiddenInStdIfTab, true);
 
       MeasureBase* m;
       if (!score->measures()->first()) {
@@ -1265,7 +1265,7 @@ Score::FileError PowerTab::read()
 
 //      static const char* tune[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
       int id = 0;
-      for (Part* part : score->parts()) {
+      for (Part*& part : score->parts()) {
             QMultiMap<int, int> tracks;
             Score* pscore = new Score(score);
 
@@ -1279,7 +1279,7 @@ Score::FileError PowerTab::read()
 
 //TODO-ws          pscore->showLyrics = score->showLyrics;
             pscore->style().set(Sid::createMultiMeasureRests, false);
-            pscore->style().set(Sid::ArpeggioHiddenInStdIfTab, true);
+            pscore->style().set(Sid::arpeggioHiddenInStdIfTab, true);
 
             QList<int> stavesMap;
             Part* p = new Part(pscore);

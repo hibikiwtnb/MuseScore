@@ -10,11 +10,11 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "groups.h"
 #include "durationtype.h"
 #include "chordrest.h"
+#include "groups.h"
+#include "measure.h"
 #include "staff.h"
-#include "tuplet.h"
 #include "xml.h"
 
 namespace Ms {
@@ -81,7 +81,7 @@ Beam::Mode Groups::endBeam(ChordRest* cr, ChordRest* prev)
       TDuration d      = cr->durationType();
       const Groups& g  = cr->staff()->group(cr->tick());
       Fraction stretch = cr->staff()->timeStretch(cr->tick());
-      Fraction tick    = cr->rtick() * stretch;
+      Fraction tick    = cr->rtick() * stretch + cr->measure()->anacrusisOffset();;
 
       Beam::Mode val = g.beamMode(tick.ticks(), d.type());
 
@@ -122,7 +122,7 @@ Beam::Mode Groups::beamMode(int tick, TDuration::DurationType d) const
             default:
                   return Beam::Mode::AUTO;
             }
-      const int dm = MScore::division / 8;
+      const int dm = DIVISION / 8;
       for (const GroupNode& e : *this) {
             if (e.pos * dm < tick)
                   continue;
@@ -261,4 +261,3 @@ void Groups::dump(const char* m) const
       }
 
 }
-

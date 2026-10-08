@@ -10,12 +10,12 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
+#include "measure.h"
 #include "score.h"
+#include "staff.h"
 #include "stafftextbase.h"
 #include "system.h"
-#include "staff.h"
 #include "xml.h"
-#include "measure.h"
 
 namespace Ms {
 
@@ -26,7 +26,7 @@ namespace Ms {
 StaffTextBase::StaffTextBase(Score* s, Tid tid, ElementFlags flags)
    : TextBase(s, tid, flags)
       {
-      setSwingParameters(MScore::division / 2, 60);
+      setSwingParameters(DIVISION / 2, 60);
       }
 
 //---------------------------------------------------------
@@ -54,14 +54,14 @@ void StaffTextBase::write(XmlWriter& xml) const
             }
       if (swing()) {
             QString swingUnit;
-            if (swingParameters()->swingUnit == MScore::division / 2)
+            if (swingParameters()->swingUnit == DIVISION / 2)
                   swingUnit = TDuration(TDuration::DurationType::V_EIGHTH).name();
-            else if (swingParameters()->swingUnit == MScore::division / 4)
+            else if (swingParameters()->swingUnit == DIVISION / 4)
                   swingUnit = TDuration(TDuration::DurationType::V_16TH).name();
             else
                   swingUnit = TDuration(TDuration::DurationType::V_ZERO).name();
             int swingRatio = swingParameters()->swingRatio;
-            xml.tagE(QString("swing unit=\"%1\" ratio= \"%2\"").arg(swingUnit).arg(swingRatio));
+            xml.tagE(QString("swing unit=\"%1\" ratio=\"%2\"").arg(swingUnit).arg(swingRatio));
             }
       if (capo() != 0)
             xml.tagE(QString("capo fretId=\"%1\"").arg(capo()));
@@ -138,9 +138,9 @@ bool StaffTextBase::readProperties(XmlReader& e)
             QString swingUnit = e.attribute("unit","");
             int unit = 0;
             if (swingUnit == TDuration(TDuration::DurationType::V_EIGHTH).name())
-                  unit = MScore::division / 2;
+                  unit = DIVISION / 2;
             else if (swingUnit == TDuration(TDuration::DurationType::V_16TH).name())
-                  unit = MScore:: division / 4;
+                  unit = DIVISION / 4;
             else if (swingUnit == TDuration(TDuration::DurationType::V_ZERO).name())
                   unit = 0;
             int ratio = e.intAttribute("ratio", 60);
@@ -204,4 +204,3 @@ Segment* StaffTextBase::segment() const
       }
 
 }
-

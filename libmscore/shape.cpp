@@ -11,7 +11,6 @@
 //=============================================================================
 
 #include "shape.h"
-#include "segment.h"
 
 namespace Ms {
 
@@ -81,7 +80,7 @@ Shape Shape::translated(const QPointF& pt) const
 
 qreal Shape::minHorizontalDistance(const Shape& a) const
       {
-      qreal dist = -1000000.0;      // min real
+      qreal dist = -DBL_MAX;      // min real
       for (const QRectF& r2 : a) {
             qreal by1 = r2.top();
             qreal by2 = r2.bottom();
@@ -89,8 +88,8 @@ qreal Shape::minHorizontalDistance(const Shape& a) const
                   qreal ay1 = r1.top();
                   qreal ay2 = r1.bottom();
                   if (Ms::intersects(ay1, ay2, by1, by2)
-                     || ((r1.height() == 0.0) && (r2.height() == 0.0) && (ay1 == by1))
-                     || ((r1.width() == 0.0) || (r2.width() == 0.0)))
+                     || (qFuzzyIsNull(r1.height()) && qFuzzyIsNull(r2.height()) && (ay1 == by1))
+                     || (qFuzzyIsNull(r1.width()) || qFuzzyIsNull(r2.width())))
                         dist = qMax(dist, r1.right() - r2.left());
                   }
             }
@@ -105,7 +104,7 @@ qreal Shape::minHorizontalDistance(const Shape& a) const
 
 qreal Shape::minVerticalDistance(const Shape& a) const
       {
-      qreal dist = -1000000.0;      // min real
+      qreal dist = -DBL_MAX;      // min real
       for (const QRectF& r2 : a) {
             if (r2.height() <= 0.0)
                   continue;
@@ -132,7 +131,7 @@ qreal Shape::left() const
       {
       qreal dist = 0.0;
       for (const QRectF& r : *this) {
-            if (r.height() != 0.0 && r.left() < dist)
+            if (!qFuzzyIsNull(r.height()) && r.left() < dist)
             // if (r.left() < dist)
                   dist = r.left();
             }
@@ -160,7 +159,7 @@ qreal Shape::right() const
 
 qreal Shape::top() const
       {
-      qreal dist = 1000000.0;
+      qreal dist = DBL_MAX;
       for (const QRectF& r : *this) {
             if (r.top() < dist)
                   dist = r.top();
@@ -174,7 +173,7 @@ qreal Shape::top() const
 
 qreal Shape::bottom() const
       {
-      qreal dist = -1000000.0;
+      qreal dist = -DBL_MAX;
       for (const QRectF& r : *this) {
             if (r.bottom() > dist)
                   dist = r.bottom();
@@ -190,7 +189,7 @@ qreal Shape::bottom() const
 
 qreal Shape::topDistance(const QPointF& p) const
       {
-      qreal dist = 1000000.0;
+      qreal dist = DBL_MAX;
       for (const QRectF& r : *this) {
             if (p.x() >= r.left() && p.x() < r.right())
                   dist = qMin(dist, r.top() - p.y());
@@ -206,7 +205,7 @@ qreal Shape::topDistance(const QPointF& p) const
 
 qreal Shape::bottomDistance(const QPointF& p) const
       {
-      qreal dist = 1000000.0;
+      qreal dist = DBL_MAX;
       for (const QRectF& r : *this) {
             if (p.x() >= r.left() && p.x() < r.right())
                   dist = qMin(dist, p.y() - r.bottom());
@@ -226,7 +225,7 @@ void Shape::remove(const QRectF& r)
                   return;
                   }
             }
-      // qWarning("Shape::remove: QRectF not found in Shape");
+      // qDebug("Shape::remove: QRectF not found in Shape");
       qFatal("Shape::remove: QRectF not found in Shape");
       }
 
@@ -332,20 +331,20 @@ void testShapes()
       a.add(QRectF(-10, -10, 20, 20));
       qreal d = a.minHorizontalDistance(b);           // b is empty
       printf("      minHDistance (0.0): %f", d);
-      if (d != 0.0)
+      if (!qFuzzyIsNull(d))
             printf("   =====error");
       printf("\n");
 
       b.add(QRectF(0, 0, 10, 10));
       d = a.minHorizontalDistance(b);
       printf("      minHDistance (10.0): %f", d);
-      if (d != 10.0)
+      if (!qFuzzyCompare(d, 10.0))
             printf("   =====error");
       printf("\n");
 
       d = a.minVerticalDistance(b);
       printf("      minVDistance (10.0): %f", d);
-      if (d != 10.0)
+      if (!qFuzzyCompare(d, 10.0))
             printf("   =====error");
       printf("\n");
       }

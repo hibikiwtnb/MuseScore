@@ -10,13 +10,13 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "sym.h"
-#include "staff.h"
 #include "clef.h"
 #include "keysig.h"
 #include "measure.h"
-#include "segment.h"
 #include "score.h"
+#include "segment.h"
+#include "staff.h"
+#include "sym.h"
 #include "system.h"
 #include "undo.h"
 #include "xml.h"
@@ -93,8 +93,9 @@ void KeySig::layout()
       setbbox(QRectF());
 
       if (isCustom() && !isAtonal()) {
+            qreal step = _spatium * (staff() ? staff()->staffTypeForElement(this)->lineDistance().val() : 1);
             for (KeySym& ks: _sig.keySymbols()) {
-                  ks.pos = ks.spos * _spatium;
+                  ks.pos = QPointF((ks.spos.x() * _spatium), (ks.spos.y() * step));
                   addbbox(symBbox(ks.sym).translated(ks.pos));
                   }
             return;
@@ -111,7 +112,7 @@ void KeySig::layout()
             Clef* c = nullptr;
             if (segment()) {
                   for (Segment* seg = segment()->prev1(); !c && seg && seg->tick() == tick(); seg = seg->prev1())
-                        if (seg->isClefType() || seg->isHeaderClefType())
+                        if (seg->enabled() && (seg->isClefType() || seg->isHeaderClefType()))
                               c = toClef(seg->element(track()));
                   }
             if (c)
@@ -281,34 +282,29 @@ void KeySig::layout()
       }
 
 //---------------------------------------------------------
-//   shape
-//---------------------------------------------------------
-
-Shape KeySig::shape() const
-      {
-      QRectF box(bbox());
-      const Staff* st = staff();
-      if (st && addToSkyline()) {
-            // Extend key signature shape up and down to
-            // the first ledger line height to ensure that
-            // no notes will be too close to the keysig.
-            const qreal sp = spatium();
-            const qreal y = pos().y();
-            box.setTop(std::min(-sp - y, box.top()));
-            box.setBottom(std::max(st->height() - y + sp, box.bottom()));
-            }
-      return Shape(box);
-      }
-
-//---------------------------------------------------------
 //   set
 //---------------------------------------------------------
 
 void KeySig::draw(QPainter* p) const
       {
       p->setPen(curColor());
-      for (const KeySym& ks: _sig.keySymbols())
+      qreal _spatium = spatium();
+      int lines = staff() ? staff()->staffTypeForElement(this)->lines() : 5;
+      qreal step = spatium() * (staff() ? staff()->staffTypeForElement(this)->lineDistance().val() : 1.0);
+      for (const KeySym& ks: _sig.keySymbols()) {
             drawSymbol(ks.sym, p, QPointF(ks.pos.x(), ks.pos.y()));
+            // draw ledger lines
+            qreal x = ks.pos.x() - ((ks.sym == SymId::accidentalSharp) ? (_spatium * .15) : (_spatium * .25));
+            int i = static_cast<int>(ks.pos.y() / step);
+            while (i < 0) { // above staff
+                  drawSymbol(SymId::legerLine, p, QPointF(x, (i * step)));
+                  ++i;
+                  }
+            while (i >= lines) { // below staff
+                  drawSymbol(SymId::legerLine, p, QPointF(x, (i * step)));
+                  --i;
+                  }
+            }
       if (!parent() && (isAtonal() || isCustom()) && _sig.keySymbols().empty()) {
             // empty custom or atonal key signature - draw something for palette
             p->setPen(Qt::gray);
@@ -447,7 +443,7 @@ void KeySig::read(XmlReader& e)
                   _showCourtesy = e.readInt();
             else if (tag == "showNaturals")           // obsolete
                   e.readInt();
-            else if (tag == "accidental")
+            else if (tag == "accidental" || tag == "actualKey" || tag == "concertKey") // + 4.x compat, order matters!
                   _sig.setKey(Key(e.readInt()));
             else if (tag == "natural")                // obsolete
                   e.readInt();
@@ -600,7 +596,7 @@ QVariant KeySig::getProperty(Pid propertyId) const
             case Pid::KEY:
                   return int(key());
             case Pid::SHOW_COURTESY:
-                  return int(showCourtesy());
+                  return showCourtesy();
             case Pid::KEYSIG_MODE:
                   return int(mode());
             default:
@@ -629,6 +625,7 @@ bool KeySig::setProperty(Pid propertyId, const QVariant& v)
                   if (generated())
                         return false;
                   setMode(KeyMode(v.toInt()));
+                  staff()->setKey(tick(), keySigEvent());
                   break;
             default:
                   if (!Element::setProperty(propertyId, v))

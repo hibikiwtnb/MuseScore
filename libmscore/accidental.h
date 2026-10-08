@@ -22,7 +22,6 @@
 #include <QList>
 #include <QVariant>
 
-#include "config.h"
 #include "element.h"
 #include "sym.h"
 
@@ -65,13 +64,13 @@ struct SymElement {
 //---------------------------------------------------------
 //   @@ Accidental
 //   @P role        enum  (Accidental.AUTO, .USER) (read only)
-//   @P small       bool
+//   @P isSmall     bool
 //---------------------------------------------------------
 
 class Accidental final : public Element {
       QList<SymElement> el;
       AccidentalType _accidentalType { AccidentalType::NONE };
-      bool _small                    { false                   };
+      bool m_isSmall                 { false                   };
       AccidentalBracket _bracket     { AccidentalBracket::NONE };
       AccidentalRole _role           { AccidentalRole::AUTO    };
 
@@ -108,8 +107,8 @@ class Accidental final : public Element {
 
       void setRole(AccidentalRole r)            { _role = r;              }
 
-      bool small() const                        { return _small;          }
-      void setSmall(bool val)                   { _small = val;           }
+      bool isSmall() const                      { return m_isSmall;       }
+      void setSmall(bool val)                   { m_isSmall = val;        }
 
       void undoSetSmall(bool val);
 

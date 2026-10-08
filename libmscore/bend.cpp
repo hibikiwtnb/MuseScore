@@ -57,6 +57,7 @@ QFont Bend::font(qreal sp) const
       f.setBold(_fontStyle & FontStyle::Bold);
       f.setItalic(_fontStyle & FontStyle::Italic);
       f.setUnderline(_fontStyle & FontStyle::Underline);
+      f.setStrikeOut(_fontStyle & FontStyle::Strike);
       qreal m = _fontSize;
       m *= sp / SPATIUM20;
 
@@ -335,7 +336,7 @@ QVariant Bend::getProperty(Pid id) const
             case Pid::FONT_STYLE:
                   return int(_fontStyle);
             case Pid::PLAY:
-                  return bool(playBend());
+                  return playBend();
             case Pid::LINE_WIDTH:
                   return _lineWidth;
             default:

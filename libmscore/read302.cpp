@@ -10,21 +10,22 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#include "xml.h"
-#include "score.h"
-#include "staff.h"
-#include "revisions.h"
-#include "part.h"
+#include "audio.h"
+#include "excerpt.h"
+#include "measurebase.h"
 #include "page.h"
+#include "part.h"
+#include "revisions.h"
+#include "score.h"
+#include "scoreOrder.h"
+#include "sig.h"
+#include "spanner.h"
+#include "staff.h"
+#include "stafftext.h"
 #include "style.h"
 #include "sym.h"
-#include "audio.h"
-#include "sig.h"
-#include "barline.h"
-#include "excerpt.h"
-#include "spanner.h"
-#include "scoreOrder.h"
-#include "measurebase.h"
+#include "text.h"
+#include "xml.h"
 
 #ifdef OMR
 #include "omr/omr.h"
@@ -96,6 +97,8 @@ bool Score::read(XmlReader& e)
                   _synthesizerState.read(e);
             else if (tag == "page-offset")
                   _pageNumberOffset = e.readInt();
+            else if (tag == "eid")        // Mu4.5+ compatibility
+                  e.skipCurrentElement(); // skip, don't log
             else if (tag == "Division")
                   _fileDivision = e.readInt();
             else if (tag == "showInvisible")
@@ -106,18 +109,20 @@ bool Score::read(XmlReader& e)
                   _showFrames = e.readInt();
             else if (tag == "showMargins")
                   _showPageborders = e.readInt();
+            else if (tag == "open")       // Mu4 compatibility
+                  e.skipCurrentElement(); // skip, don't log
             else if (tag == "markIrregularMeasures")
                   _markIrregularMeasures = e.readInt();
             else if (tag == "Style") {
                   qreal sp = style().value(Sid::spatium).toDouble();
-                  style().load(e);
+                  style().load(e, MSCVERSION);
                   // if (_layoutMode == LayoutMode::FLOAT || _layoutMode == LayoutMode::SYSTEM) {
                   if (_layoutMode == LayoutMode::FLOAT) {
                         // style should not change spatium in
                         // float mode
                         style().set(Sid::spatium, sp);
                         }
-                  _scoreFont = ScoreFont::fontFactory(style().value(Sid::MusicalSymbolFont).toString());
+                  _scoreFont = ScoreFont::fontFactory(style().value(Sid::musicalSymbolFont).toString());
                   }
             else if (tag == "copyright" || tag == "rights") {
                   Text* text = new Text(this);
@@ -139,6 +144,8 @@ bool Score::read(XmlReader& e)
                   QString name = e.attribute("name");
                   setMetaTag(name, e.readElementText());
                   }
+            else if (tag == "SystemObjects") // Mu4 compatibility
+                  e.skipCurrentElement();    // skip, don't log
             else if (tag == "Order") {
                   order = new ScoreOrder(e.attribute("id"));
                   order->read(e);
@@ -159,21 +166,6 @@ bool Score::read(XmlReader& e)
                   s->read(e);
                   addSpanner(s);
                   }
-            else if (tag == "Excerpt") {
-                  if (MScore::noExcerpts)
-                        e.skipCurrentElement();
-                  else {
-                        if (isMaster()) {
-                              Excerpt* ex = new Excerpt(static_cast<MasterScore*>(this));
-                              ex->read(e);
-                              excerpts().append(ex);
-                              }
-                        else {
-                              qDebug("Score::read(): part cannot have parts");
-                              e.skipCurrentElement();
-                              }
-                        }
-                  }
             else if (e.name() == "Tracklist") {
                   int strack = e.intAttribute("sTrack",   -1);
                   int dtrack = e.intAttribute("dstTrack", -1);
@@ -182,24 +174,20 @@ bool Score::read(XmlReader& e)
                   e.skipCurrentElement();
                   }
             else if (tag == "Score") {          // recursion
-                  if (MScore::noExcerpts)
-                        e.skipCurrentElement();
-                  else {
-                        e.tracks().clear();     // ???
-                        MasterScore* m = masterScore();
-                        Score* s       = new Score(m, MScore::baseStyle());
-                        int defaultsVersion = m->style().defaultStyleVersion();
-                        s->setStyle(*MStyle::resolveStyleDefaults(defaultsVersion));
-                        s->style().setDefaultStyleVersion(defaultsVersion);
-                        Excerpt* ex    = new Excerpt(m);
+                  e.tracks().clear();     // ???
+                  MasterScore* m = masterScore();
+                  Score* s       = new Score(m, MScore::baseStyle());
+                  int defaultsVersion = m->style().defaultStyleVersion();
+                  s->setStyle(*MStyle::resolveStyleDefaults(defaultsVersion));
+                  s->style().setDefaultStyleVersion(defaultsVersion);
+                  Excerpt* ex    = new Excerpt(m);
 
-                        ex->setPartScore(s);
-                        e.setLastMeasure(nullptr);
-                        s->read(e);
-                        s->linkMeasures(m);
-                        ex->setTracks(e.tracks());
-                        m->addExcerpt(ex);
-                        }
+                  ex->setPartScore(s);
+                  e.setLastMeasure(nullptr);
+                  s->read(e);
+                  s->linkMeasures(m);
+                  ex->setTracks(e.tracks());
+                  m->addExcerpt(ex);
                   }
             else if (tag == "name") {
                   QString n = e.readElementText();
@@ -212,9 +200,18 @@ bool Score::read(XmlReader& e)
                         _layoutMode = LayoutMode::LINE;
                   else if (s == "system")
                         _layoutMode = LayoutMode::SYSTEM;
+                  else if (s == "double-page")
+                        _layoutMode = LayoutMode::DOUBLE_PAGE;
                   else
                         qDebug("layoutMode: %s", qPrintable(s));
                   }
+            else if (tag == "Expression") { // Mu4 compatibility
+                  QString s = e.readElementText();
+                  TextBase* t = new StaffText(score(), Tid::EXPRESSION);
+                  t->setXmlText(s);
+                  }
+            else if (tag == "SystemLocks") // Mu4.5+ compatibility
+                  e.skipCurrentElement(); // skip, don't log
             else
                   e.unknown();
             }
@@ -232,7 +229,7 @@ bool Score::read(XmlReader& e)
 
       connectTies();
 
-      _fileDivision = MScore::division;
+      _fileDivision = DIVISION;
 
 #if 0 // TODO:barline
       //
@@ -284,7 +281,7 @@ bool Score::read(XmlReader& e)
             }
 #endif
       // Make sure every instrument has an instrumentId set.
-      for (Part* part : parts()) {
+      for (Part*& part : parts()) {
             const InstrumentList* il = part->instruments();
             for (auto it = il->begin(); it != il->end(); it++)
                   static_cast<Instrument*>(it->second)->updateInstrumentId();
@@ -327,7 +324,7 @@ bool Score::read(XmlReader& e)
 
       fixTicks();
 
-      for (Part* p : qAsConst(_parts)) {
+      for (Part*& p : _parts) {
             p->updateHarmonyChannels(false);
             }
 
@@ -367,7 +364,7 @@ bool MasterScore::read(XmlReader& e)
       {
       if (!Score::read(e))
             return false;
-      for (Staff* s : staves())
+      for (Staff*& s : staves())
             s->updateOttava();
       setCreated(false);
       return true;
@@ -406,6 +403,8 @@ Score::FileError MasterScore::read302(XmlReader& e)
                   }
             else if (tag == "programRevision")
                   setMscoreRevision(e.readIntHex());
+            else if (tag == "LastEID")    // Mu4.2+ compatibility
+                  e.skipCurrentElement(); // skip, don't log
             else if (tag == "Score") {
                   MasterScore* score;
                   if (top) {
@@ -451,4 +450,3 @@ MStyle* styleDefaults301()
       return result;
       }
 }
-

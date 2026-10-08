@@ -17,7 +17,6 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-#include "pitchedit.h"
 #include "pitchlabel.h"
 #include "utils.h"
 
@@ -32,7 +31,7 @@ PitchLabel::PitchLabel(QWidget* parent)
       {
       _pitchMode = true;
       _value = -1;
-      setFrameStyle(WinPanel | Sunken);
+      setFrameStyle(static_cast<int>(WinPanel) | static_cast<int>(Sunken));
       setLineWidth(2);
       setMidLineWidth(3);
       setValue(0);
@@ -59,7 +58,11 @@ QSize PitchLabel::sizeHint() const
       int fw = style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
       int h  = fm.height() + fw * 2;
 //      int w = 2 + fm.width(QString("A#8")) +  fw * 4;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      int w = 2 + fm.horizontalAdvance(QString("-9999")) + fw * 4;     // must display 14Bit controller values
+#else
       int w = 2 + fm.width(QString("-9999")) + fw * 4;     // must display 14Bit controller values
+#endif
       return QSize(w, h).expandedTo(QApplication::globalStrut());
       }
 

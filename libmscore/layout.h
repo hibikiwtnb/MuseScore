@@ -28,6 +28,7 @@ class Page;
 class VerticalGapData {
    private:
       bool  _fixedHeight          { false };
+      bool  _fixedSpacer          { false };
       qreal _factor               { 1.0   };
       qreal _normalisedSpacing    { 0.0   };
       qreal _maxActualSpacing     { 0.0   };
@@ -41,7 +42,7 @@ class VerticalGapData {
       SysStaff* sysStaff { nullptr };
       Staff*    staff    { nullptr };
 
-      VerticalGapData(bool first, System* sys, Staff* st, SysStaff* sst, const Spacer* spacer, qreal y);
+      VerticalGapData(bool first, System* sys, Staff* st, SysStaff* sst, Spacer* nextSpacer, qreal y);
 
       void addSpaceBetweenSections();
       void addSpaceAroundVBox(bool above);
@@ -113,13 +114,18 @@ struct LayoutContext {
       int adjustMeasureNo(MeasureBase*);
       void getNextPage();
       void collectPage();
+
+   private:
+      static void layoutPage(Page* page, qreal restHeight, qreal footerPadding);
+      static void checkDivider(bool left, System* s, qreal yOffset, bool remove = false);
+      static void distributeStaves(Page* page, qreal footerPadding);
       };
 
 //---------------------------------------------------------
 //   VerticalAlignRange
 //---------------------------------------------------------
 
-enum class VerticalAlignRange {
+enum class VerticalAlignRange : char {
       SEGMENT, MEASURE, SYSTEM
       };
 

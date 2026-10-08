@@ -22,8 +22,6 @@
 
 #include "ui_editstyle.h"
 #include "abstractdialog.h"
-#include "globals.h"
-#include "libmscore/mscore.h"
 #include "libmscore/style.h"
 
 class QScrollArea;
@@ -71,6 +69,8 @@ class EditStyle : public AbstractDialog, private Ui::EditStyleBase {
       virtual void hideEvent(QHideEvent*);
       QVariant getValue(Sid idx);
       void setValues();
+
+      void fillScoreFontsComboBoxes();
 
       void resetStyle(Score* score);
       void applyToAllParts();

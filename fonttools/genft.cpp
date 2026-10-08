@@ -12,7 +12,7 @@
 
 //
 //    q+d hack to create an font description file from
-//    lilipond tables embedded in mscore.ttf
+//    lilipond tables embedded in MScore.otf
 //
 //
 
@@ -212,6 +212,8 @@ QMap<QString, QString> nmap {
       { "scripts.reverseturn",      "ornamentTurnInverted" },
       { "scripts.turn",             "ornamentTurn" },
       { "scripts.trill",            "ornamentTrill" },
+      { "scripts.verticalturn",     "ornamentTurnUp" },
+      { "scripts.reverseverticalturn",       "ornamentTurnUpS" },
       { "scripts.upedalheel",       "keyboardPedalHeel1" },
       { "scripts.dpedalheel",       "keyboardPedalHeel2" },
       { "scripts.upedaltoe",        "keyboardPedalToe1" },
@@ -472,7 +474,6 @@ static void genJson()
             QString s = QString("U+%1").arg(code, 0, 16);
             jg.insert("codepoint", s);
 
-            QJsonValue val(s);
             o.insert(smufl, jg);
             }
       QJsonDocument d(o);

@@ -10,10 +10,9 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "harmony.h"
-
 #include "chordlist.h"
 #include "fret.h"
+#include "harmony.h"
 #include "measure.h"
 #include "mscore.h"
 #include "part.h"
@@ -26,6 +25,8 @@
 #include "system.h"
 #include "utils.h"
 #include "xml.h"
+
+#include "global/log.h"
 
 namespace Ms {
 
@@ -314,10 +315,14 @@ void Harmony::read(XmlReader& e)
       {
       while (e.readNextStartElement()) {
             const QStringRef& tag(e.name());
-            if (tag == "base")
+            if (tag == "base"
+             || tag == "bass") // Mu4.6+ compatibility
                   setBaseTpc(e.readInt());
-            else if (tag == "baseCase")
+            else if (tag == "baseCase"
+                  || tag == "bassCase") // Mu4.6+ compatibility
                   _baseCase = static_cast<NoteCaseType>(e.readInt());
+            else if (tag == "harmonyInfo") // Mu 4.6+ copmpatibility
+                  Harmony::read(e); // recur into this method here, to read bass, extension, name and root
             else if (tag == "extension")
                   setId(e.readInt());
             else if (tag == "name")
@@ -620,19 +625,19 @@ static int convertNote(const QString& s, NoteSpellingType noteSpelling, NoteCase
             if (s[1].isUpper())
                   noteCase = NoteCaseType::UPPER;
             QString ss = s.toLower().left(2);
-            if (ss == "do")
+            if (ss == "do" || ss == "dó")
                   r = 0;
             else if (ss == "re" || ss == "ré")
                   r = 1;
             else if (ss == "mi")
                   r = 2;
-            else if (ss == "fa")
+            else if (ss == "fa" || ss == "fá")
                   r = 3;
             else if (ss == "so")    // sol, but only check first 2 characters
                   r = 4;
-            else if (ss == "la")
+            else if (ss == "la" || ss == "lá")
                   r = 5;
-            else if (ss == "si")
+            else if (ss == "si" || ss == "ti")
                   r = 6;
             else
                   return Tpc::TPC_INVALID;
@@ -645,6 +650,7 @@ static int convertNote(const QString& s, NoteSpellingType noteSpelling, NoteCase
                   case 'f':   r = 3; break;
                   case 'g':   r = 4; break;
                   case 'a':   r = 5; break;
+                  case 'h':   // allow for German 'h' too, silently turn into 'b'
                   case 'b':   r = 6; break;
                   default:    return Tpc::TPC_INVALID;
                   }
@@ -876,7 +882,7 @@ void Harmony::endEdit(EditData& ed)
       showSpell = false;
 
       if (links()) {
-            for (ScoreElement* e : *links()) {
+            for (ScoreElement*& e : *links()) {
                   if (e == this)
                         continue;
                   Harmony* h = toHarmony(e);
@@ -912,7 +918,7 @@ void Harmony::endEdit(EditData& ed)
 
 void Harmony::setHarmony(const QString& s)
       {
-      int r, b;
+      int r = Tpc::TPC_INVALID, b = Tpc::TPC_INVALID;
       const ChordDescription* cd = parseHarmony(s, &r, &b);
       if (!cd && _parsedForm && _parsedForm->parseable()) {
             // our first time encountering this chord
@@ -1272,16 +1278,20 @@ const ChordDescription* Harmony::getDescription(const QString& name, const Parse
 
 const RealizedHarmony& Harmony::getRealizedHarmony()
       {
-      int offset = 0; //semitone offset for pitch adjustment
-      Staff* st = staff();
+      const Staff* st = staff();
+      IF_ASSERT_FAILED(st) {
+          return _realizedHarmony;
+      }
+      int capo = st->capo(tick()) - 1;
+      int offset = (capo < 0 ? 0 : capo);   //semitone offset for pitch adjustment
       Interval interval = st->part()->instrument(tick())->transpose();
       if (!score()->styleB(Sid::concertPitch))
-            offset = interval.chromatic;
+            offset += interval.chromatic;
 
       //Adjust for Nashville Notation, might be temporary
       // TODO: set dirty on add/remove of keysig
       if (_harmonyType == HarmonyType::NASHVILLE && !_realizedHarmony.valid()) {
-            Key key = staff()->key(tick());
+            Key key = st->key(tick());
             //parse root
             int rootTpc = function2Tpc(_function, key);
 
@@ -1343,7 +1353,6 @@ void Harmony::layout()
       //      setOffset(propertyDefault(Pid::OFFSET).toPointF());
 
       layout1();
-      setPos(calculateBoundingRect());
       }
 
 //---------------------------------------------------------
@@ -1356,10 +1365,11 @@ void Harmony::layout1()
             createLayout();
       if (textBlockList().empty())
             textBlockList().append(TextBlock());
-      calculateBoundingRect();    // for normal symbols this is called in layout: computeMinWidth()
+      auto positionPoint = calculateBoundingRect();    // for normal symbols this is called in layout: computeMinWidth()
       if (hasFrame())
             layoutFrame();
       score()->addRefresh(canvasBoundingRect());
+      setPos(positionPoint);
       }
 
 //---------------------------------------------------------
@@ -1370,7 +1380,7 @@ QPoint Harmony::calculateBoundingRect()
       {
       const qreal        ypos = (placeBelow() && staff()) ? staff()->height() : 0.0;
       const FretDiagram* fd   = (parent() && parent()->isFretDiagram()) ? toFretDiagram(parent()) : nullptr;
-      const qreal        cw   = symWidth(SymId::noteheadBlack);
+      const qreal        standardNoteWidth = symWidth(SymId::noteheadBlack);
       qreal              newx = 0.0;
       qreal              newy = 0.0;
 
@@ -1389,9 +1399,9 @@ QPoint Harmony::calculateBoundingRect()
                   }
             else {
                   if (align() & Align::RIGHT)
-                        xx = cw;
+                        xx = standardNoteWidth;
                   else if (align() & Align::HCENTER)
-                        xx = cw / 2.0;
+                        xx = standardNoteWidth / 2.0;
                   yy = ypos - ((align() & Align::BOTTOM) ? _harmonyHeight - bbox().height() : 0.0);
                   }
 
@@ -1423,9 +1433,9 @@ QPoint Harmony::calculateBoundingRect()
                   }
             else {
                   if (align() & Align::RIGHT)
-                        xx = -bb.x() -bb.width() + cw;
+                        xx = -bb.x() -bb.width() + standardNoteWidth;
                   else if (align() & Align::HCENTER)
-                        xx = -bb.x() -bb.width() / 2.0 + cw / 2.0;
+                        xx = -bb.x() -bb.width() / 2.0 + standardNoteWidth / 2.0;
 
                   newx = 0.0;
                   newy = ypos;
@@ -1476,7 +1486,7 @@ void Harmony::draw(QPainter* painter) const
             return;
             }
       if (hasFrame()) {
-            if (frameWidth().val() != 0.0) {
+            if (!qFuzzyIsNull(frameWidth().val())) {
                   QColor color = frameColor();
                   QPen pen(color, frameWidth().val() * spatium(), Qt::SolidLine,
                      Qt::SquareCap, Qt::MiterJoin);
@@ -2047,7 +2057,7 @@ QString Harmony::generateScreenReaderInfo() const
                   for (auto const &r : symbolReplacements) {
                         // only replace when not preceded by backslash
                         QString s = "(?<!\\\\)" + r.first;
-                        QRegularExpression re(s);
+                        static QRegularExpression re(s);
                         aux.replace(re, r.second);
                         }
                   // construct string one character at a time
@@ -2070,7 +2080,11 @@ QString Harmony::generateScreenReaderInfo() const
             aux = aux.replace("#", QObject::tr("♯")).replace("<", "");
             QString extension = "";
 
-            for (QString s : aux.split(">", QString::SkipEmptyParts)) {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+            for (QString& s : aux.split(">", Qt::SkipEmptyParts)) {
+#else
+            for (QString& s : aux.split(">", QString::SkipEmptyParts)) {
+#endif
                   if (!s.contains("blues"))
                         s.replace("b", QObject::tr("♭"));
                   extension += s + " ";
@@ -2126,7 +2140,7 @@ Element* Harmony::drop(EditData& data)
             e = 0;      // cannot select
             }
       else {
-            qWarning("Harmony: cannot drop <%s>\n", e->name());
+            qDebug("Harmony: cannot drop <%s>\n", e->name());
             delete e;
             e = 0;
             }

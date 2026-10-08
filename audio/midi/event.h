@@ -202,7 +202,7 @@ class MidiCoreEvent {
 class MidiEvent : public MidiCoreEvent {
 
    protected:
-      uchar* _edata { nullptr };           // always zero terminated (_data[_len] == 0; )
+      std::vector<uchar> _edata;
       int _len { 0 };
       int _metaType { 0 };
 
@@ -211,12 +211,12 @@ class MidiEvent : public MidiCoreEvent {
       MidiEvent(uchar t, uchar c, uchar a, uchar b)
          : MidiCoreEvent(t, c, a, b), _edata(0), _len(0) {}
 
-      const uchar* edata() const     { return _edata; }
-      void setEData(uchar* d)        { _edata = d; }
-      int len() const                { return _len; }
-      void setLen(int l)             { _len = l; }
-      int metaType() const           { return _metaType; }
-      void setMetaType(int v)        { _metaType = v; }
+      const uchar* edata() const            { return _edata.data(); }
+      void setEData(std::vector<uchar>&& d) { _edata = d; }
+      int len() const                       { return _len; }
+      void setLen(int l)                    { _len = l; }
+      int metaType() const                  { return _metaType; }
+      void setMetaType(int v)               { _metaType = v; }
       };
 
 //---------------------------------------------------------
@@ -246,6 +246,8 @@ class PlayEvent : public MidiCoreEvent {
 class NPlayEvent : public PlayEvent {
       const Note* _note{nullptr};
       const Harmony* _harmony{nullptr};
+      const Note* _noteEventOwner { nullptr };
+      int _noteEventIndex = -1;
       int _origin = -1;
       int _discard = 0;
       bool _portamento = false;
@@ -261,6 +263,16 @@ class NPlayEvent : public PlayEvent {
       void setNote(const Note* v)         { _note = v;       }
       const Harmony* harmony() const      { return _harmony; }
       void setHarmony(const Harmony* v)   { _harmony = v;    }
+
+      const Note* noteEventOwner() const
+            { return _noteEventOwner; }
+      void setNoteEventOwner(const Note* note)
+            { _noteEventOwner = note; }
+
+      int noteEventIndex() const
+            { return _noteEventIndex;  }
+      void setNoteEventIndex(int index)
+            { _noteEventIndex = index; }
 
       int getOriginatingStaff() const { return _origin; }
       void setOriginatingStaff(int i) { _origin = i; }

@@ -1,19 +1,20 @@
-#include "importmidi_lyrics.h"
-#include "importmidi_inner.h"
-#include "importmidi_fraction.h"
+#include <set>
+
 #include "importmidi_chord.h"
+#include "importmidi_fraction.h"
+#include "importmidi_inner.h"
+#include "importmidi_lyrics.h"
 #include "importmidi_operations.h"
+
+#include "audio/midi/midifile.h"
+
 #include "libmscore/box.h"
-#include "libmscore/element.h"
 #include "libmscore/measurebase.h"
 #include "libmscore/score.h"
 #include "libmscore/staff.h"
 #include "libmscore/text.h"
-#include "audio/midi/midifile.h"
+
 #include "mscore/preferences.h"
-
-#include <set>
-
 
 namespace Ms {
 
@@ -49,6 +50,8 @@ extractLyricsFromTrack(const MidiTrack &track, int division, bool isDivisionInTp
             if (isLyricEvent(e)) {
                   const uchar* data = (uchar*)e.edata();
                   std::string text = MidiCharset::fromUchar(data);
+                  if (preferences.getBool(PREF_IO_MIDI_SPACELYRICS))
+                        text.erase(text.find_last_not_of(' ') + 1);
                   if (isLyricText(text)) {
                         const auto tick = toMuseScoreTicks(i.first, division, isDivisionInTps);
                                     // no charset handling here
@@ -159,25 +162,6 @@ void addTitleToScore(Score *score, const QString &string, int textCounter)
       measure->add(text);
       }
 
-// remove slashes in kar format
-
-QString removeSlashes(const QString &text)
-      {
-      QString newText = text;
-      newText = newText.replace("/", "");
-      newText = newText.replace("\\", "");
-      return newText;
-      }
-
-std::string removeSlashes(const std::string &text)
-      {
-      std::string str = text;
-      char chars[] = "/\\";
-      for (unsigned int i = 0; i != strlen(chars); ++i)
-            str.erase(std::remove(str.begin(), str.end(), chars[i]), str.end());
-      return str;
-      }
-
 void addTitleIfAny(const std::multimap<ReducedFraction, std::string> &lyricTrack, Score *score)
       {
       int textCounter = 0;
@@ -214,7 +198,7 @@ void addLyricsToScore(
 
             QString text = MidiCharset::convertToCharset(it->second);
             if (originalTime != ReducedFraction(0, 1) || !isTitlePrefix(text)) { // not title
-                  score->addLyrics(quantizedTime.fraction(), staffAddTo->idx(), removeSlashes(text).toHtmlEscaped());
+                  score->addLyrics(quantizedTime.fraction(), staffAddTo->idx(), text.toHtmlEscaped());
                   }
             }
       }
@@ -307,7 +291,7 @@ QList<std::string> makeLyricsListForUI()
             std::string lyricText;
 
             for (const auto &lyric: trackLyric) {
-                  const auto &text = removeSlashes(lyric.second);
+                  const auto &text = lyric.second;
                   if (isMetaText(text))
                         continue;
                   if (!lyricText.empty())

@@ -102,30 +102,40 @@ QString mxmlNoteDuration::checkTiming(const QString& type, const bool rest, cons
       QString errorStr;
 
       // normalize duration
-      if (_dura.isValid())
-            _dura.reduce();
+      if (_specDura.isValid())
+            _specDura.reduce();
 
-      const auto calcDura = calculateFraction(type, _dots, _timeMod);
-      if (_dura.isValid() && calcDura.isValid()) {
-            if (_dura != calcDura) {
+      // default: use calculated duration
+      _calcDura = calculateFraction(type, _dots, _timeMod);
+      if (_calcDura.isValid()) {
+            _dura = _calcDura;
+            }
+
+      if (_specDura.isValid() && _calcDura.isValid()) {
+            if (_specDura != _calcDura) {
                   errorStr = QString("calculated duration (%1) not equal to specified duration (%2)")
-                        .arg(calcDura.print(), _dura.print());
+                        .arg(_calcDura.print(), _specDura.print());
                   //qDebug("rest %d type '%s' timemod %s", rest, qPrintable(type), qPrintable(_timeMod.print()));
 
-                  if (rest && type == "whole" && _dura.isValid()) {
+                  if (rest && type == "whole" && _specDura.isValid()) {
                         // Sibelius whole measure rest (not an error)
-                        errorStr = "";
+                        errorStr.clear();
+                        _dura = _specDura;
                         }
-                  else if (grace && _dura == Fraction(0, 1)) {
+                  else if (grace && _specDura == Fraction(0, 1)) {
                         // grace note (not an error)
-                        errorStr = "";
+                        errorStr.clear();
+                        _dura = _specDura;
                         }
                   else {
-                        const int maxDiff = 3;       // maximum difference considered a rounding error
-                        if (qAbs(calcDura.ticks() - _dura.ticks()) <= maxDiff) {
+                        if (qAbs(_calcDura.ticks() - _specDura.ticks()) <= _pass1->maxDiff()) {
                               errorStr += " -> assuming rounding error";
-                              _dura = calcDura;
+                              _pass1->insertAdjustedDuration(_dura, _calcDura);
+                              _dura = _calcDura;
+                              _specDura = _calcDura; // prevent changing off time
                               }
+                        else
+                              errorStr += " -> using calculated duration";
                         }
 
                   // Special case:
@@ -134,22 +144,25 @@ QString mxmlNoteDuration::checkTiming(const QString& type, const bool rest, cons
                   // based on note type. If actual is 2/3 of expected, the rest is part
                   // of a tuplet.
                   if (rest) {
-                        if (2 * calcDura.ticks() == 3 * _dura.ticks()) {
+                        if (2 * _calcDura.ticks() == 3 * _specDura.ticks()) {
                               _timeMod = Fraction(2, 3);
-                              errorStr += " -> assuming triplet";
+                              errorStr += errorStr.isEmpty() ? " ->" : ",";
+                              errorStr += " assuming triplet";
+                              _dura = _specDura;
                               }
                         }
                   }
             }
-      else if (_dura.isValid()) {
+      else if (_specDura.isValid() && !_calcDura.isValid()) {
             // do not report an error for typeless (whole measure) rests
-            if (!(rest && type == ""))
+            if (!(rest && type.isEmpty())) {
                   errorStr = "calculated duration invalid, using specified duration";
+                  }
+            _dura = _specDura;
             }
-      else if (calcDura.isValid()) {
+      else if (!_specDura.isValid() && _calcDura.isValid()) {
             if (!grace) {
                   errorStr = "specified duration invalid, using calculated duration";
-                  _dura = calcDura;       // overrule dura
                   }
             }
       else {
@@ -157,6 +170,7 @@ QString mxmlNoteDuration::checkTiming(const QString& type, const bool rest, cons
             _dura = Fraction(4, 4);
             }
 
+      _pass1->insertSeenDenominator(_dura.reduced().denominator());
       return errorStr;
       }
 
@@ -170,22 +184,11 @@ QString mxmlNoteDuration::checkTiming(const QString& type, const bool rest, cons
 
 void mxmlNoteDuration::duration(QXmlStreamReader& e)
       {
-      Q_ASSERT(e.isStartElement() && e.name() == "duration");
       _logger->logDebugTrace("MusicXMLParserPass1::duration", &e);
 
-      _dura.set(0, 0);        // invalid unless set correctly
+      _specDura.set(0, 0);        // invalid unless set correctly
       int intDura = e.readElementText().toInt();
-      if (intDura > 0) {
-            if (_divs > 0) {
-                  _dura.set(intDura, 4 * _divs);
-                  _dura.reduce();       // prevent overflow in later Fraction operations
-                  }
-            else
-                  _logger->logError("illegal or uninitialized divisions", &e);
-            }
-      else
-            _logger->logError("illegal duration", &e);
-      //qDebug("duration %s valid %d", qPrintable(dura.print()), dura.isValid());
+      _specDura = _pass1->calcTicks(intDura, _divs, &e); // Duration reading (and rounding) code consolidated to pass1
       }
 
 //---------------------------------------------------------
@@ -203,7 +206,7 @@ bool mxmlNoteDuration::readProperties(QXmlStreamReader& e)
       //qDebug("tag %s", qPrintable(tag.toString()));
       if (tag == "dot") {
             _dots++;
-            e.readNext();
+            e.skipCurrentElement();  // skip but don't log
             return true;
             }
       else if (tag == "duration") {
@@ -227,7 +230,6 @@ bool mxmlNoteDuration::readProperties(QXmlStreamReader& e)
 
 void mxmlNoteDuration::timeModification(QXmlStreamReader& e)
       {
-      Q_ASSERT(e.isStartElement() && e.name() == "time-modification");
       _logger->logDebugTrace("MusicXMLParserPass1::timeModification", &e);
 
       int intActual = 0;

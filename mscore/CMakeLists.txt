@@ -33,10 +33,6 @@ endfunction(prepend_to_list_items)
 add_subdirectory(widgets)
 prepend_to_list_items(WIDGETS_SOURCE_FILES "widgets/" WIDGETS_SOURCE_FILES)
 
-# This is not needed for MSVC compilation
-if (NOT MSVC)
-   include (${PROJECT_SOURCE_DIR}/build/gch.cmake)
-endif (NOT MSVC)
 include (${PROJECT_SOURCE_DIR}/build/CopyFilesMacros.cmake)
 
 include_directories(
@@ -56,6 +52,7 @@ if (SCRIPT_INTERFACE)
     include(${CMAKE_CURRENT_LIST_DIR}/plugin/plugin.cmake)
 endif (SCRIPT_INTERFACE)
 
+include(${PROJECT_SOURCE_DIR}/audiodrivers/audiodrivers.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/mixer/mixer.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/pianoroll/pianoroll.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cloud/cloud.cmake)
@@ -113,6 +110,8 @@ else (APPLE)
             musescorefonts-FreeSerif.qrc
             musescorefonts-Free.qrc
             musescorefonts-Petaluma.qrc
+            musescorefonts-FinaleMaestro.qrc
+            musescorefonts-FinaleBroadway.qrc
             shortcut.qrc)
 endif (APPLE)
 
@@ -136,6 +135,10 @@ endif (OMR)
 
 if (APPLE)
       file(GLOB_RECURSE INCS "*.h")
+      # inspectorplugin.h belongs to the Qt Designer plugin, not to the
+      # application. Letting mscoreapp pick it up here makes AUTOMOC generate
+      # code for plugin classes that mscoreapp has no implementation of.
+      list(REMOVE_ITEM INCS "${CMAKE_CURRENT_SOURCE_DIR}/inspector/inspectorplugin.h")
       set(COCOABRIDGE "cocoabridge")
       if (SPARKLE_FOUND)
             set(MAC_SPARKLE_FILES "macos/SparkleAutoUpdater.mm")
@@ -144,49 +147,84 @@ if (APPLE)
          cocoabridge STATIC
          macos/cocoabridge.mm
          )
-      set_target_properties (
-         cocoabridge
-         PROPERTIES
-         COMPILE_FLAGS "-g -Wall -Wextra -Winvalid-pch  -include ${PROJECT_SOURCE_DIR}/all.h"
-         )
 else (APPLE)
       set(INCS "")
       set(COCOABRIDGE "")
       set(MAC_SPARKLE_FILES  "")
 endif (APPLE)
 
-if (NOT MSVC)
-   set(_all_h_file "${PROJECT_BINARY_DIR}/all.h")
-else (NOT MSVC)
-   set(_all_h_file "${PROJECT_SOURCE_DIR}/all.h")
-endif (NOT MSVC)
+# Preferences is a target of its own so that the lower layers (libmscore, audio,
+# importexport) can read preferences without depending on the application.
+# It deliberately does not link libmscore: libmscore links preferences, and the
+# only thing preferences takes from libmscore is DIVISION, which mscore.h
+# defines as a constant, so no symbol is needed for it.
+add_library(preferences STATIC
+      preferences.cpp
+      preferences.h
+      globals.h
+      )
+
+target_link_libraries(preferences
+      ${QT_LIBRARIES}
+      global
+      ${COCOABRIDGE}
+      )
+
+# Extensions are looked up by audio, to find the soundfonts and sfzs they
+# ship. Only preferences is needed for that, so this sits alongside it, well
+# below the application.
+add_library(extension STATIC
+      extension.cpp
+      extension.h
+      )
+
+target_link_libraries(extension
+      ${QT_LIBRARIES}
+      preferences
+      )
+
+# The icons are their own target for the same reason as preferences: audio's
+# synthesizer GUIs use them, and they have no business depending on the whole
+# application to do so. Unlike preferences, this does sit above libmscore,
+# since genIcons() reads MScore::selectColor.
+add_library(icons STATIC
+      icons.cpp
+      icons.h
+      miconengine.cpp
+      miconengine.h
+      )
+
+target_link_libraries(icons
+      ${QT_LIBRARIES}
+      libmscore
+      preferences
+      )
 
 add_library(mscoreapp STATIC
       ${qrc_files}
       ${ui_headers}
-      ${_all_h_file}
-      ${PCH}
       ${INCS}
+      ${AUDIODRIVERS_SRC}
 
       abstractdialog.h accessibletoolbutton.h albummanager.h
       analyse.h articulationprop.h
       bendcanvas.h breaksdialog.h
-      chordview.h click.h clickableLabel.h continuouspanel.h downloadUtils.h
+      chordview.h click.h clickableLabel.h continuouspanel.h debuglog.h downloadUtils.h
       drumroll.h drumtools.h drumview.h easeinoutcanvas.h editdrumset.h
       editinstrument.h editpitch.h editraster.h editstaff.h
       editstafftype.h editstringdata.h editstyle.h enableplayforwidget.h
-      exampleview.h excerptsdialog.h exportdialog.h extension.h
-      file.h fotomode.h fretcanvas.h globals.h greendotbutton.h
-      harmonycanvas.h harmonyedit.h help.h helpBrowser.h icons.h
+      exampleview.h excerptsdialog.h exportdialog.h
+      file.h fotomode.h fretcanvas.h greendotbutton.h
+      harmonycanvas.h harmonyedit.h help.h helpBrowser.h
       instrdialog.h instrwidget.h
       keycanvas.h keyedit.h layer.h licence.h
       zoombox.h masterpalette.h
-      measureproperties.h mediadialog.h metaedit.h miconengine.h
+      measureproperties.h mediadialog.h metaedit.h
       mssplashscreen.h musescore.h navigator.h newwizard.h noteGroups.h
       omrpanel.h pagesettings.h palette.h partedit.h parteditbase.h
       pathlistdialog.h piano.h  pianotools.h
       openfilelocation.h
-      playpanel.h preferences.h preferenceslistwidget.h prefsdialog.h
+      playpanel.h preferenceslistwidget.h prefsdialog.h
       radiobuttongroupbox.h recordbutton.h resourceManager.h ruler.h scoreaccessibility.h
       scoreBrowser.h scoreInfo.h scorePreview.h scoretab.h scoreview.h searchComboBox.h
       selectdialog.h selectionwindow.h selectnotedialog.h selinstrument.h
@@ -205,14 +243,13 @@ add_library(mscoreapp STATIC
       scoreview.cpp editharmony.cpp editfiguredbass.cpp events.cpp
       editinstrument.cpp editstyle.cpp easeinoutcanvas.cpp
       clickableLabel.cpp
-      icons.cpp
       instrdialog.cpp instrwidget.cpp
-      debugger/debugger.cpp menus.cpp
+      debugger/debugger.cpp debuglog.cpp menus.cpp
       mssplashscreen.cpp musescore.cpp musescoredialogs.cpp navigator.cpp pagesettings.cpp palette.cpp
       sessionstatusobserver.cpp
       timeline.cpp
       parteditbase.cpp playpanel.cpp selectionwindow.cpp
-      preferences.cpp measureproperties.cpp
+      measureproperties.cpp
       seq.cpp textpalette.cpp
       timedialog.cpp symboldialog.cpp shortcutcapturedialog.cpp
       radiobuttongroupbox.cpp simplebutton.cpp
@@ -250,7 +287,6 @@ add_library(mscoreapp STATIC
       noteGroups.cpp
       pathlistdialog.cpp
       exampleview.cpp
-      miconengine.cpp
 
       palette/createpalettedialog.cpp
       palette/palettedialog.cpp palette/palettecelldialog.cpp
@@ -266,7 +302,6 @@ add_library(mscoreapp STATIC
       abstractdialog.cpp abstractdialog.h
       toolbuttonmenu.cpp
       preferenceslistwidget.cpp preferenceslistwidget.h
-      extension.cpp extension.h
       tourhandler.cpp
       script/script.cpp script/scriptentry.cpp script/testscript.cpp script/recorderwidget.cpp
       qml/msqmlengine.cpp qml/nativemenu.cpp qml/nativetooltip.cpp
@@ -302,7 +337,10 @@ target_link_libraries(mscoreapp
       ${QTSINGLEAPPLICATION_LIBRARIES}
       audio
       effects
+      extension
+      icons
       libmscore
+      preferences
       qzip
       importexport
       ${COCOABRIDGE}
@@ -316,10 +354,6 @@ if (BUILD_TELEMETRY_MODULE)
     target_link_libraries(mscoreapp telemetry)
 endif (BUILD_TELEMETRY_MODULE)
 add_dependencies(mscoreapp workspaces)
-
-if (USE_SYSTEM_FREETYPE)
-      target_link_libraries(mscoreapp ${FREETYPE_LIBRARIES})
-endif (USE_SYSTEM_FREETYPE)
 
 if (AEOLUS)
       target_link_libraries(mscoreapp aeolus)
@@ -354,13 +388,13 @@ if (MINGW)
    if(CMAKE_BUILD_TYPE MATCHES "DEBUG")
      set_target_properties( mscoreapp
         PROPERTIES
-           COMPILE_FLAGS "${PCH_INCLUDE} -g -Wall -Wextra -Winvalid-pch ${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
+           COMPILE_FLAGS "-g -Wall -Wextra -Winvalid-pch ${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
            LINK_FLAGS "-mwindows -mconsole -L ${QT_INSTALL_LIBS}"
         )
    else(CMAKE_BUILD_TYPE MATCHES "DEBUG")
      set_target_properties( mscoreapp
           PROPERTIES
-             COMPILE_FLAGS "${PCH_INCLUDE} -Wall -Wextra -Winvalid-pch ${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
+             COMPILE_FLAGS "-Wall -Wextra -Winvalid-pch ${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
              LINK_FLAGS "-Wl,-S -mwindows -L ${QT_INSTALL_LIBS}"
           )
    endif(CMAKE_BUILD_TYPE MATCHES "DEBUG")
@@ -369,7 +403,6 @@ if (MINGW)
       portaudiodll
       portmidi
       winmm
-      mscore_freetype
       z
       )
 
@@ -392,12 +425,6 @@ else (MINGW)
          ${CMAKE_DL_LIBS}
          pthread
          )
-
-       if (USE_SYSTEM_FREETYPE)
-            target_link_libraries(mscoreapp freetype)
-       else (USE_SYSTEM_FREETYPE)
-            target_link_libraries(mscoreapp mscore_freetype)
-       endif (USE_SYSTEM_FREETYPE)
 
        if (USE_PORTAUDIO)
          target_link_libraries(mscoreapp ${PORTAUDIO_LIB})
@@ -424,7 +451,7 @@ else (MINGW)
       set_target_properties (
          mscoreapp
          PROPERTIES
-            COMPILE_FLAGS "${PCH_INCLUDE} -g -Wall -Wno-overloaded-virtual -Winvalid-pch"
+            COMPILE_FLAGS "-g -Wall -Wno-overloaded-virtual -Winvalid-pch"
          )
 
       if (OMR)
@@ -453,7 +480,6 @@ else (MINGW)
            PROPERTIES
               LINK_FLAGS "-stdlib=libc++"
            )
-        xcode_pch(mscoreapp all)
       else (APPLE)
         #### PACKAGING for Linux and BSD based systems (more in top-level CMakeLists.txt) ####
       endif (APPLE)
@@ -469,13 +495,13 @@ else (MINGW)
       if(CMAKE_BUILD_TYPE MATCHES "REL*")
         set_target_properties( mscoreapp
            PROPERTIES
-              COMPILE_FLAGS "${PCH_INCLUDE} ${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
+              COMPILE_FLAGS "${QT_DEFINITIONS} -DQT_SVG_LIB -DQT_GUI_LIB -DQT_XML_LIB -DQT_CORE_LIB"
               LINK_FLAGS    "/LIBPATH:${QT_INSTALL_LIBS} ${all_library_paths}"
            )
       else(CMAKE_BUILD_TYPE MATCHES "REL*")
         set_target_properties( mscoreapp
            PROPERTIES
-              COMPILE_FLAGS "${PCH_INCLUDE} ${QT_DEFINITIONS} /DQT_SVG_LIB /DQT_GUI_LIB /DQT_XML_LIB /DQT_CORE_LIB"
+              COMPILE_FLAGS "${QT_DEFINITIONS} /DQT_SVG_LIB /DQT_GUI_LIB /DQT_XML_LIB /DQT_CORE_LIB"
               LINK_FLAGS    "/LIBPATH:${QT_INSTALL_LIBS} ${all_library_paths}"
            )
       endif(CMAKE_BUILD_TYPE MATCHES "REL*")
@@ -485,7 +511,6 @@ else (MINGW)
          portaudiodll
          portmidi
          winmm
-         mscore_freetype
          zlibstat
          )
 
@@ -496,21 +521,12 @@ else (MINGW)
          endif (OCR)
       endif (OMR)
 
-      # Use pre-compiled headers
-      vstudio_pch( mscoreapp )
-
       if (WIN_SPARKLE_ENABLED)
             target_link_libraries(mscoreapp winsparkledll)
       endif (WIN_SPARKLE_ENABLED)
 
    endif ( NOT MSVC )
 endif (MINGW)
-
-# MSVC does not depend on mops1 & mops2 for PCH
-if (NOT MSVC)
-   ADD_DEPENDENCIES(mscoreapp mops1)
-   ADD_DEPENDENCIES(mscoreapp mops2)
-endif (NOT MSVC)
 
 add_library(
       inspectorplugin SHARED
@@ -524,25 +540,25 @@ add_library(
       inspector/resetButton.cpp
       icons.cpp
       miconengine.cpp
-      ${qrc_files}
+#      ${qrc_files}
       )
 
-if (APPLE)
-      set_property(SOURCE inspector/inspectorplugin.cpp inspector/inspectorplugin.h PROPERTY SKIP_AUTOGEN ON)
-endif (APPLE)
+# NOTE: inspectorplugin.cpp/.h used to be excluded from AUTOGEN on APPLE, which
+# left the Q_OBJECT classes here without a vtable and could never have linked.
+# The classes need moc, so let it run.
 
 if (NOT MSVC)
    set_target_properties(inspectorplugin
       PROPERTIES
       COMPILE_FLAGS
-         "-fPIC -D_GNU_SOURCE -D_REENTRANT -DHAVE_CONFIG_H -DQT_PLUGIN -DQT_SVG_LIB -DQT_SHARED -DQT_NO_DEBUG -include ${PROJECT_SOURCE_DIR}/all.h"
+         "-fPIC -D_GNU_SOURCE -D_REENTRANT -DHAVE_CONFIG_H -DQT_PLUGIN -DQT_SVG_LIB -DQT_SHARED -DQT_NO_DEBUG"
       )
 else (NOT MSVC)
    # x86 architecture does not support position-independent code, the -fPIC option is not relevant for this processor.
    set_target_properties (
       inspectorplugin
       PROPERTIES
-         COMPILE_FLAGS "${PCH_INCLUDE} -D_GNU_SOURCE -D_REENTRANT -DHAVE_CONFIG_H -DQT_PLUGIN -DQT_SVG_LIB -DQT_SHARED -DQT_NO_DEBUG"
+         COMPILE_FLAGS "-D_GNU_SOURCE -D_REENTRANT -DHAVE_CONFIG_H -DQT_PLUGIN -DQT_SVG_LIB -DQT_SHARED -DQT_NO_DEBUG"
       )
 endif (NOT MSVC)
 
@@ -553,5 +569,19 @@ endif (NOT MSVC)
 # target_link_libraries (itest inspectorplugin ${QT_LIBRARIES})
 # set_target_properties(itest PROPERTIES EXCLUDE_FROM_ALL 1)
 
-target_link_libraries (inspectorplugin ${QT_LIBRARIES})
+# freetype is only here for its include directories: icons.cpp reaches
+# libmscore/sym.h, which includes ft2build.h.
+target_link_libraries (inspectorplugin ${QT_LIBRARIES} freetype)
 set_target_properties(inspectorplugin PROPERTIES EXCLUDE_FROM_ALL 1)
+
+if (BUILD_PCH)
+      target_use_pch(preferences)
+      target_use_pch(extension)
+      target_use_pch(icons)
+      target_use_pch(mscoreapp)
+      target_use_pch(inspectorplugin)
+
+      if (APPLE)
+            target_use_pch(cocoabridge)
+      endif (APPLE)
+endif (BUILD_PCH)

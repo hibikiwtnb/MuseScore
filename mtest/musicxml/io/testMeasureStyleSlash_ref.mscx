@@ -16,27 +16,7 @@
       <pageOddBottomMargin>0.590551</pageOddBottomMargin>
       <lyricsOddFontSize>11</lyricsOddFontSize>
       <lyricsEvenFontSize>11</lyricsEvenFontSize>
-      <chordSymbolAFontSize>10</chordSymbolAFontSize>
-      <chordSymbolBFontSize>10</chordSymbolBFontSize>
-      <nashvilleNumberFontSize>10</nashvilleNumberFontSize>
-      <tupletFontSize>10</tupletFontSize>
-      <fingeringFontSize>10</fingeringFontSize>
-      <lhGuitarFingeringFontSize>10</lhGuitarFingeringFontSize>
-      <rhGuitarFingeringFontSize>10</rhGuitarFingeringFontSize>
-      <stringNumberFontSize>10</stringNumberFontSize>
-      <partInstrumentFontSize>10</partInstrumentFontSize>
-      <dynamicsFontSize>10</dynamicsFontSize>
-      <tempoFontSize>10</tempoFontSize>
-      <metronomeFontSize>10</metronomeFontSize>
-      <measureNumberFontSize>10</measureNumberFontSize>
-      <mmRestRangeFontSize>10</mmRestRangeFontSize>
-      <rehearsalMarkFontSize>10</rehearsalMarkFontSize>
-      <repeatLeftFontSize>10</repeatLeftFontSize>
-      <repeatRightFontSize>10</repeatRightFontSize>
-      <glissandoFontSize>10</glissandoFontSize>
-      <bendFontSize>10</bendFontSize>
-      <headerFontSize>10</headerFontSize>
-      <footerFontSize>10</footerFontSize>
+      <hideInstrumentNameIfOneInstrument>0</hideInstrumentNameIfOneInstrument>
       <Spatium>1.76389</Spatium>
       </Style>
     <showInvisible>1</showInvisible>
@@ -59,6 +39,7 @@
         <StaffType group="pitched">
           <name>stdNormal</name>
           </StaffType>
+        <hideWhenEmpty>3</hideWhenEmpty>
         </Staff>
       <trackName>Piano</trackName>
       <Instrument id="piano">
@@ -119,10 +100,9 @@
       </Part>
     <Staff id="1">
       <VBox>
-        <height>3.5</height>
+        <height>10</height>
         <Text>
           <style>Title</style>
-          <offset x="0" y="-0.0564445"/>
           <text><font size="24"/>Test measure-style/slash</text>
           </Text>
         </VBox>

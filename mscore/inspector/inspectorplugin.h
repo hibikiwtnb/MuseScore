@@ -14,19 +14,6 @@
 #define __INSPECTORPLUGIN_H__
 
 #include <QtUiPlugin/QDesignerCustomWidgetInterface>
-#include "libmscore/mscore.h"
-
-namespace Ms {
-      struct MScore {
-            static QColor selectColor[VOICES];
-            static void init();
-            };
-
-      struct Preferences {
-            int getInt(QString) const;
-            bool isThemeDark() const;
-            };
-      }
 
 //---------------------------------------------------------
 //   InspectorPlugin

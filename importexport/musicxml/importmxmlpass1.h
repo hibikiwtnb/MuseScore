@@ -24,23 +24,24 @@
 #include "importxmlfirstpass.h"
 #include "musicxml.h" // for the creditwords and MusicXmlPartGroupList definitions
 #include "musicxmlsupport.h"
+#include "qsize.h"
 
 namespace Ms {
 
 //---------------------------------------------------------
-//   PageFormat
+//   MxmlPageFormat
 //---------------------------------------------------------
 
-struct PageFormat {
-      QSizeF size;
-      qreal printableWidth;        // _width - left margin - right margin
-      qreal evenLeftMargin;        // values in inch
-      qreal oddLeftMargin;
-      qreal evenTopMargin;
-      qreal evenBottomMargin;
-      qreal oddTopMargin;
-      qreal oddBottomMargin;
-      bool twosided;
+struct MxmlPageFormat {
+      QSizeF size;                       // automatically initialized (to invalid)
+      qreal printableWidth { 5 };        // _width - left margin - right margin
+      qreal evenLeftMargin { 0.2 };      // values in inch
+      qreal oddLeftMargin { 0.2 };
+      qreal evenTopMargin { 0.2 };
+      qreal evenBottomMargin { 0.2 };
+      qreal oddTopMargin { 0.2 };
+      qreal oddBottomMargin { 0.2 };
+      bool twosided { false };
       };
 
 typedef QMap<QString, Part*> PartMap;
@@ -76,6 +77,16 @@ enum class MxmlTupletFlag : char {
       STOP_CURRENT = 8
       };
 
+enum class MusicXMLExporterSoftware : char {
+      DOLET6,
+      DOLET8,
+      DORICO,
+      FINALE,
+      NOTEFLIGHT,
+      SIBELIUS,
+      OTHER
+      };
+
 typedef QFlags<MxmlTupletFlag> MxmlTupletFlags;
 
 struct MxmlTupletState {
@@ -104,6 +115,8 @@ using MxmlTupletStates = std::map<QString, MxmlTupletState>;
 
 void determineTupletFractionAndFullDuration(const Fraction duration, Fraction& fraction, Fraction& fullDuration);
 Fraction missingTupletDuration(const Fraction duration);
+bool isLikelyCreditText(const QString& text, const bool caseInsensitive);
+bool isLikelySubtitleText(const QString& text, const bool caseInsensitive);
 
 
 //---------------------------------------------------------
@@ -118,15 +131,17 @@ public:
       void initPartState(const QString& partId);
       Score::FileError parse(QIODevice* device);
       Score::FileError parse();
+      QString errors() const { return _errors; }
       void scorePartwise();
       void identification();
       void credit(CreditWordsList& credits);
       void defaults();
-      void pageLayout(PageFormat& pf, const qreal conversion);
+      void pageLayout(MxmlPageFormat& pf, const qreal conversion);
       void partList(MusicXmlPartGroupList& partGroupList);
-      void partGroup(const int scoreParts, MusicXmlPartGroupList& partGroupList, MusicXmlPartGroupMap& partGroups);
-      void scorePart();
-      void scoreInstrument(const QString& partId);
+      void partGroup(const int scoreParts, MusicXmlPartGroupList& partGroupList, MusicXmlPartGroupMap& partGroups, QString& curPartGroupName);
+      void scorePart(const QString& curPartGroupName);
+      void setStyle(const QString& type, const double val);
+      void scoreInstrument(const QString& partId, const QString& curPartGroupName);
       void midiInstrument(const QString& partId);
       void part();
       void measure(const QString& partId, const Fraction cTime, Fraction& mdur, VoiceOverlapDetector& vod, const int measureNr);
@@ -136,14 +151,16 @@ public:
       void time(const Fraction cTime);
       void transpose(const QString& partId, const Fraction& tick);
       void divisions();
-      void staves(const QString& partId);
       void direction(const QString& partId, const Fraction cTime);
       void directionType(const Fraction cTime, QList<MxmlOctaveShiftDesc>& starts, QList<MxmlOctaveShiftDesc>& stops);
       void handleOctaveShift(const Fraction cTime, const QString& type, short size, MxmlOctaveShiftDesc& desc);
       void notations(MxmlStartStop& tupletStartStop);
       void note(const QString& partId, const Fraction cTime, Fraction& missingPrev, Fraction& dura, Fraction& missingCurr, VoiceOverlapDetector& vod, MxmlTupletStates& tupletStates);
       void notePrintSpacingNo(Fraction& dura);
-      void duration(Fraction& dura);
+      Fraction calcTicks(const int& intTicks, const int& _divisions, const QXmlStreamReader* const xmlReader);
+      Fraction calcTicks(const int& intTicks) { return calcTicks(intTicks, _divs, &_e); }
+      void duration(Fraction& dura, QXmlStreamReader& e);
+      void duration(Fraction& dura) { duration(dura, _e); }
       void forward(Fraction& dura);
       void backup(Fraction& dura);
       void timeModification(Fraction& timeMod);
@@ -152,12 +169,14 @@ public:
       void skipLogCurrElem();
       bool determineMeasureLength(QVector<Fraction>& ml) const;
       VoiceList getVoiceList(const QString id) const;
-      bool determineStaffMoveVoice(const QString& id, const int mxStaff, const QString& mxVoice,
+      bool determineStaffMoveVoice(const QString& id, const int mxStaff, const int& mxVoice,
                                    int& msMove, int& msTrack, int& msVoice) const;
+      int voiceToInt(const QString& voice);
       int trackForPart(const QString& id) const;
       bool hasPart(const QString& id) const;
       Part* getPart(const QString& id) const { return _partMap.value(id); }
       MusicXmlPart getMusicXmlPart(const QString& id) const { return _parts.value(id); }
+      int nparts() const { return _parts.size(); }
       MusicXMLInstruments getInstruments(const QString& id) const { return _instruments.value(id); }
       void setDrumsetDefault(const QString& id, const QString& instrId, const NoteHead::Group hg, const int line, const Direction sd);
       MusicXmlInstrList getInstrList(const QString id) const;
@@ -166,13 +185,36 @@ public:
       int octaveShift(const QString& id, const int staff, const Fraction f) const;
       const CreditWordsList& credits() const { return _credits; }
       bool hasBeamingInfo() const { return _hasBeamingInfo; }
+      bool isVocalStaff(const QString& id) const { return _parts[id].isVocalStaff(); }
+      static VBox* createAndAddVBoxForCreditWords(Score* const score);
+      int maxDiff() const { return _maxDiff; }
+      void insertAdjustedDuration(Fraction key, Fraction value) { _adjustedDurations.insert(key, value); }
+      QMap<Fraction, Fraction>& adjustedDurations() { return _adjustedDurations; }
+      void insertSeenDenominator(int val) { _seenDenominators.emplace(val); }
+      void createDefaultHeader(Score* const score);
+      void createMeasuresAndVboxes(Score* const score,
+                              const QVector<Fraction>& ml, const QVector<Fraction>& ms,
+                              const std::set<int>& systemStartMeasureNrs,
+                              const std::set<int>& pageStartMeasureNrs,
+                              const CreditWordsList& crWords,
+                              const QSize pageSize);
+      QString supportsTranspose() const { return _supportsTranspose; }
+      void addInferredTranspose(const QString& partId);
+      void setHasInferredHeaderText(bool b) { _hasInferredHeaderText = b; }
+      bool hasInferredHeaderText() const { return _hasInferredHeaderText; }
+      MusicXMLExporterSoftware exporterSoftware() const { return _exporterSoftware; }
+      bool sibOrDolet() const;
+      bool dolet() const;
 
 private:
       // functions
-      // none
+      void addError(const QString& error);      ///< Add an error to be shown in the GUI
+      void setExporterSoftware(QString& exporter);
+      void setExporterStyles();
 
       // generic pass 1 data
       QXmlStreamReader _e;
+      MusicXMLExporterSoftware _exporterSoftware = MusicXMLExporterSoftware::OTHER;   // Software which exported the file
       int _divs;                                ///< Current MusicXML divisions value
       QMap<QString, MusicXmlPart> _parts;       ///< Parts data, mapped on part id
       std::set<int> _systemStartMeasureNrs;     ///< Measure numbers of measures starting a page
@@ -184,12 +226,19 @@ private:
       QMap<QString, MusicXMLInstruments> _instruments; ///< instruments for each part, mapped on part id
       Score* _score;                            ///< MuseScore score
       MxmlLogger* _logger;                      ///< Error logger
+      QString _errors;                          ///< Errors to present to the user
       bool _hasBeamingInfo;                     ///< Whether the score supports or contains beaming info
+      QString _supportsTranspose;               ///< Whether the score supports transposition info
+      bool _hasInferredHeaderText;
 
       // part specific data (TODO: move to part-specific class)
       Fraction _timeSigDura;                    ///< Measure duration according to last timesig read
       QMap<int, MxmlOctaveShiftDesc> _octaveShifts; ///< Pending octave-shifts
       QSize _pageSize;                          ///< Page width read from defaults
+
+      const int _maxDiff = 5;                   ///< Duration rounding tick threshold;
+      QMap<Fraction, Fraction> _adjustedDurations;  ///< Rounded durations
+      std::set<int> _seenDenominators;          ///< Denominators seen. Used for rounding errors.
       };
 
 } // namespace Ms

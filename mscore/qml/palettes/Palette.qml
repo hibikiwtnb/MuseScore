@@ -213,18 +213,18 @@ GridView {
 //             keys: [ "application/musescore/symbol", "application/musescore/palette/cell" ]
 
             property var action
-            property var proposedAction: Qt.IgnoreAction
+            property int proposedAction: Qt.IgnoreAction
             property bool internal: false
 
             function onDrag(drag) {
-                if (drag.proposedAction != proposedAction) {
+                if (drag.proposedAction !== proposedAction) {
                     onEntered(drag);
                     return;
                 }
 
                 if (drag.source.dragged) {
                     drag.source.internalDrag = internal;
-                    drag.source.dragCopy = action == Qt.CopyAction;
+                    drag.source.dragCopy = action === Qt.CopyAction;
                     paletteView.state = "drag";
                     drag.source.paletteDrag = true;
                 } else if (typeof drag.source.paletteDrag !== "undefined") // if this is a palette and not, e.g., scoreview
@@ -233,10 +233,10 @@ GridView {
                 drag.accept(action); // confirm we accept the action we determined inside onEntered
 
                 var idx = paletteView.indexAt(drag.x, drag.y);
-                if (idx == -1)
+                if (idx === -1)
                     idx = paletteView.paletteModel.rowCount(paletteView.paletteRootIndex) - (internal ? 1 : 0);
 
-                if (placeholder.active && placeholder.index == idx)
+                if (placeholder.active && placeholder.index === idx)
                     return;
                 placeholder.makePlaceholder(idx, { decoration: "#eeeeee", toolTip: "placeholder", accessibleText: "", cellActive: false, mimeData: {} });
             }
@@ -246,11 +246,11 @@ GridView {
 
                 // first check if controller allows dropping this item here
                 const mimeData = Utils.dropEventMimeData(drag);
-                internal = (drag.source.parentModelIndex == paletteView.paletteRootIndex);
+                internal = (drag.source && drag.source.parentModelIndex === paletteView.paletteRootIndex);
                 action = paletteView.paletteController.dropAction(mimeData, drag.proposedAction, paletteView.paletteRootIndex, internal);
                 proposedAction = drag.proposedAction;
 
-                if (action != Qt.MoveAction)
+                if (action !== Qt.MoveAction)
                     internal = false;
 
                 const accept = (action & drag.supportedActions) && (internal || !externalDropBlocked);
@@ -272,7 +272,7 @@ GridView {
                     placeholder.removePlaceholder();
                     paletteView.state = "default";
                 }
-                if (drag.source && drag.source.parentModelIndex == paletteView.paletteRootIndex)
+                if (drag.source && drag.source.parentModelIndex === paletteView.paletteRootIndex)
                     drag.source.internalDrag = false;
             }
 
@@ -568,10 +568,6 @@ GridView {
                 }
             }
 
-            onStateChanged: {
-                console.debug("STATE CHANGED " + state)
-            }
-
             states: [
                 // Note: if "when" is true for multiple states then
                 // the first state listed here takes precendence.
@@ -604,7 +600,7 @@ GridView {
                 if (hovered) {
                     mscore.tooltip.item = paletteCell;
                     mscore.tooltip.text = paletteCell.toolTip ? paletteCell.toolTip : "";
-                } else if (mscore.tooltip.item == paletteCell)
+                } else if (mscore.tooltip.item === paletteCell)
                     mscore.tooltip.item = null;
             }
 
@@ -691,9 +687,7 @@ GridView {
                 }
 
                 onDoubleClicked: {
-                    const index = paletteCell.modelIndex;
-                    paletteView.selectionModel.setCurrentIndex(index, ItemSelectionModel.Current);
-                    paletteView.paletteController.applyPaletteElement(index, mouse.modifiers);
+                    // Empty handler to avoid onClicked being triggered twice on double-click.
                 }
             }
 
@@ -732,7 +726,7 @@ GridView {
 
                 if (dropData) {
                     var data = dropData;
-                    if (data.action == Qt.MoveAction && data.srcParentModelIndex == data.paletteView.paletteRootIndex)
+                    if (data.action === Qt.MoveAction && data.srcParentModelIndex === data.paletteView.paletteRootIndex)
                         data.paletteView.moveCell(data.srcRowIndex, data.destIndex);
                     else
                         data.paletteView.insertCell(data.destIndex, data.mimeData, data.action);
@@ -767,7 +761,7 @@ GridView {
                 // force not hiding palette cell if it is being dragged to a score
                 enabled: paletteCell.paletteDrag
                 target: mscore
-                onElementDraggedToScoreView: paletteCell.paletteDrag = false
+                function onElementDraggedToScoreView() { paletteCell.paletteDrag = false; }
             }
         } // end ItemDelegate
     } // end DelegateModel

@@ -430,7 +430,7 @@ void Ambitus::layout()
             _bottomPos.x() + headWdt*0.5, _bottomPos.y());
       // shorten line on each side by offsets
       qreal yDelta = _bottomPos.y() - _topPos.y();
-      if (yDelta != 0.0) {
+      if (!qFuzzyIsNull(yDelta)) {
             qreal off = _spatium * LINEOFFSET_DEFAULT;
             QPointF p1 = fullLine.pointAt(off / yDelta);
             QPointF p2 = fullLine.pointAt(1 - (off / yDelta));
@@ -629,6 +629,16 @@ void Ambitus::updateRange()
             }
       }
 
+void Ambitus::remove(Element* e)
+      {
+      if (e->type() == ElementType::ACCIDENTAL) {
+            //! NOTE Do nothing (removing _topAccid or _bottomAccid)
+            return;
+            }
+
+      Element::remove(e);
+      }
+
 //---------------------------------------------------------
 //   getProperty
 //---------------------------------------------------------
@@ -702,6 +712,12 @@ bool Ambitus::setProperty(Pid propertyId, const QVariant& v)
                   break;
             case Pid::FBPARENTHESIS4:        // recycled property = octave of _bottomPitch
                   setBottomPitch(bottomPitch() % 12 + (v.toInt() + 1) * 12);
+                  break;
+            case Pid::COLOR:
+            case Pid::VISIBLE:
+                  _topAccid.setProperty(propertyId, v);
+                  _bottomAccid.setProperty(propertyId, v);
+                  Element::setProperty(propertyId, v);
                   break;
             default:
                   return Element::setProperty(propertyId, v);

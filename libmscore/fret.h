@@ -172,7 +172,9 @@ class FretDiagram final : public Element {
       static FretDiagram* fromString(Score* score, const QString &s);
 
       ElementType type() const override { return ElementType::FRET_DIAGRAM; }
+      void layoutHorizontal();
       void layout() override;
+      void calculateBoundingRect();
       void write(XmlWriter& xml) const override;
       void writeNew(XmlWriter& xml) const;
       void writeOld(XmlWriter& xml) const;
@@ -180,10 +182,6 @@ class FretDiagram final : public Element {
       void readNew(XmlReader&);
       QVector<QLineF> dragAnchorLines() const override;
       QPointF pagePos() const override;
-
-      // read / write MusicXML
-      void readMusicXML(XmlReader& de);
-      void writeMusicXML(XmlWriter& xml) const;
 
       int  strings() const    { return _strings; }
       int  frets()   const    { return _frets; }
@@ -238,6 +236,8 @@ class FretDiagram final : public Element {
       QVariant getProperty(Pid propertyId) const override;
       bool setProperty(Pid propertyId, const QVariant&) override;
       QVariant propertyDefault(Pid) const override;
+
+      void setTrack(int val) override;
 
       qreal userMag() const         { return _userMag;   }
       void setUserMag(qreal m)      { _userMag = m;      }

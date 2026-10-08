@@ -10,15 +10,15 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "globals.h"
-#include "pagesettings.h"
-#include "libmscore/page.h"
-#include "libmscore/style.h"
-#include "libmscore/score.h"
-#include "navigator.h"
-#include "libmscore/mscore.h"
-#include "libmscore/excerpt.h"
 #include "musescore.h"
+#include "navigator.h"
+#include "pagesettings.h"
+
+#include "libmscore/excerpt.h"
+#include "libmscore/mscore.h"
+#include "libmscore/page.h"
+#include "libmscore/score.h"
+#include "libmscore/style.h"
 
 namespace Ms {
 
@@ -104,6 +104,14 @@ void PageSettings::setScore(Score* s)
       cs = s;
       delete clonedScore;
       clonedScore = s->clone();
+      // HACK: clone doesn't actually copy style completely for older scores;
+      // instead it replaces any style settings that were at the older defaults with the current defaults
+      // this is not desired here, but might be in other places that Score::clone() is used
+      // so instead we simply re-copy the style here
+      int defaultsVersion = s->style().defaultStyleVersion();
+      clonedScore->style().setDefaultStyleVersion(defaultsVersion);
+      clonedScore->style() = s->style();
+
       clonedScore->setLayoutMode(LayoutMode::PAGE);
 
       clonedScore->doLayout();
@@ -154,18 +162,18 @@ void PageSettings::updateValues()
 
       blockSignals(true);
 
-      const char* suffix;
+      QString suffix;
       double singleStepSize;
       double singleStepScale;
       if (mm) {
-            suffix = "mm";
+            suffix = tr("mm");
             singleStepSize = 1.0;
-            singleStepScale = 0.2;
+            singleStepScale = 0.05;
             }
       else {
-            suffix = "in";
+            suffix = tr("in", "abbreviation for inch");
             singleStepSize = 0.05;
-            singleStepScale = 0.005;
+            singleStepScale = 0.002;
             }
       for (auto w : { oddPageTopMargin, oddPageBottomMargin, oddPageLeftMargin, oddPageRightMargin, evenPageTopMargin,
          evenPageBottomMargin, evenPageLeftMargin, evenPageRightMargin, spatiumEntry, pageWidth, pageHeight } )
@@ -223,7 +231,6 @@ void PageSettings::updateValues()
       pageOffsetEntry->setValue(score->pageNumberOffset() + 1);
 
       blockSignals(false);
-      _changeFlag = true;
       }
 
 //---------------------------------------------------------
@@ -266,10 +273,13 @@ void PageSettings::orientationClicked()
       }
 
 void PageSettings::on_resetPageStyleButton_clicked()
-{
-    preview->score()->style().resetStyles(preview->score(), pageStyles());
-    updatePreview();
-}
+      {
+      preview->score()->style().resetStyles(preview->score(), pageStyles());
+      preview->score()->undoChangePageNumberOffset(0);
+
+      updateValues();
+      updatePreview();
+      }
 
 //---------------------------------------------------------
 //   twosidedToggled
@@ -349,7 +359,7 @@ void PageSettings::applyToAllParts()
       if (!_changeFlag)
             return;
       cs->startCmd();
-      for (Excerpt* e : cs->excerpts())
+      for (Excerpt*& e : cs->excerpts())
             applyToScore(e->partScore());
       cs->endCmd();
       _changeFlag = false;
@@ -535,7 +545,7 @@ void PageSettings::spatiumChanged(double val)
 
 void PageSettings::pageOffsetChanged(int val)
       {
-      preview->score()->setPageNumberOffset(val-1);
+      preview->score()->undoChangePageNumberOffset(val - 1);
       updatePreview();
       }
 
@@ -581,7 +591,7 @@ void PageSettings::pageWidthChanged(double val)
 
 void PageSettings::updatePreview()
       {
-      updateValues();
+      _changeFlag = true;
       preview->score()->doLayout();
       preview->layoutChanged();
       }

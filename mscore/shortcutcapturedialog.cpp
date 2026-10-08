@@ -18,9 +18,9 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-#include "shortcutcapturedialog.h"
 #include "musescore.h"
 #include "shortcut.h"
+#include "shortcutcapturedialog.h"
 
 namespace Ms {
 
@@ -97,7 +97,6 @@ bool ShortcutCaptureDialog::eventFilter(QObject* /*o*/, QEvent* e)
       return false;
       }
 
-
 //---------------------------------------------------------
 //   keyPressEvent
 //---------------------------------------------------------
@@ -113,11 +112,18 @@ void ShortcutCaptureDialog::keyPress(QKeyEvent* e)
          || k == Qt::Key_ScrollLock || k == Qt::Key_unknown)
             return;
 
-      k += e->modifiers();
-      // remove shift-modifier for keys that don't need it: letters and special keys
-      if ((k & Qt::ShiftModifier) && ((e->key() < 0x41) || (e->key() > 0x5a) || (e->key() >= 0x01000000))) {
+      k |= e->modifiers();
+      // remove shift-modifier for non-letter keys, except a few keys
+      if ((k & Qt::ShiftModifier) && !isShiftAllowed(e->key(), e->text())) {
             qDebug() << k;
-            k -= Qt::ShiftModifier;
+            k &= ~Qt::ShiftModifier;
+            qDebug() << k;
+            }
+
+      // remove Ctrl+Alt modifiers from a few keys
+      if ((k & (Qt::ControlModifier | Qt::AltModifier)) && !isCtrlAltNeeded(e->key(), e->text())) { // Qt::KeyAltGr, right Alt
+            qDebug() << k;
+            k &= ~(Qt::ControlModifier | Qt::AltModifier);
             qDebug() << k;
             }
 
@@ -135,7 +141,7 @@ void ShortcutCaptureDialog::keyPress(QKeyEvent* e)
       bool conflict = false;
       QString msgString;
 
-      for (Shortcut* ss : localShortcuts) {
+      for (Shortcut* ss : qAsConst(localShortcuts)) {
             if (s == ss)
                   continue;
             if (!(s->state() & ss->state()))    // no conflict if states do not overlap
@@ -143,7 +149,7 @@ void ShortcutCaptureDialog::keyPress(QKeyEvent* e)
 
             QList<QKeySequence> skeys = QKeySequence::keyBindings(ss->standardKey());
 
-            for (const QKeySequence& ks : skeys) {
+            for (const QKeySequence& ks : qAsConst(skeys)) {
                   if (ks == key) {
                         msgString = tr("Shortcut conflicts with %1").arg(ss->descr());
                         conflict = true;
@@ -189,6 +195,91 @@ void ShortcutCaptureDialog::keyPress(QKeyEvent* e)
             qPrintable(A),
             qPrintable(B)
             );
+      }
+
+bool ShortcutCaptureDialog::isShiftAllowed(int key, const QString& keyStr)
+      {
+      // letter keys where Shift should not be removed
+      if (keyStr.size() == 1 && keyStr.at(0).isLetter())
+            return true;
+
+      // non-letter keys where Shift should not be removed
+      switch (key) {
+            case Qt::Key_Up:
+            case Qt::Key_Down:
+            case Qt::Key_Left:
+            case Qt::Key_Right:
+            case Qt::Key_Insert:
+            case Qt::Key_Delete:
+            case Qt::Key_Home:
+            case Qt::Key_End:
+            case Qt::Key_PageUp:
+            case Qt::Key_PageDown:
+            case Qt::Key_Space:
+            case Qt::Key_Escape:
+            case Qt::Key_F1:
+            case Qt::Key_F2:
+            case Qt::Key_F3:
+            case Qt::Key_F4:
+            case Qt::Key_F5:
+            case Qt::Key_F6:
+            case Qt::Key_F7:
+            case Qt::Key_F8:
+            case Qt::Key_F9:
+            case Qt::Key_F10:
+            case Qt::Key_F11:
+            case Qt::Key_F12:
+            case Qt::Key_F13:
+            case Qt::Key_F14:
+            case Qt::Key_F15:
+            case Qt::Key_F16:
+            case Qt::Key_F17:
+            case Qt::Key_F18:
+            case Qt::Key_F19:
+            case Qt::Key_F20:
+            case Qt::Key_F21:
+            case Qt::Key_F22:
+            case Qt::Key_F23:
+            case Qt::Key_F24:
+            case Qt::Key_F25:
+            case Qt::Key_F26:
+            case Qt::Key_F27:
+            case Qt::Key_F28:
+            case Qt::Key_F29:
+            case Qt::Key_F30:
+            case Qt::Key_F31:
+            case Qt::Key_F32:
+            case Qt::Key_F33:
+            case Qt::Key_F34:
+            case Qt::Key_F35:
+                  return true;
+            default:
+                  return false;
+            }
+      }
+
+bool ShortcutCaptureDialog::isCtrlAltNeeded(int key, const QString& keyStr) {
+      // key that needs AltGR (here esp. on German keyboards), but should not in shortuts
+      if (keyStr.size() == 1 && (keyStr.at(0) == QChar(u'€')))
+            return false;
+
+      // (non-letter) keys that need AltGR (here esp. for German keyboards), but should not in shortuts
+      switch (key) {
+            case Qt::Key_twosuperior:   // default action: voice 2
+            case Qt::Key_threesuperior: // default action: voice 3
+            case Qt::Key_BraceLeft:     // default action: reduce strech
+            case Qt::Key_BracketLeft:
+            case Qt::Key_BracketRight:
+            case Qt::Key_BraceRight:    // default action: increase stretch
+            case Qt::Key_Backslash:
+            case Qt::Key_At:
+            //case Qt::Key_Euro:          // doesn't exist, but see above
+            case Qt::Key_AsciiTilde:
+            case Qt::Key_Bar:
+                  return false;
+            default:
+                  return true;
+            }
       }
 
 //---------------------------------------------------------

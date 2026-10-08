@@ -14,9 +14,8 @@
 #define __TIMESIG_H__
 
 #include "element.h"
-#include "sig.h"
-#include "mscore.h"
 #include "groups.h"
+#include "sig.h"
 
 namespace Ms {
 
@@ -79,7 +78,6 @@ class TimeSig final : public Element {
       void write(XmlWriter& xml) const override;
       void read(XmlReader&) override;
       void layout() override;
-      Shape shape() const override;
 
       Fraction sig() const               { return _sig; }
       void setSig(const Fraction& f, TimeSigType st = TimeSigType::NORMAL);
@@ -120,9 +118,6 @@ class TimeSig final : public Element {
 
       const Groups& groups() const    { return _groups; }
       void setGroups(const Groups& e) { _groups = e; }
-
-      Fraction globalSig() const           { return (_sig * _stretch).reduced();  }
-      void setGlobalSig(const Fraction& f) { _stretch = (_sig / f).reduced(); }
 
       bool isLocal() const                 { return _stretch != Fraction(1,1); }
 

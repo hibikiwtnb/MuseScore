@@ -85,6 +85,8 @@ class Palette : public QWidget {
       QPoint dragStartPosition;
 
       qreal extraMag;
+      qreal _contentZoom { 1.0 };
+      bool _contentZoomEnabled { false };
       bool _drawGrid;
       bool _selectable;
       bool _disableElementsApply { false };
@@ -103,6 +105,7 @@ class Palette : public QWidget {
       void mouseReleaseEvent(QMouseEvent* event) override;
       void mouseDoubleClickEvent(QMouseEvent*) override;
       virtual void mouseMoveEvent(QMouseEvent*) override;
+      virtual void wheelEvent(QWheelEvent*) override;
       virtual void leaveEvent(QEvent*) override;
       virtual bool event(QEvent*) override;
       virtual void resizeEvent(QResizeEvent*) override;
@@ -127,6 +130,7 @@ class Palette : public QWidget {
       void boxClicked(int);
       void changed();
       void displayMore(const QString& paletteName);
+      void contentZoomChanged(qreal);
 
    public:
       Palette(QWidget* parent = 0);
@@ -167,6 +171,12 @@ class Palette : public QWidget {
       bool systemPalette() const     { return _systemPalette; }
       void setSystemPalette(bool val);
 
+      void setContentZoomEnabled(bool val) { _contentZoomEnabled = val; }
+      bool contentZoomEnabled() const      { return _contentZoomEnabled; }
+      qreal contentZoom() const            { return _contentZoom; }
+      void setContentZoom(qreal);
+      void resetContentZoom()              { setContentZoom(1.0); }
+
       void setMag(qreal val);
       qreal mag() const              { return extraMag;    }
       void setYOffset(qreal val)     { _yOffset = val;     }
@@ -199,6 +209,7 @@ class Palette : public QWidget {
       int idx(const QPoint&) const;
       };
 
+QString paletteZoomLabelText(const Palette* palette);
 
 } // namespace Ms
 #endif

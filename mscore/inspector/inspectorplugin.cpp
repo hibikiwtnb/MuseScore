@@ -17,8 +17,25 @@
 
 #include <QtCore/QtPlugin>
 
+// Qt Designer loads this plugin on its own, so it links neither libmscore nor
+// mscoreapp: it compiles just the few files the custom widgets need, and
+// stands in for the handful of symbols those files expect. The stand-ins live
+// here rather than in the header, because mscoreapp globs every header in this
+// tree and would find them clashing with the real MScore and Preferences.
 namespace Ms {
-      QString iconPath = QString(":/data/icons/");
+      static const int VOICES = 4;
+
+      struct MScore {
+            static QColor selectColor[VOICES];
+            static void init();
+            };
+
+      struct Preferences {
+            int getInt(QString) const;
+            QColor getColor(QString) const;
+            bool isThemeDark() const;
+            };
+
       QColor  MScore::selectColor[VOICES];
 
       void MScore::init()
@@ -34,6 +51,7 @@ namespace Ms {
             {
             return 20;
             }
+      QColor Preferences::getColor(QString) const { return QColor(); }
       bool Preferences::isThemeDark() const { return false; }
       }
 
@@ -42,6 +60,7 @@ void InspectorPlugin::initialize(QDesignerFormEditorInterface *)
       if (m_initialized)
 	      return;
       m_initialized = true;
+      Ms::iconPath = QString(":/data/icons/");
       Ms::MScore::init();
       Ms::genIcons();
 	}

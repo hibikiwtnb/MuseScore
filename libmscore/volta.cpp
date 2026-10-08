@@ -19,7 +19,6 @@
 #include "style.h"
 #include "system.h"
 #include "tempo.h"
-#include "text.h"
 #include "xml.h"
 
 #include <algorithm>
@@ -73,8 +72,13 @@ void VoltaSegment::layout()
 
 Element* VoltaSegment::propertyDelegate(Pid pid)
       {
-      if (pid == Pid::BEGIN_HOOK_TYPE || pid == Pid::END_HOOK_TYPE || pid == Pid::VOLTA_ENDING)
-            return spanner();
+      switch (pid) {
+            case Pid::BEGIN_HOOK_TYPE:
+            case Pid::END_HOOK_TYPE:
+            case Pid::VOLTA_ENDING:
+                  return spanner();
+             default: break;
+            }
       return TextLineBaseSegment::propertyDelegate(pid);
       }
 
@@ -142,15 +146,26 @@ void Volta::read(XmlReader& e)
             const QStringRef& tag(e.name());
             if (tag == "endings") {
                   QString s = e.readElementText();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+                  QStringList sl = s.split(",", Qt::SkipEmptyParts);
+#else
                   QStringList sl = s.split(",", QString::SkipEmptyParts);
+#endif
                   _endings.clear();
                   for (const QString& l : qAsConst(sl)) {
                         int i = l.simplified().toInt();
                         _endings.append(i);
                         }
                   }
+            else if (readStyledProperty(e, tag))
+                  ;
             else if (!readProperties(e))
                   e.unknown();
+            }
+      if (this->anchor() != Volta::VOLTA_ANCHOR) {
+            // Volta strictly assumes that its anchor is measure, so don't let old scores override this.
+            qWarning("Correcting volta anchor type from %d to %d", int(this->anchor()), int(Volta::VOLTA_ANCHOR));
+            this->setAnchor(Volta::VOLTA_ANCHOR);
             }
       }
 
@@ -165,7 +180,7 @@ bool Volta::readProperties(XmlReader& e)
 
       if (anchor() != VOLTA_ANCHOR) {
             // Volta strictly assumes that its anchor is measure, so don't let old scores override this.
-            qWarning("Correcting volta anchor type from %d to %d", int(anchor()), int(VOLTA_ANCHOR));
+            qDebug("Correcting volta anchor type from %d to %d", int(anchor()), int(VOLTA_ANCHOR));
             setAnchor(VOLTA_ANCHOR);
             }
 

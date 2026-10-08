@@ -12,47 +12,46 @@
 
 #include "importgtp.h"
 
-#include <libmscore/score.h>
-#include <libmscore/measurebase.h>
-#include <libmscore/text.h>
+#include <libmscore/arpeggio.h>
+#include <libmscore/articulation.h>
+#include <libmscore/barline.h>
+#include <libmscore/bend.h>
+#include <libmscore/bracket.h>
 #include <libmscore/box.h>
-#include <libmscore/staff.h>
-#include <libmscore/part.h>
+#include <libmscore/chord.h>
+#include <libmscore/chordline.h>
+#include <libmscore/clef.h>
+#include <libmscore/dynamic.h>
+#include <libmscore/excerpt.h>
+#include <libmscore/fingering.h>
+#include <libmscore/glissando.h>
+#include <libmscore/harmony.h>
+#include <libmscore/instrtemplate.h>
+#include <libmscore/keysig.h>
+#include <libmscore/lyrics.h>
 #include <libmscore/measure.h>
+#include <libmscore/measurebase.h>
+#include <libmscore/note.h>
+#include <libmscore/notedot.h>
+#include <libmscore/part.h>
+#include <libmscore/rehearsalmark.h>
+#include <libmscore/rest.h>
+#include <libmscore/score.h>
+#include <libmscore/segment.h>
+#include <libmscore/slur.h>
+#include <libmscore/staff.h>
+#include <libmscore/stafftext.h>
+#include <libmscore/stafftype.h>
+#include <libmscore/stringdata.h>
+#include <libmscore/sym.h>
+#include <libmscore/tempotext.h>
+#include <libmscore/text.h>
+#include <libmscore/tie.h>
 #include <libmscore/timesig.h>
 #include <libmscore/tremolo.h>
-#include <libmscore/chordline.h>
-#include <libmscore/glissando.h>
-#include <libmscore/rest.h>
-#include <libmscore/chord.h>
-#include <libmscore/note.h>
-#include <libmscore/stringdata.h>
-#include <libmscore/clef.h>
-#include <libmscore/lyrics.h>
-#include <libmscore/tempotext.h>
-#include <libmscore/slur.h>
-#include <libmscore/tie.h>
-#include <libmscore/tuplet.h>
-#include <libmscore/barline.h>
-#include <libmscore/excerpt.h>
-#include <libmscore/stafftype.h>
-#include <libmscore/bracket.h>
-#include <libmscore/articulation.h>
-#include <libmscore/keysig.h>
-#include <libmscore/harmony.h>
-#include <libmscore/bend.h>
 #include <libmscore/tremolobar.h>
-#include <libmscore/segment.h>
-#include <libmscore/rehearsalmark.h>
-#include <libmscore/dynamic.h>
-#include <libmscore/arpeggio.h>
+#include <libmscore/tuplet.h>
 #include <libmscore/volta.h>
-#include <libmscore/instrtemplate.h>
-#include <libmscore/fingering.h>
-#include <libmscore/notedot.h>
-#include <libmscore/stafftext.h>
-#include <libmscore/sym.h>
-#include <libmscore/instrtemplate.h>
 
 namespace Ms {
 
@@ -125,9 +124,13 @@ int GuitarPro4::readBeatEffects(int track, Segment* segment)
             Arpeggio* a = new Arpeggio(score);
             if( strokeup > 0 ) {
                   a->setArpeggioType(ArpeggioType::UP_STRAIGHT);
+                  if (strokeup < 7)
+                        a->setStretch(1.0 / std::pow(2, 6 - strokeup));
                   }
             else if( strokedown > 0 ) {
                   a->setArpeggioType(ArpeggioType::DOWN_STRAIGHT);
+                  if (strokedown < 7)
+                        a->setStretch(1.0 / std::pow(2, 6 - strokedown));
                   }
             else {
                   delete a;
@@ -289,13 +292,13 @@ bool GuitarPro4::readNote(int string, int staffIdx, Note* note)
                   int transition = readUChar();       // grace transition
                   int duration = readUChar();         // grace duration
 
-                  int grace_len = MScore::division/8;
+                  int grace_len = DIVISION/8;
                   if (duration == 1)
-                        grace_len = MScore::division/8; //32th
+                        grace_len = DIVISION/8; //32th
                   else if (duration == 2)
-                        grace_len = MScore::division/6; //24th
+                        grace_len = DIVISION/6; //24th
                   else if (duration == 3)
-                        grace_len = MScore::division/4; //16th
+                        grace_len = DIVISION/4; //16th
 
                   Note* gn = new Note(score);
 
@@ -318,7 +321,7 @@ bool GuitarPro4::readNote(int string, int staffIdx, Note* note)
 
                   TDuration d;
                   d.setVal(grace_len);
-                  if(grace_len == MScore::division/6)
+                  if(grace_len == DIVISION/6)
                         d.setDots(1);
                   gc->setDurationType(d);
                   gc->setTicks(d.fraction());
@@ -1016,7 +1019,8 @@ bool GuitarPro4::read(QFile* fp)
                                     while ((seg = seg->prev()) || (mes = mes->prevMeasure())) {
                                           if (!seg)
                                                 break;//seg = mes->last();
-                                          if (seg->segmentType() == SegmentType::ChordRest) {
+                                          if (seg->segmentType() == SegmentType::ChordRest
+                                              && seg->cr(chord->track())->isChord()) {
                                                 bool br = false;
                                                 Chord* cr1 = toChord(seg->cr(chord->track()));
                                                 if (cr1) {

@@ -16,7 +16,6 @@
 #include "musescore.h"
 #include "qmlplugin.h"
 #include "icons.h"
-#include "helpBrowser.h"
 #include "preferences.h"
 #include "libmscore/score.h"
 
@@ -65,6 +64,9 @@ PluginCreator::PluginCreator(QWidget* parent)
       actionSaveAs->setIcon(*icons[int(Icons::fileSaveAs_ICON)]);
       fileTools->addAction(actionSave);
 
+      actionRun->setShortcut(Qt::Key_F5);
+      actionStop->setShortcut(Qt::Key_F7);
+
       actionQuit->setShortcut(QKeySequence(QKeySequence::Close));
 
       actionManual->setIcon(QIcon(*icons[int(Icons::helpContents_ICON)]));
@@ -102,6 +104,8 @@ PluginCreator::PluginCreator(QWidget* parent)
       connect(actionSaveAs, SIGNAL(triggered()), SLOT(savePluginAs()));
       connect(actionNew,  SIGNAL(triggered()),   SLOT(newPlugin()));
       connect(actionQuit, SIGNAL(triggered()),   SLOT(close()));
+      connect(actionRun,  SIGNAL(triggered()),   SLOT(runClicked()));
+      connect(actionStop, SIGNAL(triggered()),   SLOT(stopClicked()));
       connect(actionManual, SIGNAL(triggered()), SLOT(showManual()));
       connect(actionUndo, SIGNAL(triggered()),         textEdit,   SLOT(undo()));
       connect(actionRedo, SIGNAL(triggered()),         textEdit,   SLOT(redo()));
@@ -279,6 +283,10 @@ static void qmlMsgHandler(QtMsgType type, const QMessageLogContext &, const QStr
 
 void PluginCreator::runClicked()
       {
+      if (state == PCState::DIRTY)
+            savePlugin();
+      else
+            load();
       log->clear();
       msg(tr("Running…\n"));
       QmlPluginEngine* qml = mscore->getPluginEngine();
@@ -292,7 +300,7 @@ void PluginCreator::runClicked()
       QObject* obj = component.create();
       if (obj == 0) {
             msg(tr("Creating component failed\n"));
-            for (QQmlError e : component.errors())
+            for (const QQmlError& e : component.errors())
                   msg("   " + tr("line %1: %2\n").arg(e.line()).arg(e.description()));
             stop->setEnabled(false);
             return;
@@ -315,11 +323,11 @@ void PluginCreator::runClicked()
       msg("  " + tr("Version:") + " " + item->version() + "\n");
       msg("  " + tr("Description:") + " " + item->description() + "\n");
       if (item->requiresScore()) msg("  " + tr("Requires Score\n"));
-      if(MuseScoreCore::mscoreCore->currentScore() == nullptr && item->requiresScore() == true) {
+      if (MuseScoreCore::mscoreCore->currentScore() == nullptr && item->requiresScore() == true) {
             QMessageBox::information(0,
                   tr("MuseScore"),
                   tr("No score open.\n"
-                  "This plugin requires an open score to run.\n"),
+                  "This plugin requires an open score to run."),
                   QMessageBox::Ok, QMessageBox::NoButton);
             delete obj;
             item = nullptr;

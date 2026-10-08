@@ -21,8 +21,8 @@ namespace Ms {
 
 int ticks_beat(int n)
       {
-      int m = (MScore::division * 4) / n;
-      if ((MScore::division * 4) % n) {
+      int m = (DIVISION * 4) / n;
+      if ((DIVISION * 4) % n) {
             qFatal("Mscore: ticks_beat(): bad divisor %d", n);
             }
       return m;
@@ -34,7 +34,7 @@ int ticks_beat(int n)
 
 static int ticks_measure(const Fraction& f)
       {
-      return (MScore::division * 4 * f.numerator()) / f.denominator();
+      return (DIVISION * 4 * f.numerator()) / f.denominator();
       }
 
 //---------------------------------------------------------
@@ -394,17 +394,6 @@ void TimeSigMap::read(XmlReader& e, int fileDivision)
       }
 
 //---------------------------------------------------------
-//   SigEvent
-//---------------------------------------------------------
-
-SigEvent::SigEvent(const SigEvent& e)
-      {
-      _timesig = e._timesig;
-      _nominal = e._nominal;
-      _bar     = e._bar;
-      }
-
-//---------------------------------------------------------
 //   SigEvent::write
 //---------------------------------------------------------
 
@@ -423,7 +412,7 @@ void SigEvent::write(XmlWriter& xml, int tick) const
 int SigEvent::read(XmlReader& e, int fileDivision)
       {
       int tick  = e.intAttribute("tick", 0);
-      tick      = tick * MScore::division / fileDivision;
+      tick      = tick * DIVISION / fileDivision;
 
       int numerator = 1;
       int denominator = 1;
@@ -556,8 +545,7 @@ void TimeSigMap::dump() const
 
 int TimeSigFrac::dUnitTicks() const
       {
-      return (4 * MScore::division) / denominator();
+      return (4 * DIVISION) / denominator();
       }
 
 }
-

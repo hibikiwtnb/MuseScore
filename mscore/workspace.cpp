@@ -17,17 +17,26 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
-#include "workspace.h"
+#include "extension.h"
+#include "palette.h"
+#include "preferences.h"
 #include "musescore.h"
+#include "shortcut.h"
+#include "workspace.h"
+
 #include "libmscore/score.h"
 #include "libmscore/imageStore.h"
 #include "libmscore/xml.h"
+
+#include "palette/paletteworkspace.h"
+
 #include "thirdparty/qzip/qzipreader_p.h"
 #include "thirdparty/qzip/qzipwriter_p.h"
-#include "preferences.h"
-#include "palette.h"
-#include "palette/paletteworkspace.h"
-#include "extension.h"
+
+#include <cstring>
+#include <iterator>
+
+#include <QDialog>
 
 #if defined(FOR_WINSTORE)  // or even just Q_OS_WIN ?
 extern Q_CORE_EXPORT int qt_ntfs_permission_lookup;
@@ -36,6 +45,8 @@ int qt_ntfs_permission_lookup;
 #endif
 
 namespace Ms {
+
+static constexpr int WORKSPACE_UI_VERSION = 3;
 
 bool WorkspacesManager::isWorkspacesListDirty = true;
 Workspace* WorkspacesManager::m_currentWorkspace = nullptr;
@@ -67,8 +78,8 @@ static QString editedWorkspaceTranslatableName(const QString& oldWorkspaceTransl
       const auto it = std::find(WorkspacesManager::defaultWorkspaces.begin(), WorkspacesManager::defaultWorkspaces.end(), oldWorkspaceTranslatableName);
 
       if (it != WorkspacesManager::defaultWorkspaces.end()) {
-            const int idx = it - WorkspacesManager::defaultWorkspaces.begin();
-            if (idx < int(WorkspacesManager::defaultEditedWorkspaces.size()))
+            const long idx = it - WorkspacesManager::defaultWorkspaces.begin();
+            if (idx < long(WorkspacesManager::defaultEditedWorkspaces.size()))
                   return WorkspacesManager::defaultEditedWorkspaces[idx];
             }
 
@@ -84,8 +95,8 @@ QString WorkspacesManager::defaultWorkspaceTranslatableName(const QString& edite
       const auto it = std::find(WorkspacesManager::defaultEditedWorkspaces.begin(), WorkspacesManager::defaultEditedWorkspaces.end(), editedWorkspaceName);
 
       if (it != WorkspacesManager::defaultEditedWorkspaces.end()) {
-            const int idx = it - WorkspacesManager::defaultEditedWorkspaces.begin();
-            if (idx < int(WorkspacesManager::defaultWorkspaces.size()))
+            const long idx = it - WorkspacesManager::defaultEditedWorkspaces.begin();
+            if (idx < long(WorkspacesManager::defaultWorkspaces.size()))
                   return WorkspacesManager::defaultWorkspaces[idx];
             }
 
@@ -400,6 +411,9 @@ void Workspace::write()
       // xml.tag("name", _name);
       if (!_sourceWorkspaceName.isEmpty())
             xml.tag("source", _sourceWorkspaceName);
+
+      xml.tag("uiVersion", WORKSPACE_UI_VERSION);
+
       const PaletteWorkspace* w = mscore->getPaletteWorkspace();
       w->write(xml);
 
@@ -409,12 +423,19 @@ void Workspace::write()
             for (auto i : *mscore->noteInputMenuEntries())
                   xml.tag("action", i);
             xml.etag();
+
             xml.stag("Toolbar name=\"fileOperation\"");
             for (auto i : *mscore->fileOperationEntries())
                   xml.tag("action", i);
             xml.etag();
+
             xml.stag("Toolbar name=\"playbackControl\"");
             for (auto i : *mscore->playbackControlEntries())
+                  xml.tag("action", i);
+            xml.etag();
+
+            xml.stag("Toolbar name=\"alternativeOptions\"");
+            for (auto i : *mscore->alternativeEntries())
                   xml.tag("action", i);
             xml.etag();
             }
@@ -424,7 +445,7 @@ void Workspace::write()
 
       if (preferences.getUseLocalPreferences()) {
             xml.stag("Preferences");
-            for (QString pref : preferences.getLocalPreferences().keys()) {
+            for (const QString& pref : preferences.getLocalPreferences().keys()) {
                   QVariant prefValue = preferences.getLocalPreferences().value(pref);
                   if (prefValue.isValid())
                         xml.tag("Preference name=\"" + pref + "\"", preferences.getLocalPreferences().value(pref));
@@ -528,12 +549,19 @@ void Workspace::writeGlobalToolBar()
       for (auto i : *mscore->noteInputMenuEntries())
             xml.tag("action", i);
       xml.etag();
+
       xml.stag("Toolbar name=\"fileOperation\"");
       for (auto i : *mscore->fileOperationEntries())
             xml.tag("action", i);
       xml.etag();
+
       xml.stag("Toolbar name=\"playbackControl\"");
       for (auto i : *mscore->playbackControlEntries())
+            xml.tag("action", i);
+      xml.etag();
+
+      xml.stag("Toolbar name=\"alternativeOptions\"");
+      for (auto i : *mscore->alternativeEntries())
             xml.tag("action", i);
       xml.etag();
 
@@ -655,7 +683,7 @@ void WorkspacesManager::readWorkspaceFile(const QString& path, std::function<voi
       //
       // load images
       //
-      for (const QString& s : images)
+      for (QString& s : images)
             imageStore.add(s, f.fileData(s));
 
       if (rootfile.isEmpty()) {
@@ -732,15 +760,20 @@ std::unique_ptr<PaletteTree> Workspace::getPaletteTree() const
 
 void Workspace::read(XmlReader& e)
       {
+      int uiVersion = 0;
+
       bool niToolbar = false;
       bool foToolbar = false;
       bool pcToolbar = false;
+      bool alternativeToolbar = false;
       while (e.readNextStartElement()) {
             const QStringRef& tag(e.name());
             if (tag == "name")
                   e.readElementText();
             else if (tag == "source")
                   _sourceWorkspaceName = e.readElementText();
+            else if (tag == "uiVersion")
+                  uiVersion = e.readInt();
             else if (tag == "PaletteBox") {
                   PaletteWorkspace* w = mscore->getPaletteWorkspace();
                   w->read(e);
@@ -755,6 +788,8 @@ void Workspace::read(XmlReader& e)
                         toolbarEntries = mscore->allFileOperationEntries();
                   else if (name == "playbackControl")
                         toolbarEntries = mscore->allPlaybackControlEntries();
+                  else if (name == "alternativeOptions")
+                        toolbarEntries = mscore->allAlternativeEntries();
                   else
                         qDebug() << "Error in loading workspace: " + name + " is not a toolbar";
 
@@ -788,6 +823,11 @@ void Workspace::read(XmlReader& e)
                         mscore->populatePlaybackControls();
                         pcToolbar = true;
                         }
+                  else if (name == "alternativeOptions") {
+                        mscore->setAlternativeEntries(l);
+                        mscore->populateAlternativeOperations();
+                        alternativeToolbar = true;
+                        }
                   }
             else if (tag == "Preferences") {
                   preferences.setUseLocalPreferences(true);
@@ -820,12 +860,18 @@ void Workspace::read(XmlReader& e)
                                     break;
                               case QVariant::LongLong:
                                     {
-                                    bool new_longlong = e.readLongLong();
+                                    auto new_longlong = e.readLongLong();
                                     preferences.setLocalPreference(preference_name, QVariant(new_longlong));
                                     break;
                                     }
+                              case QVariant::Double:
+                                    {
+                                    auto new_double = e.readDouble();
+                                    preferences.setLocalPreference(preference_name, QVariant(new_double));
+                                    break;
+                                    }
                               default:
-                                    qDebug() << preferences.defaultValue(preference_name).type() << " not handled.";
+                                    qDebug() << preference_name << ":" << preferences.defaultValue(preference_name).type() << " not handled.";
                                     e.unknown();
                               }
                         }
@@ -885,6 +931,10 @@ void Workspace::read(XmlReader& e)
                   mscore->setPlaybackControlEntries(mscore->allPlaybackControlEntries());
                   mscore->populatePlaybackControls();
                   }
+            if (!alternativeToolbar) {
+                  mscore->setAlternativeEntries(mscore->allAlternativeEntries());
+                  mscore->populateAlternativeOperations();
+                  }
             }
       else {
             readGlobalToolBar();
@@ -894,8 +944,172 @@ void Workspace::read(XmlReader& e)
       if (!saveComponents)
             readGlobalGUIState();
 
+      migrate(uiVersion);
+
       if (const Workspace* src = sourceWorkspace())
             mscore->getPaletteWorkspace()->setDefaultPaletteTree(src->getPaletteTree());
+      }
+
+//---------------------------------------------------------
+//   ensureMenuAction
+//---------------------------------------------------------
+
+void Workspace::ensureMenuAction(
+      const QString& menuId,
+      const QString& actionId,
+      const QString& anchorActionId,
+      InsertPosition position)
+
+      {
+      QMenu* menu = findMenuFromString(menuId);
+      QAction* action = findActionFromString(actionId);
+
+      if (!menu || !action || menu->actions().contains(action))
+            return;
+
+      QAction* anchorAction =
+            anchorActionId.isEmpty()
+            ? nullptr
+            : findActionFromString(anchorActionId);
+
+      if (!anchorAction || !menu->actions().contains(anchorAction)) {
+            menu->addAction(action);
+            return;
+            }
+
+      if (position == InsertPosition::BEFORE) {
+            menu->insertAction(anchorAction, action);
+            return;
+            }
+
+      const QList<QAction*> actions = menu->actions();
+      const int index = actions.indexOf(anchorAction);
+
+      if (index >= 0 && index + 1 < actions.size())
+            menu->insertAction(actions[index + 1], action);
+      else
+            menu->addAction(action);
+      }
+
+//---------------------------------------------------------
+//   ensureToolbarEntry
+//    anchorActionId: the actionId which will be immediately after
+//    or before the new placement of actionId, depending on [position]
+//---------------------------------------------------------
+
+void Workspace::ensureToolbarEntry(std::list<const char*>& entries,
+                                   const char* actionId,
+                                   const char* anchorActionId,
+                                   InsertPosition position)
+      {
+      if (!actionId || !*actionId)
+            return;
+
+      for (const char* entry : entries) {
+            if (!strcmp(entry, actionId))
+                  return;
+            }
+
+      if (anchorActionId) {
+            for (auto it = entries.begin(); it != entries.end(); ++it) {
+                  if (!strcmp(*it, anchorActionId)) {
+                        if (position == InsertPosition::AFTER)
+                              ++it;
+
+                        entries.insert(it, actionId);
+                        return;
+                        }
+                  }
+            }
+
+      entries.push_back(actionId);
+      }
+
+//---------------------------------------------------------
+//   ensureToolbarSeparator
+//---------------------------------------------------------
+
+void Workspace::ensureToolbarSeparator(std::list<const char*>& entries,
+                                       const char* anchorId,
+                                       InsertPosition position)
+      {
+      auto anchor = std::find_if(
+            entries.begin(),
+            entries.end(),
+            [anchorId](const char* entry) {
+                  return !strcmp(entry, anchorId);
+                  });
+
+      if (anchor == entries.end())
+            return;
+
+      if (position == InsertPosition::AFTER) {
+            auto next = std::next(anchor);
+
+            if (next != entries.end() && !strcmp(*next, ""))
+                  return;
+
+            entries.insert(next, "");
+            }
+      else {
+            if (anchor != entries.begin()) {
+                  auto previous = std::prev(anchor);
+
+                  if (!strcmp(*previous, ""))
+                        return;
+                  }
+
+            entries.insert(anchor, "");
+            }
+      }
+
+//---------------------------------------------------------
+//   migrate
+//---------------------------------------------------------
+
+void Workspace::migrate(int uiVersion)
+      {
+      if (uiVersion < 1) {
+            if (auto entries = mscore->noteInputMenuEntries()) {
+                  ensureToolbarEntry(*entries, "toggle-mouse-entry", "empty-trailing-measure", InsertPosition::BEFORE);
+                  ensureToolbarEntry(*entries, "toggle-edit-playback", "toggle-mouse-entry", InsertPosition::AFTER);
+                  mscore->populateNoteInputMenu();
+                  }
+
+            if (auto entries = mscore->fileOperationEntries()) {
+                  ensureToolbarEntry(*entries, "file-reload", "print", InsertPosition::BEFORE);
+                  ensureToolbarEntry(*entries, "file-export", "file-save", InsertPosition::AFTER);
+                  mscore->populateFileOperations();
+                  }
+
+            if (auto entries = mscore->playbackControlEntries()) {
+                  ensureToolbarEntry(*entries, "playback-highlight", "countin", InsertPosition::BEFORE);
+                  mscore->populatePlaybackControls();
+                  }
+            }
+      if (uiVersion < 2) {
+            if (auto entries = mscore->playbackControlEntries()) {
+                  ensureToolbarEntry(*entries,
+                                     "independent-metronome",
+                                     "repeat",
+                                     InsertPosition::AFTER);
+                  mscore->populatePlaybackControls();
+                  }
+            }
+      if (uiVersion < 3) {
+            ensureMenuAction("menu-view",
+                             "toggle-piano-roll",
+                             "toggle-scorecmp-tool");
+
+            std::list<const char*>* entries = mscore->alternativeEntries();
+            if (entries) {
+                  ensureToolbarEntry(*entries,
+                                     "toggle-piano-roll",
+                                     "toggle-piano",
+                                     InsertPosition::AFTER);
+                  mscore->populateAlternativeOperations();
+                  }
+            }
       }
 
 //---------------------------------------------------------
@@ -1006,6 +1220,8 @@ void Workspace::readGlobalToolBar()
                                     toolbarEntries = mscore->allFileOperationEntries();
                               else if (name == "playbackControl")
                                     toolbarEntries = mscore->allPlaybackControlEntries();
+                              else if (name == "alternativeOptions")
+                                    toolbarEntries = mscore->allAlternativeEntries();
                               else
                                     qDebug() << "Error in loading workspace: " + name + " is not a toolbar";
 
@@ -1035,6 +1251,10 @@ void Workspace::readGlobalToolBar()
                               else if (name == "playbackControl") {
                                     mscore->setPlaybackControlEntries(l);
                                     mscore->populatePlaybackControls();
+                                    }
+                              else if (name == "alternativeOptions") {
+                                    mscore->setAlternativeEntries(l);
+                                    mscore->populateAlternativeOperations();
                                     }
                               }
                         else
@@ -1153,11 +1373,11 @@ static QStringList findWorkspaceFiles()
 
       QStringList workspaces;
 
-      for (const QString& s : path) {
+      for (QString& s : path) {
             QDir dir(s);
             QStringList pl = dir.entryList(nameFilters, QDir::Files, QDir::Name);
 
-            for (const QString& entry : pl) {
+            for (QString& entry : pl) {
                   const QString workspacePath(s + "/" + entry);
                   workspaces << workspacePath;
                   }
@@ -1184,7 +1404,7 @@ void WorkspacesManager::initWorkspaces()
 
             const bool translate = isDefault || isEditedDefault;
 
-            for (Workspace* w : m_workspaces) {
+            for (Workspace*& w : m_workspaces) {
                   if (w->name() == name || (translate && w->translatableName() == name)) {
                         p = w;
                         break;
@@ -1318,7 +1538,7 @@ Workspace* WorkspacesManager::createNewWorkspace(const QString& name)
 void WorkspacesManager::clearWorkspaces()
       {
       m_currentWorkspace = nullptr;
-      for (Workspace* w : m_workspaces)
+      for (Workspace*& w : m_workspaces)
             w->deleteLater();
       m_workspaces.clear();
       m_visibleWorkspaces.clear();
@@ -1331,6 +1551,17 @@ void WorkspacesManager::clearWorkspaces()
 
 void Workspace::addActionAndString(QAction* action, QString string)
       {
+      // Action identifiers are unique, so replace an existing mapping
+      // rather than retaining a possibly stale QAction pointer. This
+      // is in accord with how the workspace code already assumes invariance:
+      // one action ID mapped to one QAction*
+      for (auto& pair : actionToStringList) {
+            if (pair.second == string) {
+                  pair.first = action;
+                  return;
+                  }
+            }
+
       QPair<QAction*, QString> pair;
       pair.first = action;
       pair.second = string;
@@ -1377,7 +1608,7 @@ void Workspace::addRemainingFromMenu(QMenu* menu)
 
 QAction* Workspace::findActionFromString(QString string)
       {
-      for (auto pair : actionToStringList) {
+      for (auto& pair : actionToStringList) {
             if (pair.second == string)
                   return pair.first;
             }
@@ -1390,7 +1621,7 @@ QAction* Workspace::findActionFromString(QString string)
 
 QString Workspace::findStringFromAction(QAction* action)
       {
-      for (auto pair : actionToStringList) {
+      for (auto& pair : actionToStringList) {
             if (pair.first == action)
                   return pair.second;
             }
@@ -1415,7 +1646,7 @@ void Workspace::addMenuAndString(QMenu* menu, QString string)
 
 QMenu* Workspace::findMenuFromString(QString string)
       {
-      for (auto pair : menuToStringList) {
+      for (auto& pair : menuToStringList) {
             if (pair.second == string)
                   return pair.first;
             }
@@ -1428,7 +1659,7 @@ QMenu* Workspace::findMenuFromString(QString string)
 
 QString Workspace::findStringFromMenu(QMenu* menu)
       {
-      for (auto pair : menuToStringList) {
+      for (auto& pair : menuToStringList) {
             if (pair.first == menu)
                   return pair.second;
             }

@@ -10,14 +10,14 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "score.h"
-#include "measure.h"
-#include "segment.h"
 #include "chordrest.h"
+#include "measure.h"
 #include "range.h"
-#include "tuplet.h"
+#include "score.h"
+#include "segment.h"
 #include "spanner.h"
 #include "tie.h"
+#include "tuplet.h"
 #include "undo.h"
 #include "utils.h"
 
@@ -36,7 +36,6 @@ void Score::cmdSplitMeasure(ChordRest* cr)
 
 //---------------------------------------------------------
 //   splitMeasure
-//    return true on success
 //---------------------------------------------------------
 
 void Score::splitMeasure(Segment* segment)
@@ -111,7 +110,7 @@ void Score::splitMeasure(Segment* segment)
       if (ticks1.denominator() < measure->ticks().denominator()) {
             if (measure->ticks().denominator() % m1->timesig().denominator() == 0) {
                   int mult = measure->ticks().denominator() / ticks1.denominator();
-                  // *= operator audomatically reduces via GCD, so rather do literal multiplication:
+                  // *= operator automatically reduces via GCD, so rather do literal multiplication:
                   ticks1.setDenominator(ticks1.denominator() * mult);
                   ticks1.setNumerator(ticks1.numerator() * mult);
                   }
@@ -122,6 +121,10 @@ void Score::splitMeasure(Segment* segment)
                   ticks2.setDenominator(ticks2.denominator() * mult);
                   ticks2.setNumerator(ticks2.numerator() * mult);
                   }
+            }
+      if (ticks1.denominator() > 128 || ticks2.denominator() > 128) {
+            MScore::setError(CANNOT_SPLIT_MEASURE_TOO_SHORT);
+            return;
             }
       m1->adjustToLen(ticks1, false);
       m2->adjustToLen(ticks2, false);

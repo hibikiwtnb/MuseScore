@@ -47,21 +47,27 @@ IF %BUILD_WIN_PORTABLE% == ON (
 
 :: Setup package type
 IF %BUILD_WIN_PORTABLE% == ON    ( SET PACKAGE_TYPE="portable") ELSE (
-IF %BUILD_MODE% == devel_build   ( SET PACKAGE_TYPE="7z") ELSE (
-IF %BUILD_MODE% == nightly_build ( SET PACKAGE_TYPE="7z") ELSE (
-IF %BUILD_MODE% == testing_build ( SET PACKAGE_TYPE="msi") ELSE (    
-IF %BUILD_MODE% == stable_build  ( SET PACKAGE_TYPE="msi") ELSE ( 
+IF %BUILD_MODE% == devel ( SET PACKAGE_TYPE="7z") ELSE (
+IF %BUILD_MODE% == nightly ( SET PACKAGE_TYPE="7z") ELSE (
+IF %BUILD_MODE% == testing ( SET PACKAGE_TYPE="msi") ELSE (    
+IF %BUILD_MODE% == stable  ( SET PACKAGE_TYPE="msi") ELSE ( 
     ECHO "Unknown BUILD_MODE: %BUILD_MODE%"
     GOTO END_ERROR
 )))))
 
-SET NEED_SIGN=OFF 
-IF %PACKAGE_TYPE% == "msi"      ( SET NEED_SIGN=ON) 
-IF %PACKAGE_TYPE% == "portable" ( SET NEED_SIGN=ON) 
-
 SET DO_SIGN=OFF
-IF %NEED_SIGN% == ON ( 
+IF %PACKAGE_TYPE% == "msi" ( 
     SET DO_SIGN=ON
+)
+IF %PACKAGE_TYPE% == "portable" ( 
+    IF %BUILD_MODE% == testing (
+        SET DO_SIGN=ON
+    )
+    IF %BUILD_MODE% == stable (
+        SET DO_SIGN=ON
+    )
+)
+IF %DO_SIGN% == ON (
     IF %SIGN_CERTIFICATE_ENCRYPT_SECRET% == "" ( 
         SET DO_SIGN=OFF
         ECHO "warning: not set SIGN_CERTIFICATE_ENCRYPT_SECRET"
@@ -106,7 +112,7 @@ IF %PACKAGE_TYPE% == "dir" (  GOTO PACK_DIR ) ELSE (
 :: ============================
 :PACK_7z
 ECHO "Start 7z packing..."
-IF %BUILD_MODE% == nightly_build ( 
+IF %BUILD_MODE% == nightly ( 
     SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_DATETIME%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%
 ) ELSE (
     SET ARTIFACT_NAME=MuseScore-%BUILD_VERSION%-%TARGET_PROCESSOR_ARCH%
@@ -151,7 +157,7 @@ sed -i 's/00000000-0000-0000-0000-000000000000/%PACKAGE_UUID%/' build/Packaging.
 sed -i 's/11111111-1111-1111-1111-111111111111/%UPGRADE_UUID%/' build/Packaging.cmake
 
 SET PACKAGE_FILE_ASSOCIATION=OFF
-IF %BUILD_MODE% == stable_build ( 
+IF %BUILD_MODE% == stable ( 
     SET PACKAGE_FILE_ASSOCIATION=ON
 )
 cd "%BUILD_DIR%" 
@@ -179,7 +185,7 @@ for /r %%i in (%BUILD_DIR%\*.msi) do (
     SET "FILEPATH=%%i"d
 )
 
-IF %BUILD_MODE% == nightly_build ( 
+IF %BUILD_MODE% == nightly ( 
     SET ARTIFACT_NAME=MuseScoreNightly-%BUILD_DATETIME%-%BUILD_BRANCH%-%BUILD_REVISION%-%TARGET_PROCESSOR_ARCH%.msi
 ) ELSE (
     SET ARTIFACT_NAME=MuseScore-%BUILD_VERSION%-%TARGET_PROCESSOR_ARCH%.msi

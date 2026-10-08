@@ -10,36 +10,32 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "log.h"
-
-#include "scoreview.h"
-
 #include "breaksdialog.h"
 #include "continuouspanel.h"
 #include "drumroll.h"
 #include "editdrumset.h"
 #include "editstaff.h"
 #include "globals.h"
-#include "zoombox.h"
+#include "log.h"
 #include "measureproperties.h"
 #include "musescore.h"
 #include "navigator.h"
 #include "preferences.h"
 #include "scoreaccessibility.h"
 #include "scoretab.h"
+#include "scoreview.h"
 #include "seq.h"
 #include "splitstaff.h"
 #include "textcursor.h"
 #include "textpalette.h"
 #include "texttools.h"
-#include "fotomode.h"
 #include "tourhandler.h"
+#include "zoombox.h"
 
 #include "inspector/inspector.h"
 
 #include "libmscore/articulation.h"
 #include "libmscore/barline.h"
-#include "libmscore/box.h"
 #include "libmscore/chord.h"
 #include "libmscore/clef.h"
 #include "libmscore/dynamic.h"
@@ -49,8 +45,6 @@
 #include "libmscore/hairpin.h"
 #include "libmscore/harmony.h"
 #include "libmscore/fret.h"
-#include "libmscore/icon.h"
-#include "libmscore/image.h"
 #include "libmscore/instrchange.h"
 #include "libmscore/keysig.h"
 #include "libmscore/lasso.h"
@@ -59,11 +53,8 @@
 #include "libmscore/navigate.h"
 #include "libmscore/notedot.h"
 #include "libmscore/note.h"
-#include "libmscore/noteline.h"
-#include "libmscore/ottava.h"
 #include "libmscore/page.h"
 #include "libmscore/part.h"
-#include "libmscore/pedal.h"
 #include "libmscore/pitchspelling.h"
 #include "libmscore/rehearsalmark.h"
 #include "libmscore/repeatlist.h"
@@ -71,6 +62,7 @@
 #include "libmscore/score.h"
 #include "libmscore/segment.h"
 #include "libmscore/shadownote.h"
+#include "libmscore/shape.h"
 #include "libmscore/slur.h"
 #include "libmscore/spanner.h"
 #include "libmscore/staff.h"
@@ -84,15 +76,13 @@
 #include "libmscore/systemtext.h"
 #include "libmscore/textframe.h"
 #include "libmscore/text.h"
+#include "libmscore/textline.h"
 #include "libmscore/timesig.h"
-#include "libmscore/trill.h"
 #include "libmscore/tuplet.h"
 #include "libmscore/undo.h"
 #include "libmscore/utils.h"
 #include "libmscore/volta.h"
 #include "libmscore/xml.h"
-#include "libmscore/textline.h"
-#include "libmscore/shape.h"
 
 #ifdef AVSOMR
 #include "avsomr/avsomr.h"
@@ -236,6 +226,7 @@ void ScoreView::setScore(Score* s)
                   }
             else
                   _score->addViewer(this);
+            pageTop(); // (re)set position
             }
 
       if (shadowNote == 0) {
@@ -252,7 +243,7 @@ void ScoreView::setScore(Score* s)
             _curLoopOut->move(s->pos(POS::RIGHT));
             loopToggled(getAction("loop")->isChecked());
 
-            connect(s, SIGNAL(posChanged(POS,unsigned)), SLOT(posChanged(POS,unsigned)));
+            connect(s, SIGNAL(posChanged(POS,uint)), SLOT(posChanged(POS,uint)));
             connect(this, SIGNAL(viewRectChanged()), this, SLOT(updateContinuousPanel()));
             }
       }
@@ -311,6 +302,7 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
       popup->addAction(getAction("cut"));
       popup->addAction(getAction("copy"));
       popup->addAction(getAction("paste"));
+      popup->addAction(getAction("paste-clone"));
       popup->addAction(getAction("swap"));
       popup->addAction(getAction("delete"));
       if (obj->isNote() || obj->isRest()) {
@@ -336,10 +328,8 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
       a = popup->addAction(tr("Help"));
       a->setData("help");
 
-#ifndef NDEBUG
       popup->addSeparator();
       popup->addAction("Debugger")->setData("list");
-#endif
 
       popupActive = true;
       a = popup->exec(pos);
@@ -347,7 +337,7 @@ void ScoreView::objectPopup(const QPoint& pos, Element* obj)
       if (a == 0)
             return;
       const QByteArray& cmd(a->data().toByteArray());
-      if (cmd == "cut" || cmd =="copy" || cmd == "paste" || cmd == "swap"
+      if (cmd == "cut" || cmd =="copy" || cmd == "paste" || cmd == "paste-clone" || cmd == "swap"
          || cmd == "delete" || cmd == "time-delete") {
             // these actions are already activated
             return;
@@ -435,6 +425,12 @@ void ScoreView::measurePopup(QContextMenuEvent* ev, Measure* obj)
       popup->addAction(getAction("cut"));
       popup->addAction(getAction("copy"));
       popup->addAction(getAction("paste"));
+
+      // [Action: Paste Clone] option contingent upon an active selection
+      Selection& lastSelection = mscore->getLastScoreSelection();
+      if (!lastSelection.isNone())
+            popup->addAction(getAction("paste-clone"));
+
       popup->addAction(getAction("swap"));
       popup->addAction(getAction("delete"));
       popup->addAction(getAction("time-delete"));
@@ -454,9 +450,7 @@ void ScoreView::measurePopup(QContextMenuEvent* ev, Measure* obj)
       a->setEnabled(!obj->isMMRest());
       popup->addSeparator();
 
-#ifndef NDEBUG
       popup->addAction("Object Debugger")->setData("list");
-#endif
 
       a = popup->exec(gpos);
       if (a == 0)
@@ -612,9 +606,10 @@ void ScoreView::moveCursor(const Fraction& tick)
       if (s == 0)
             return;
 
-      QColor c(MScore::selectColor[0]);
-      c.setAlpha(50);
-      _cursor->setColor(c);
+      _cursorColor = QColor(MScore::cursorColor);
+      if(_cursorColor.alpha() > MAX_CURSOR_ALPHA)
+            _cursorColor.setAlpha(50);
+      _cursor->setColor(_cursorColor);
       _cursor->setTick(tick);
 
       System* system = measure->system();
@@ -643,7 +638,10 @@ void ScoreView::moveCursor(const Fraction& tick)
       x -= _spatium;
       y -= 3 * _spatium;
 
-      _cursor->setRect(QRectF(x, y, w, h));
+      if (mscore->playbackHighlight())
+            _cursor->setRect(QRectF(x, y, w, h));
+      else
+            _cursor->setRect(QRectF());
       update(_matrix.mapRect(_cursor->rect()).toRect().adjusted(-1,-1,1,1));
 
       if (_score->layoutMode() == LayoutMode::LINE && seq->isPlaying() && panSettings().enabled)
@@ -671,6 +669,10 @@ void ScoreView::moveControlCursor(const Fraction& tick)
       c.setAlpha(30);
       _controlCursor->setColor(c);
       _controlCursor->setTick(tick);
+
+      if (_timeElapsed < 0) {
+            _timeElapsed = 0;
+            }
 
       int realX = _cursor->rect().x();
       int controlX = _controlCursor->rect().x();
@@ -718,8 +720,8 @@ void ScoreView::moveControlCursor(const Fraction& tick)
             _timeElapsed += addition;
             }
       else { // reposition the cursor when distance is too great
-            double curOffset = _cursor->rect().x() - score()->firstMeasure()->pos().x();
-            double length = score()->lastMeasure()->pos().x() - score()->firstMeasure()->pos().x();
+            double curOffset = _cursor->rect().x() - score()->firstMeasureMM()->pos().x();
+            double length = score()->lastMeasureMM()->pos().x() - score()->firstMeasureMM()->pos().x();
             _timeElapsed = (curOffset / length) * score()->durationWithoutRepeats() * 1000;
             _controlModifier = _panSettings.controlModifierBase;
             }
@@ -743,7 +745,7 @@ void ScoreView::moveControlCursor(const Fraction& tick)
 
 
       // Calculate the position of the controlCursor based on the timeElapsed (which is not the real time that has passed)
-      qreal x = score()->firstMeasure()->pos().x() + (score()->lastMeasure()->pos().x() - score()->firstMeasure()->pos().x()) * (_timeElapsed / (score()->durationWithoutRepeats() * 1000));
+      qreal x = score()->firstMeasureMM()->pos().x() + (score()->lastMeasureMM()->pos().x() - score()->firstMeasureMM()->pos().x()) * (_timeElapsed / (score()->durationWithoutRepeats() * 1000));
       x -= score()->spatium();
       _controlCursor->setRect(QRectF(x, _cursor->rect().y(), _cursor->rect().width(), _cursor->rect().height()));
       update(_matrix.mapRect(_controlCursor->rect()).toRect().adjusted(-1,-1,1,1));
@@ -1015,7 +1017,6 @@ void ScoreView::setShadowNote(const QPointF& p)
       qreal mag     = score()->staff(pos.staffIdx)->mag(Fraction(0,1));
       qreal relX    = pos.pos.x() - pos.segment->measure()->canvasPos().x();
       pos.pos.rx() -= qMin(relX - score()->styleP(Sid::barNoteDistance) * mag, 0.0);
-
       shadowNote->setVisible(true);
       Staff* staff = score()->staff(pos.staffIdx);
       shadowNote->setMag(staff->mag(Fraction(0,1)));
@@ -1075,7 +1076,7 @@ void ScoreView::drawAnchorLines(QPainter& painter)
       const auto dropAnchorColor = preferences.getColor(PREF_UI_SCORE_VOICE4_COLOR);
       QPen pen(QBrush(dropAnchorColor), 2.0 / painter.worldTransform().m11(), Qt::DotLine);
 
-      for (const QLineF& anchor : m_dropAnchorLines) {
+      for (const QLineF& anchor : qAsConst(m_dropAnchorLines)) {
             painter.setPen(pen);
             painter.drawLine(anchor);
 
@@ -1139,7 +1140,7 @@ void ScoreView::drawBackground(QPainter* p, const QRectF& r) const
             p->fillRect(r, _fgColor);
       else {
             p->drawTiledPixmap(r, *_fgPixmap, r.topLeft()
-               - QPoint(lrint(_matrix.dx()), lrint(_matrix.dy())));
+               - QPoint((int)lrint(_matrix.dx()), (int)lrint(_matrix.dy())));
             }
       }
 
@@ -1167,7 +1168,6 @@ void ScoreView::paintPageBorder(QPainter& p, Page* page)
             }
       }
 
-#ifndef NDEBUG
 //---------------------------------------------------------
 //   drawDebugInfo
 //---------------------------------------------------------
@@ -1190,7 +1190,7 @@ static void drawDebugInfo(QPainter& p, const Element* _e)
       e->shape().paint(p);
 
       p.setPen(QPen(Qt::red, 0.0));             // red x at 0,0 of bbox
-      qreal w = 5.0 / p.worldTransform().toAffine().m11();
+      qreal w = 5.0 / p.worldTransform().m11();
       qreal h = w;
       qreal x = 0; // e->bbox().x();
       qreal y = 0; // e->bbox().y();
@@ -1217,7 +1217,6 @@ static void drawDebugInfo(QPainter& p, const Element* _e)
                   }
             }
       }
-#endif
 
 //---------------------------------------------------------
 //   drawElements
@@ -1242,10 +1241,8 @@ void ScoreView::drawElements(QPainter& painter, QList<Element*>& el, Element* ed
             painter.translate(pos);
             e->draw(&painter);
             painter.translate(-pos);
-#ifndef NDEBUG
             if (e->selected())
                   drawDebugInfo(painter, e);
-#endif
             }
       }
 
@@ -1260,7 +1257,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
             p.fillRect(r, _fgColor);
       else {
             p.drawTiledPixmap(r, *_fgPixmap, r.topLeft()
-               - QPoint(lrint(_matrix.dx()), lrint(_matrix.dy())));
+               - QPoint((int)lrint(_matrix.dx()), (int)lrint(_matrix.dy())));
             }
 
       p.setTransform(_matrix);
@@ -1338,15 +1335,29 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                   }
             }
       else {
-            for (Page* page : _score->pages()) {
+            for (Page* page : qAsConst(_score->pages())) {
                   QRectF pr(page->abbox().translated(page->pos()));
-                  if (pr.right() < fr.left())
-                        continue;
-                  if (pr.left() > fr.right())
-                        break;
+
+                  if (_score->doublePageMode()) {
+                        // Double Page is ordered vertically by spread, not
+                        // monotonically from left to right
+                        if (pr.bottom() < fr.top())
+                              continue;
+                        if (pr.top() > fr.bottom())
+                              break;
+                        if (!pr.intersects(fr))
+                              continue;
+                        }
+                  else {
+                        if (pr.right() < fr.left())
+                              continue;
+                        if (pr.left() > fr.right())
+                              break;
+                        }
 
                   if (!score()->printing())
                         paintPageBorder(p, page);
+
                   QList<Element*> ell = page->items(fr.translated(-page->pos()));
                   QPointF pos(page->pos());
                   p.translate(pos);
@@ -1362,10 +1373,9 @@ void ScoreView::paint(const QRect& r, QPainter& p)
 
                   drawElements(p, ell, editElement);
 
-#ifndef NDEBUG
                   if (!score()->printing()) {
                         if (MScore::showSystemBoundingRect) {
-                              for (const System* system : page->systems()) {
+                              for (const System* system : qAsConst(page->systems())) {
                                     QPointF pt(system->ipos());
                                     qreal h = system->height() + system->minBottom() + system->minTop();
                                     p.translate(pt);
@@ -1375,7 +1385,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                                     }
                               }
                         if (MScore::showSegmentShapes) {
-                              for (const System* system : page->systems()) {
+                              for (const System* system : qAsConst(page->systems())) {
                                     for (const MeasureBase* mb : system->measures()) {
                                           if (mb->type() == ElementType::MEASURE) {
                                                 const Measure* m = static_cast<const Measure*>(mb);
@@ -1395,7 +1405,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                                     }
                               }
                         if (MScore::showSkylines) {
-                              for (const System* system : page->systems()) {
+                              for (const System* system : qAsConst(page->systems())) {
                                     for (SysStaff* ss : *system->staves()) {
                                           if (!ss->show())
                                                 continue;
@@ -1414,7 +1424,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                               pen.setStyle(Qt::SolidLine);
                               p.setPen(pen);
                               p.setBrush(Qt::NoBrush);
-                              for (const System* system : page->systems()) {
+                              for (const System* system : qAsConst(page->systems())) {
                                     for (const MeasureBase* mb : system->measures()) {
                                           if (mb->type() == ElementType::MEASURE) {
                                                 const Measure* m = static_cast<const Measure*>(mb);
@@ -1428,7 +1438,6 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                                     }
                               }
                         }
-#endif
 
                   p.translate(-pos);
                   r1 -= _matrix.mapRect(pr).toAlignedRect();
@@ -1456,7 +1465,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                   // segment is in a measure that has not been laid out yet
                   // this can happen in mmrests
                   // first chordrest segment of mmrest instead
-                  const Measure* mmr = ss->measure()->mmRest1();
+                  const Measure* mmr = ss->measure()->coveringMMRestOrThis();
                   if (mmr && mmr->system())
                         ss = mmr->first(SegmentType::ChordRest);
                   else
@@ -1469,7 +1478,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
 
             QPen pen;
             pen.setColor(MScore::selectColor[0]);
-            pen.setWidthF(2.0 / p.worldTransform().toAffine().m11());
+            pen.setWidthF(2.0 / p.worldTransform().m11());
 
             pen.setStyle(Qt::SolidLine);
 
@@ -1500,16 +1509,15 @@ void ScoreView::paint(const QRect& r, QPainter& p)
             // drag vertical start line
             p.drawLine(QLineF(x2, y1, x2, y2).translated(system2->page()->pos()));
 
-            System* system1 = system2;
             double x1;
 
             for (Segment* s = ss; s && (s != es); ) {
                   Segment* ns = s->next1MMenabled();
-                  system1  = system2;
+                  System* system1 = system2;
                   system2  = s->measure()->system();
                   if (!system2) {
                         // as before, use mmrest if necessary
-                        const Measure* mmr = s->measure()->mmRest1();
+                        const Measure* mmr = s->measure()->coveringMMRestOrThis();
                         if (mmr)
                               system2 = mmr->system();
                         if (!system2)
@@ -1596,7 +1604,7 @@ void ScoreView::zoomBySteps(const qreal numSteps, const bool usingMouse/* = fals
 
       // If the new zoom level is exactly equal to one of the numeric presets, use the preset; otherwise, it's free zoom.
       const auto i = std::find(zoomEntries.cbegin(), zoomEntries.cend(), static_cast<int>(100.0 * logicalLevel));
-      const auto index = ((i != zoomEntries.cend()) && i->isNumericPreset() && (i->level == 100.0 * logicalLevel)) ? i->index : ZoomIndex::ZOOM_FREE;
+      const auto index = ((i != zoomEntries.cend()) && i->isNumericPreset() && (qFuzzyCompare(i->level, 100.0 * logicalLevel))) ? i->index : ZoomIndex::ZOOM_FREE;
 
       setLogicalZoom(index, logicalLevel, pos);
       }
@@ -1615,20 +1623,16 @@ void ScoreView::constraintCanvas (int* dxx, int* dyy)
       int dy = *dyy;
       QRectF rect = QRectF(0, 0, width(), height());
 
-      Page* firstPage = score()->pages().front();
-      Page* lastPage  = score()->pages().back();
-
-      if (firstPage && lastPage) {
+      const QRectF layoutRect = score()->pageLayoutRect();
+      if (!layoutRect.isEmpty()) {
+            const qreal zoom = physicalZoomLevel();
             QPointF offsetPt(xoffset(), yoffset());
-            QRectF firstPageRect(firstPage->pos().x() * physicalZoomLevel(),
-                                      firstPage->pos().y() * physicalZoomLevel(),
-                                      firstPage->width() * physicalZoomLevel(),
-                                      firstPage->height() * physicalZoomLevel());
-            QRectF lastPageRect(lastPage->pos().x() * physicalZoomLevel(),
-                                         lastPage->pos().y() * physicalZoomLevel(),
-                                         lastPage->width() * physicalZoomLevel(),
-                                         lastPage->height() * physicalZoomLevel());
-            QRectF pagesRect     = firstPageRect.united(lastPageRect).translated(offsetPt);
+            QRectF pagesRect(layoutRect.x() * zoom,
+                             layoutRect.y() * zoom,
+                             layoutRect.width() * zoom,
+                             layoutRect.height() * zoom);
+            pagesRect.translate(offsetPt);
+
             bool limitScrollArea = preferences.getBool(PREF_UI_CANVAS_SCROLL_LIMITSCROLLAREA);
             if (!limitScrollArea) {
                   qreal hmargin = this->width() * 0.75;
@@ -1768,8 +1772,8 @@ void ScoreView::setLogicalZoom(ZoomIndex index, qreal logicalLevel, const QPoint
             const QPointF p2 = imatrix.map(pos);
             const QPointF p3 = p2 - p1;
 
-            dx = lrint(p3.x() * newPhysicalLevel);
-            dy = lrint(p3.y() * newPhysicalLevel);
+            dx = (int)lrint(p3.x() * newPhysicalLevel);
+            dy = (int)lrint(p3.y() * newPhysicalLevel);
             }
 
       constraintCanvas(&dx, &dy);
@@ -1806,18 +1810,25 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
       {
       if (!_score)
             return 1.0;
-
       const qreal l2p = mscore->physicalDotsPerInch() / DPI;
       const qreal cw = width();
       const qreal ch = height();
       const qreal pw = _score->styleD(Sid::pageWidth);
       const qreal ph = _score->styleD(Sid::pageHeight);
 
+      qreal spreadWidth = pw * DPI;
+      if (_score->doublePageMode()) {
+            const QRectF layoutRect = _score->pageLayoutRect();
+            spreadWidth = layoutRect.isEmpty()
+                        ? 2.0 * pw * DPI + MScore::horizontalPageGapEven
+                        : layoutRect.width();
+            }
+
       qreal result = 0.0;
 
       switch (index) {
             case ZoomIndex::ZOOM_PAGE_WIDTH:
-                  result = cw / (pw * DPI);
+                  result = cw / spreadWidth;
                   break;
 
             case ZoomIndex::ZOOM_WHOLE_PAGE: {
@@ -1830,7 +1841,12 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
             case ZoomIndex::ZOOM_TWO_PAGES: {
                   qreal mag1 = 0.0;
                   qreal mag2 = 0.0;
-                  if (MScore::verticalOrientation()) {
+
+                  if (_score->doublePageMode()) {
+                        mag1 = cw / spreadWidth;
+                        mag2 = ch / (ph * DPI);
+                        }
+                  else if (MScore::verticalOrientation()) {
                         mag1 = ch / (ph * 2.0 * DPI + MScore::verticalPageGap);
                         mag2 = cw / (pw * DPI);
                         }
@@ -1838,13 +1854,14 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
                         mag1 = cw / (pw * 2.0 * DPI + std::max(MScore::horizontalPageGapEven, MScore::horizontalPageGapOdd));
                         mag2 = ch / (ph * DPI);
                         }
+
                   result = std::min(mag1, mag2);
                   }
                   break;
 
             case ZoomIndex::ZOOM_FREE:
                   // If the zoom type is free zoom, the caller is required to pass the logical free-zoom level.
-                  Q_ASSERT(logicalFreeZoomLevel != 0.0);
+                  Q_ASSERT(!qFuzzyIsNull(logicalFreeZoomLevel));
                   result = logicalFreeZoomLevel * l2p;
                   break;
 
@@ -1930,12 +1947,15 @@ void ScoreView::normalCopy()
       {
       if (!checkCopyOrCut())
             return;
+
+      mscore->setLastScoreSelection(_score->selection());
+
       QString mimeType = _score->selection().mimeType();
       if (!mimeType.isEmpty()) {
             QMimeData* mimeData = new QMimeData;
             mimeData->setData(mimeType, _score->selection().mimeData());
             if (MScore::debugMode)
-                  qDebug("cmd copy: <%s>", mimeData->data(mimeType).data());
+                  qDebug("cmd copy: <%s>", mimeData->data(mimeType).constData());
             QApplication::clipboard()->setMimeData(mimeData);
             }
       }
@@ -1948,6 +1968,9 @@ void ScoreView::normalCut()
       {
       if (!checkCopyOrCut())
             return;
+
+      mscore->setLastScoreSelection(_score->selection());
+
       _score->startCmd();
       normalCopy();
       _score->cmdDeleteSelection();
@@ -1966,7 +1989,7 @@ void ScoreView::editSwap()
             QString s = text->selectedText();
             text->paste(this);
             if (!s.isEmpty())
-                  QApplication::clipboard()->setText(s, QClipboard::Clipboard);
+                  QApplication::clipboard()->setText(s);
             }
 #endif
       }
@@ -2018,7 +2041,6 @@ void ScoreView::normalSwap()
                         _score->selection().dump();
                   if (!checkCopyOrCut())
                         return;
-                  ms = QApplication::clipboard()->mimeData();
                   }
             }
       QByteArray d(_score->selection().mimeData());
@@ -2036,9 +2058,91 @@ void ScoreView::normalSwap()
 bool ScoreView::normalPaste(Fraction scale)
       {
       _score->startCmd();
+
+      // Also allow for H/V/T boxes to be copied with their contents and be pasted (back inserted)
+      auto srcSelection = mscore->getLastScoreSelection();
+      auto srcScore = srcSelection.score();
+      MeasureBase* insertionMeasureBase = nullptr;
+      if (auto e = _score->selection().element()) {
+            if (auto mb = e->findMeasureBase()) {
+                  insertionMeasureBase = mb;
+                  }
+            }
+      else if (auto seg = _score->selection().startSegment()) {
+            if (auto mb = seg->findMeasureBase()) {
+                  insertionMeasureBase = mb;
+                  }
+            }
+      if (insertionMeasureBase) {
+            if (auto oe = srcSelection.element()) {
+                  if (oe->isBox() && !oe->isFBox()) {
+                        // Allow normal paste to insert clone of V/H/T boxes
+                        _score->insertMeasuresFromScore(srcScore, srcSelection, *insertionMeasureBase);
+                        _score->endCmd();
+                        return MScore::_error == MS_NO_ERROR;
+                        }
+                  }
+            }
+
       const QMimeData* ms = QApplication::clipboard()->mimeData();
       _score->cmdPaste(ms, this, scale);
       bool rv = MScore::_error == MS_NO_ERROR;
+      _score->endCmd();
+      return rv;
+      }
+
+//---------------------------------------------------------
+//   clonePaste
+//---------------------------------------------------------
+
+bool ScoreView::clonePaste()
+      {
+      MeasureBase* mbFirstInsertion = nullptr;
+      auto currentStaff = _score->selection().staffStart();
+      _score->startCmd();
+
+      auto srcScore = mscore->getLastScoreSelection().score();
+      auto copiedSel = mscore->getLastScoreSelection();
+      if (!copiedSel.isRange() && !copiedSel.isSingle()) {
+            QMessageBox::warning(0, "MuseScore",
+                   tr("An active range/single source selection is required for cloning."));
+            return false;
+            }
+      if (!srcScore) {
+            QMessageBox::warning(0, "MuseScore",
+                                 tr("Invalid source score."));
+            return false;
+            }
+
+      MeasureBase* insertionMeasureBase = nullptr;
+      bool rv;
+
+      if (auto e = _score->selection().element()) {
+            if (auto mb = e->findMeasureBase()) {
+                  insertionMeasureBase = mb;
+                  }
+            }
+      else if (auto seg = _score->selection().startSegment()) {
+            if (auto mb = seg->findMeasureBase()) {
+                  insertionMeasureBase = mb;
+                  }
+            }
+      if (insertionMeasureBase) {
+            mbFirstInsertion = _score->insertMeasuresFromScore(srcScore, copiedSel, *insertionMeasureBase);
+            rv = MScore::_error == MS_NO_ERROR;
+            }
+      else rv = MScore::_error == NO_DEST;
+
+      // Circumvent spanners not cloning node offsets by a work-around regular pasting after clone....
+      if (mbFirstInsertion) {
+            if (auto mFirstInsertion = mbFirstInsertion->findMeasure()) {
+                  _score->select(mFirstInsertion, SelectType::RANGE, currentStaff);
+                  const QMimeData* ms = QApplication::clipboard()->mimeData();
+                  _score->cmdPaste(ms, this);
+                  rv = MScore::_error == MS_NO_ERROR;
+                  }
+            }
+
       _score->endCmd();
       return rv;
       }
@@ -2097,7 +2201,79 @@ void ScoreView::cmd(const char* s)
       if (MScore::debugMode)
             qDebug("ScoreView::cmd <%s>", s);
 
+      //-------------------------------------
+      // Lambda: removeDuplicates
+      //-------------------------------------
+      auto removeDuplicates = [](std::vector<Element*>&elements) {
+            std::sort(elements.begin(), elements.end());
+            auto it = std::unique(elements.begin(), elements.end());
+            elements.erase(it, elements.end());
+            };
+
+      //-------------------------------------
+      // Lambda: traverseChord
+      //-------------------------------------
+      auto traverseChord = [&removeDuplicates](ScoreView *cv, Direction dir) {
+            auto& score = *cv->score();
+            auto& selection = score.selection();
+            auto el = selection.element();
+            auto oel = el;
+            bool isRange = selection.isRange();
+            std::vector<Element*> notes;
+
+            if (el && (el->isNote() || el->isRest())) {
+                  cv->cmdGotoElement(score.moveAlt(el, dir));
+                  }
+            else for (auto e : selection.elements()) {
+                  if (e->isNote()) {
+                        auto selectedNote = toNote(e);
+                        if (isRange) {
+                              auto newSelection =
+                                    (dir==Direction::DOWN)
+                                    ? selectedNote->chord()->downNote()
+                                    : selectedNote->chord()->upNote();
+                              notes.emplace_back(newSelection);
+                              }
+                        else {
+                              auto newSelection = score.moveAlt(selectedNote, dir);
+                              bool keepSelection = !newSelection;
+                              if (newSelection) {
+                                    if (newSelection->isNote()) {
+                                          auto newNote = toNote(newSelection);
+                                          bool sameChord = (newNote->chord() == selectedNote->chord());
+                                          if (!sameChord)
+                                                keepSelection = true;
+                                          }
+                                    else if (newSelection->isRest())
+                                          keepSelection = true;
+                                    }
+                              notes.emplace_back(keepSelection ? selectedNote : newSelection);
+                              }
+                        }
+                  removeDuplicates(notes);
+                  }
+            if (!notes.empty()) {
+                  selection.clear();
+                  for (auto& note : notes) {
+                        score.select(note, SelectType::ADD);
+                        }
+                  score.update();
+                  }
+            else el = selection.element();
+            while (el && el->isRest() && toRest(el)->isGap()) {
+                  if (score.moveAlt(el, dir) == el) {
+                        cv->cmdGotoElement(oel);
+                        break;
+                        }
+                  el = score.moveAlt(el, dir);
+                  cv->cmdGotoElement(el);
+                  }
+            };
+
       static const std::vector<ScoreViewCmd> cmdList {
+            {{"start-preference-dialog"}, [](ScoreView* /*cv*/, const QByteArray&) {
+                  mscore->startPreferenceDialog();
+                  }},
             {{"escape"}, [](ScoreView* cv, const QByteArray&) {
                   cv->escapeCmd();
                   }},
@@ -2126,6 +2302,9 @@ void ScoreView::cmd(const char* s)
                         cv->normalPaste();
                   else if (cv->state == ViewState::EDIT)
                         cv->editPaste();
+                  }},
+            {{"paste-clone"}, [](ScoreView* cv, const QByteArray&) {
+                  cv->clonePaste();
                   }},
             {{"paste-half"}, [](ScoreView* cv, const QByteArray&) {
                   cv->normalPaste(Fraction(1, 2));
@@ -2207,6 +2386,9 @@ void ScoreView::cmd(const char* s)
                   cv->changeState(ViewState::NORMAL);
                   cv->cmdAddChordName(HarmonyType::NASHVILLE);
                   }},
+            {{"frame-text"}, [](ScoreView* cv, const QByteArray&) {
+                  cv->cmdAddText(Tid::FRAME);
+                  }},
             {{"title-text"}, [](ScoreView* cv, const QByteArray&) {
                   cv->cmdAddText(Tid::TITLE);
                   }},
@@ -2267,9 +2449,9 @@ void ScoreView::cmd(const char* s)
                         mscore->selectElementDialog(e);
                         }
                   }},
-      //      {{"find"}, [](ScoreView* cv, const QByteArray&) {
-      //            ; // TODO:state         sm->postEvent(new CommandEvent(cmd));
-      //            }},
+            {{"find"}, [](ScoreView*, const QByteArray&) {
+                  ; // TODO:state         sm->postEvent(new CommandEvent(cmd));
+                  }},
             {{"scr-prev"}, [](ScoreView* cv, const QByteArray&) {
                   cv->screenPrev();
                   }},
@@ -2299,6 +2481,11 @@ void ScoreView::cmd(const char* s)
               "select-staff-above",
               "select-staff-below"}, [](ScoreView* cv, const QByteArray& cmd) {
                   Element* el = cv->score()->selectMove(cmd);
+
+                  if (cv->score()->noteEntryMode()) {
+                        auto voice = cv->score()->inputState().voice() + 1; // 1 - 4
+                        cv->score()->cmdCycleVoiceFilter(voice);
+                        }
                   if (el)
                         cv->adjustCanvasPosition(el, false);
                   cv->score()->setPlayChord(true);
@@ -2355,8 +2542,8 @@ void ScoreView::cmd(const char* s)
                   cv->score()->upDown(false, UpDownMode::DIATONIC);
                   }},
             {{"move-up"}, [](ScoreView* cv, const QByteArray) {
-                  QList<Element*> el = cv->score()->selection().uniqueElements();
-                  foreach (Element* e, el) {
+                  std::list<Element*> el = cv->score()->selection().uniqueElements();
+                  for (Element* e : el) {
                         ChordRest* cr = nullptr;
                         if (e->type() == ElementType::NOTE)
                               cr = static_cast<Note*>(e)->chord();
@@ -2367,8 +2554,8 @@ void ScoreView::cmd(const char* s)
                         }
                   }},
             {{"move-down"}, [](ScoreView* cv, const QByteArray&) {
-                  QList<Element*> el = cv->score()->selection().uniqueElements();
-                  foreach (Element* e, el) {
+                  std::list<Element*> el = cv->score()->selection().uniqueElements();
+                  for (Element* e : el) {
                         ChordRest* cr = nullptr;
                         if (e->type() == ElementType::NOTE)
                               cr = static_cast<Note*>(e)->chord();
@@ -2378,35 +2565,11 @@ void ScoreView::cmd(const char* s)
                               cv->score()->moveDown(cr);
                         }
                   }},
-            {{"up-chord"}, [](ScoreView* cv, const QByteArray&) {
-                  Element* el = cv->score()->selection().element();
-                  Element* oel = el;
-                  if (el && (el->isNote() || el->isRest()))
-                        cv->cmdGotoElement(cv->score()->upAlt(el));
-                  el = cv->score()->selection().element();
-                  while (el && el->isRest() && toRest(el)->isGap()) {
-                        if (cv->score()->upAlt(el) == el) {
-                              cv->cmdGotoElement(oel);
-                              break;
-                              }
-                        el = cv->score()->upAlt(el);
-                        cv->cmdGotoElement(el);
-                        }
+            {{"up-chord"}, [&traverseChord](ScoreView* cv, const QByteArray&) {
+                  traverseChord(cv, Direction::UP);
                   }},
-            {{"down-chord"}, [](ScoreView* cv, const QByteArray&) {
-                  Element* el = cv->score()->selection().element();
-                  Element* oel = el;
-                  if (el && (el->isNote() || el->isRest()))
-                        cv->cmdGotoElement(cv->score()->downAlt(el));
-                  el = cv->score()->selection().element();
-                  while (el && el->isRest() && toRest(el)->isGap()) {
-                        if (cv->score()->downAlt(el) == el) {
-                              cv->cmdGotoElement(oel);
-                              break;
-                              }
-                        el = cv->score()->downAlt(el);
-                        cv->cmdGotoElement(el);
-                        }
+            {{"down-chord"}, [&traverseChord](ScoreView* cv, const QByteArray&) {
+                  traverseChord(cv, Direction::DOWN);
                   }},
             {{"top-chord"}, [](ScoreView* cv, const QByteArray&) {
                   Element* el = cv->score()->selection().element();
@@ -2572,18 +2735,20 @@ void ScoreView::cmd(const char* s)
                   cv->cmdEnterRest(TDuration(TDuration::DurationType::V_EIGHTH));
                   }},
             {{"interval1",
-              "interval2", "interval-2",
-              "interval3", "interval-3",
-              "interval4", "interval-4",
-              "interval5", "interval-5",
-              "interval6", "interval-6",
-              "interval7", "interval-7",
-              "interval8", "interval-8",
-              "interval9", "interval-9"}, [](ScoreView* cv, const QByteArray& cmd) {
+              "interval2",  "interval-2",
+              "interval3",  "interval-3",
+              "interval4",  "interval-4",
+              "interval5",  "interval-5",
+              "interval6",  "interval-6",
+              "interval7",  "interval-7",
+              "interval8",  "interval-8",
+              "interval9",  "interval-9",
+              "interval10", "interval-10"}, [](ScoreView* cv, const QByteArray& cmd) {
                   int n = cmd.mid(8).toInt();
                   std::vector<Note*> nl;
                   if (cv->score()->selection().isRange()) {
-                        for (ChordRest* cr : cv->score()->getSelectedChordRests()) {
+                        const QSet<ChordRest *>crs = cv->score()->getSelectedChordRests();
+                        for (ChordRest* cr : crs) {
                               if (cr->isChord())
                                     nl.push_back(n > 0 ? toChord(cr)->upNote() : toChord(cr)->downNote());
                               }
@@ -2642,7 +2807,25 @@ void ScoreView::cmd(const char* s)
                   cv->moveCursor();
                   }},
             {{"repeat-sel"}, [](ScoreView* cv, const QByteArray&) {
+                  auto& sf = cv->score()->selectionFilter();
+                  bool tempFilter = cv->score()->selection().hasTemporaryFilter();
+                  auto voice = 0;
+                  if (tempFilter) {
+                        if (sf.isFiltered(SelectionFilterType::ALL))
+                              voice = 0; // All
+                        if (sf.isFiltered(SelectionFilterType::FIRST_VOICE))
+                              voice = 1;
+                        if (sf.isFiltered(SelectionFilterType::SECOND_VOICE))
+                              voice = 2;
+                        if (sf.isFiltered(SelectionFilterType::THIRD_VOICE))
+                              voice = 3;
+                        if (sf.isFiltered(SelectionFilterType::FOURTH_VOICE))
+                              voice = 4;
+                        }
                   cv->cmdRepeatSelection();
+                  if (tempFilter) {
+                        cv->score()->cmdCycleVoiceFilter(voice);
+                        }
                   }},
             {{"voice-1"}, [](ScoreView* cv, const QByteArray&) {
                   cv->changeVoice(0);
@@ -2866,6 +3049,15 @@ void ScoreView::cmd(const char* s)
                         cv->score()->cmdConcertPitchChanged(a->isChecked(), true);
                         cv->score()->endCmd();
                         }
+                  }},
+            {{"toggle-mouse-entry"}, [](ScoreView*, const QByteArray&) {
+                  MScore::disableMouseEntry = !MScore::disableMouseEntry;
+                  preferences.setPreference(PREF_SCORE_NOTE_INPUT_DISABLE_MOUSE_INPUT, MScore::disableMouseEntry);
+                  }},
+            {{"toggle-edit-playback"}, [](ScoreView* /*cv*/, const QByteArray&) {
+
+                  bool value = preferences.getBool(PREF_SCORE_NOTE_PLAYONCLICK);
+                  preferences.setPreference(PREF_SCORE_NOTE_PLAYONCLICK, !value);
                   }},
             };
 
@@ -3107,7 +3299,7 @@ void ScoreView::startNoteEntry()
                         if (s)
                               lastSelected = s->nextChordRest(track, true);
                         }
-                  for (Element* e : el) {
+                  for (Element* e : qAsConst(el)) {
                         // loop through visible elements
                         // looking for the CR in voice 1 with earliest tick and highest staff position
                         // but stop if we find the last selected CR
@@ -3197,7 +3389,8 @@ void ScoreView::startNoteEntry()
 
       getAction("pad-rest")->setChecked(false);
       setMouseTracking(true);
-      shadowNote->setVisible(true);
+      if (!MScore::disableMouseEntry)
+            shadowNote->setVisible(true);
       _score->setUpdateAll();
       _score->update();
 
@@ -3397,6 +3590,37 @@ void ScoreView::setOffset(qreal x, qreal y)
       }
 
 //---------------------------------------------------------
+//   setConstrainedOffset
+//---------------------------------------------------------
+
+void ScoreView::setConstrainedOffset(qreal x, qreal y)
+      {
+      const int requestedDx = qRound(x - xoffset());
+      const int requestedDy = qRound(y - yoffset());
+
+      int dx = requestedDx;
+      int dy = requestedDy;
+      constraintCanvas(&dx, &dy);
+
+      // Preserve the requested qreal position and apply only the
+      // correction made by constraintCanvas().
+      x += dx - requestedDx;
+      y += dy - requestedDy;
+
+      setOffset(x, y);
+      }
+
+//---------------------------------------------------------
+//   reconstrainCanvas
+//---------------------------------------------------------
+
+void ScoreView::reconstrainCanvas()
+      {
+      setConstrainedOffset(xoffset(), yoffset());
+      update();
+      }
+
+//---------------------------------------------------------
 //   xoffset
 //---------------------------------------------------------
 
@@ -3440,20 +3664,42 @@ void ScoreView::pageNext()
       {
       if (score()->pages().empty())
             return;
+
+      if (score()->doublePageMode()) {
+            Page* page = score()->pages().back();
+
+            // Advance by one complete spread row
+            qreal y = yoffset() - (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
+
+            const QRectF layoutRect = score()->pageLayoutRect();
+            const qreal endY = height() - layoutRect.bottom() * physicalZoomLevel();
+
+            if (y < endY)
+                  y = endY;
+
+            // Preserve horizontal position: Double Page navigation is vertical,
+            // even if the normal page orientation is horizontal
+            setConstrainedOffset(xoffset(), y);
+            update();
+            return;
+            }
+
       if (score()->layoutMode() != LayoutMode::PAGE) {
             screenNext();
             return;
             }
+
       Page* page = score()->pages().back();
       qreal x, y;
       if (MScore::verticalOrientation()) {
-            x        = thinPadding;
-            y        = yoffset() - (page->height() + thickPadding) * physicalZoomLevel();
-            qreal ly = thinPadding - page->pos().y() * physicalZoomLevel();
-            if (y <= ly - height() * scrollStep) {
-                  pageEnd();
-                  return;
-                  }
+            x = thinPadding;
+            y = yoffset() - (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
+
+            const QRectF layoutRect = score()->pageLayoutRect();
+            const qreal endY = height() - layoutRect.bottom() * physicalZoomLevel();
+
+            if (y < endY)
+                  y = endY;
             }
       else {
             y        = thinPadding;
@@ -3464,7 +3710,7 @@ void ScoreView::pageNext()
                   return;
                   }
             }
-      setOffset(x, y);
+      setConstrainedOffset(x, y);
       update();
       }
 
@@ -3513,15 +3759,32 @@ void ScoreView::pagePrev()
       {
       if (score()->pages().empty())
             return;
+
+      if (score()->doublePageMode()) {
+            Page* page = score()->pages().front();
+
+            // Move back by one complete spread row
+            qreal y = yoffset() + (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
+
+            if (y > thinPadding)
+                  y = thinPadding;
+
+            // Preserve horizontal position as with pageNext()
+            setConstrainedOffset(xoffset(), y);
+            update();
+            return;
+            }
+
       if (score()->layoutMode() != LayoutMode::PAGE) {
             screenPrev();
             return;
             }
+
       Page* page = score()->pages().front();
       qreal x, y;
       if (MScore::verticalOrientation()) {
             x  = thinPadding;
-            y  = yoffset() + (page->height() + thickPadding) * physicalZoomLevel();
+            y  = yoffset() + (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
             if (y > thinPadding)
                   y = thinPadding;
             }
@@ -3531,7 +3794,7 @@ void ScoreView::pagePrev()
             if (x > thinPadding)
                   x = thinPadding;
             }
-      setOffset(x, y);
+      setConstrainedOffset(x, y);
       update();
       }
 
@@ -3579,46 +3842,11 @@ void ScoreView::screenPrev()
 
 void ScoreView::pageTop()
       {
-      switch (score()->layoutMode()) {
-            case LayoutMode::PAGE:
-                  {
-                  qreal dx = thinPadding, dy = thinPadding;
-                  Page* firstPage = score()->pages().front();
-                  Page* lastPage  = score()->pages().back();
-                  if (firstPage && lastPage) {
-                        QPointF offsetPt(xoffset(), yoffset());
-                        QRectF firstPageRect(firstPage->pos().x() * physicalZoomLevel(),
-                                             firstPage->pos().y() * physicalZoomLevel(),
-                                             firstPage->width() * physicalZoomLevel(),
-                                             firstPage->height() * physicalZoomLevel());
-                        QRectF lastPageRect(lastPage->pos().x() * physicalZoomLevel(),
-                                            lastPage->pos().y() * physicalZoomLevel(),
-                                            lastPage->width() * physicalZoomLevel(),
-                                            lastPage->height() * physicalZoomLevel());
-                        QRectF pagesRect = firstPageRect.united(lastPageRect);
-                        dx = qMax(thinPadding, (width() - pagesRect.width()) / 2);
-                        dy = qMax(thinPadding, (height() - pagesRect.height()) / 2);
-                        }
-                  setOffset(dx, dy);
-                  break;
-                  }
-            case LayoutMode::LINE:
-                  setOffset(thinPadding, 0.0);
-                  break;
-            case LayoutMode::SYSTEM:
-                  {
-                  qreal dx = thinPadding, dy = thinPadding;
-                  Page* page = score()->pages().front();
-                  if (page) {
-                        dx = qMax(thinPadding, (width() - page->width() * physicalZoomLevel()) / 2);
-                        }
-                  setOffset(dx, dy);
-                  break;
-                  }
-            default:
-                  setOffset(thinPadding, thinPadding);
-                  break;
-      }
+      if (score()->paginatedMode())
+            setConstrainedOffset(thinPadding, thinPadding);
+      else
+            setOffset(thinPadding, score()->lineMode() ? 0.0 : thinPadding);
+
       update();
       }
 
@@ -3639,16 +3867,38 @@ void ScoreView::pageEnd()
             setOffset(-lx, yoffset());
             }
       else {
-            qreal lx { -thinPadding };
-            if (score()->layoutMode() == LayoutMode::PAGE && !MScore::verticalOrientation()) {
-                  for (int i { 0 }; i < score()->npages() - 1; ++i)
-                        lx += score()->pages().at(i)->width() * physicalZoomLevel();
-                  }
-            if (lm->system() && lm->system()->page()->width() * physicalZoomLevel() > width())
-                  lx = (lm->canvasPos().x() + lm->width()) * physicalZoomLevel() - width() * scrollStep;
+            const bool verticalPaginated =
+                  score()->doublePageMode() || (score()->pageMode() && MScore::verticalOrientation());
 
-            qreal ly { (lm->canvasPos().y() + lm->height()) * physicalZoomLevel() - height() * scrollStep };
-            setOffset(-lx, -ly);
+            if (verticalPaginated) {
+                  // For vertically flowing pages, Page End means the actual
+                  // end of the page layout rather than the last measure
+                  const QRectF layoutRect = score()->pageLayoutRect();
+                  const qreal y =
+                        height() - (layoutRect.bottom() * physicalZoomLevel());
+
+                  setConstrainedOffset(xoffset(), y);
+                  }
+            else {
+                  qreal lx { -thinPadding };
+
+                  if (score()->layoutMode() == LayoutMode::PAGE
+                      && !MScore::verticalOrientation()) {
+                        for (int i = 0; i < score()->npages() - 1; ++i)
+                              lx += score()->pages().at(i)->width() * physicalZoomLevel();
+                        }
+
+                  if (lm->system() && lm->system()->page()->width() * physicalZoomLevel() > width()) {
+                        lx = (lm->canvasPos().x() + lm->width()) * physicalZoomLevel() - width() * scrollStep;
+                        }
+
+                  qreal ly = (lm->canvasPos().y() + lm->height()) * physicalZoomLevel() - height() * scrollStep;
+
+                  if (score()->pageMode())
+                        setConstrainedOffset(-lx, -ly);
+                  else
+                        setOffset(-lx, -ly);
+                  }
             }
       update();
       }
@@ -3792,8 +4042,14 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       QRectF r(canvasViewport());
       QRectF mRect(m->canvasBoundingRect());
       QRectF sysRect;
-      if (staffIdx == -1)
+      if (staffIdx == -1) {
             sysRect = sys->canvasBoundingRect();
+
+            // During playback, include notation which extends beyond the
+            // nominal system bounds, such as ledger-line notes and spanners
+            if (playBack)
+                  sysRect.adjust(0.0, -sys->minTop(), 0.0, sys->minBottom());
+            }
       else
             sysRect = sys->staff(staffIdx)->bbox();
 
@@ -3868,22 +4124,46 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       else if (r.height() >= showRect.height() && showRect.bottom() > r.bottom())
             y = showRect.top() - border;
 
-      // align to page borders if extends beyond
+      // Align to page borders if the viewport extends beyond them.
+      // In Double Page view, treat the complete spread as the
+      // horizontal navigation area, while retaining the physical
+      // page's vertical bounds
       Page* page = sys->page();
-      if (x < page->x() || r.width() >= page->width())
-            x = page->x();
-      else if (r.width() < page->width() && r.width() + x > page->width() + page->x())
-            x = (page->width() + page->x()) - r.width();
-      if (y < page->y() || r.height() >= page->height())
-            y = page->y();
-      else if (r.height() < page->height() && r.height() + y > page->height() + page->y())
-            y = (page->height() + page->y()) - r.height();
+      QRectF navigationRect(page->bbox().translated(page->pos()));
+
+      if (score()->doublePageMode()) {
+            const QRectF layoutRect = score()->pageLayoutRect();
+            navigationRect.setLeft(layoutRect.left());
+            navigationRect.setRight(layoutRect.right());
+            }
+
+      if (x < navigationRect.left() || r.width() >= navigationRect.width())
+            x = navigationRect.left();
+      else if (r.width() < navigationRect.width() && r.width() + x > navigationRect.right())
+            x = navigationRect.right() - r.width();
+
+      if (y < navigationRect.top() || r.height() >= navigationRect.height())
+            y = navigationRect.top();
+      else if (r.height() < navigationRect.height() && r.height() + y > navigationRect.bottom())
+            y = navigationRect.bottom() - r.height();
 
       // hack: don't update if we haven't changed the offset
       if (oldX == x && oldY == y)
             return;
 
-      setOffset(-x * physicalZoomLevel(), -y * physicalZoomLevel());
+      x *= -physicalZoomLevel();
+      y *= -physicalZoomLevel();
+      int cx = x;
+      int cy = y;
+
+      const bool constrain = (MScore::verticalOrientation() || score()->doublePageMode())
+                              && preferences.getBool(PREF_UI_CANVAS_SCROLL_LIMITSCROLLAREA);
+
+      if (constrain) {
+            constraintCanvas(&cx, &cy);
+            cx = (x < 0) ? x : cx + _matrix.dx();
+            }
+      setOffset(cx, y);
       update();
       }
 
@@ -4027,9 +4307,9 @@ void ScoreView::cmdAddSlur(const Slur* slurTemplate)
                         if (!e->isChord())
                               continue;
                         ChordRest* cr = toChordRest(e);
-                        if (!cr1 || cr1->tick() > cr->tick())
+                        if (!cr1 || cr->isBefore(cr1))
                               cr1 = cr;
-                        if (!cr2 || cr2->tick() < cr->tick())
+                        if (!cr2 || cr2->isBefore(cr))
                               cr2 = cr;
                         }
                   if (cr1 && (cr1 != cr2))
@@ -4095,7 +4375,7 @@ void ScoreView::addSlur(ChordRest* cr1, ChordRest* cr2, const Slur* slurTemplate
             _score->inputState().setSlur(slur);
             ss->setSelected(true);
             }
-      else if (switchToSlur) {
+      else if (switchToSlur && score()->selection().isSingle()) {
             startEditMode(ss);
             }
       }
@@ -4185,19 +4465,20 @@ void ScoreView::cmdAddNoteLine()
             return;
             }
       if (firstNote == lastNote) {
-           qDebug("addNoteLine: no support for note to same note line %p", firstNote);
-           return;
-           }
+            qDebug("addNoteLine: no support for note to same note line %p", firstNote);
+            return;
+            }
       TextLine* tl = new TextLine(_score);
       tl->setParent(firstNote);
       tl->setStartElement(firstNote);
-      tl->setEndElement(lastNote);
       tl->setDiagonal(true);
       tl->setAnchor(Spanner::Anchor::NOTE);
       tl->setTick(firstNote->chord()->tick());
+      tl->setEndElement(lastNote);
       _score->startCmd();
       _score->undoAddElement(tl);
       _score->endCmd();
+      tl->setEndElement(lastNote);
       }
 
 //---------------------------------------------------------
@@ -4207,7 +4488,7 @@ void ScoreView::cmdAddNoteLine()
 void ScoreView::cmdChangeEnharmonic(bool both)
       {
       _score->startCmd();
-      QList<Note*> notes = _score->selection().uniqueNotes();
+      std::list<Note*> notes = _score->selection().uniqueNotes();
       for (Note* n : notes) {
             Staff* staff = n->staff();
             if (staff->part()->instrument(n->tick())->useDrumset())
@@ -4281,7 +4562,7 @@ void ScoreView::cmdChangeEnharmonic(bool both)
 
 void ScoreView::cloneElement(Element* e)
       {
-      if (e->isMeasure() || e->isNote() || e->isVBox())
+      if (e->isMeasure() || e->isNote())
             return;
       QDrag* drag = new QDrag(this);
       QMimeData* mimeData = new QMimeData;
@@ -4341,7 +4622,11 @@ void ScoreView::setControlCursorVisible(bool v)
 
 void ScoreView::cmdTuplet(int n, ChordRest* cr)
       {
-      if (cr->durationType() < TDuration(TDuration::DurationType::V_512TH) && cr->durationType() != TDuration(TDuration::DurationType::V_MEASURE)) {
+      if (cr->durationType() != TDuration(TDuration::DurationType::V_MEASURE) &&
+          ((cr->durationType() < TDuration(TDuration::DurationType::V_512TH)) ||
+           (cr->durationType() < TDuration(TDuration::DurationType::V_256TH) && n > 3) ||
+           (cr->durationType() < TDuration(TDuration::DurationType::V_128TH) && n > 7))
+          ) {
             mscore->noteTooShortForTupletDialog();
             return;
             }
@@ -4430,11 +4715,13 @@ void ScoreView::changeVoice(int voice)
             // treat as command to move notes to another voice
             score()->changeVoice(voice);
             // modify the input state only if the command was successful
-            for (ChordRest* cr : score()->getSelectedChordRests())
+            const QSet<ChordRest *>crs = score()->getSelectedChordRests();
+            for (ChordRest* cr : crs) {
                   if (cr->voice() == voice) {
                         is->setTrack(track);
                         break;
                         }
+                  }
             }
       }
 
@@ -4454,7 +4741,8 @@ void ScoreView::cmdTuplet(int n)
                   }
             }
       else {
-            for (ChordRest* cr : _score->getSelectedChordRests()) {
+            const QSet<ChordRest *>crs = score()->getSelectedChordRests();
+            for (ChordRest* cr : crs) {
                   if (!cr->isGrace()) {
                         cmdTuplet(n, cr);
                         }
@@ -4645,6 +4933,7 @@ void ScoreView::cmdAddText(Tid tid, Tid customTid, PropertyFlags pf, Placement p
       if (tid == Tid::STAFF && customTid == Tid::EXPRESSION)
             tid = customTid;  // expression is not first class element, but treat as such
       switch (tid) {
+            case Tid::FRAME:
             case Tid::TITLE:
             case Tid::SUBTITLE:
             case Tid::COMPOSER:
@@ -4765,7 +5054,7 @@ void ScoreView::cmdAddText(Tid tid, Tid customTid, PropertyFlags pf, Placement p
             Measure* m = s->findMeasure();
             if (m && m->hasMMRest() && s->links()) {
                   Measure* mmRest = m->mmRest();
-                  for (ScoreElement* se : *s->links()) {
+                  for (ScoreElement* se : qAsConst(*s->links())) {
                         TextBase* s1 = toTextBase(se);
                         if (s != s1 && s1->findMeasure() == mmRest) {
                               s = s1;
@@ -4913,15 +5202,28 @@ void ScoreView::cmdRepeatSelection()
 
       if (noteEntryMode() && selection.isSingle()) {
             Element* el = _score->selection().element();
-            if (el && el->type() == ElementType::NOTE) {
-                  if (!_score->inputState().endOfScore()) {
+            if (el && !_score->inputState().endOfScore()) {
+                  Chord* c = nullptr;
+                  if (el->type() == ElementType::NOTE)
+                        c = toNote(el)->chord();
+                  else if (el->type() == ElementType::REST) {
+                        Segment* prevSegment = toRest(el)->segment()->prev1WithElemsOnTrack(el->track());
+
+                        // Looking for the previous Chord
+                        while (prevSegment) {
+                              if (prevSegment->elementAt(el->track())->isChord()) {
+                                    c = toChord(prevSegment->elementAt(el->track()));
+                                    break;
+                                    }
+                              else
+                                    prevSegment = prevSegment->prev1WithElemsOnTrack(el->track());
+                              }
+                        }
+                  if (c) {
                         _score->startCmd();
-                        bool addTo = false;
-                        Chord* c = static_cast<Note*>(el)->chord();
                         for (Note* note : c->notes()) {
                               NoteVal nval = note->noteVal();
-                              _score->addPitch(nval, addTo);
-                              addTo = true;
+                              _score->addPitch(nval, note != c->notes()[0]);
                               }
                         _score->endCmd();
                         }
@@ -4946,7 +5248,7 @@ void ScoreView::cmdRepeatSelection()
       QMimeData* mimeData = new QMimeData;
       mimeData->setData(mimeType, selection.mimeData());
       if (MScore::debugMode)
-            qDebug("cmdRepeatSelection: <%s>", mimeData->data(mimeType).data());
+            qDebug("cmdRepeatSelection: <%s>", mimeData->data(mimeType).constData());
       QApplication::clipboard()->setMimeData(mimeData);
 
       QByteArray d(mimeData->data(mimeType));
@@ -4954,24 +5256,26 @@ void ScoreView::cmdRepeatSelection()
       xml.setPasteMode(true);
 
       int dStaff = selection.staffStart();
-      Segment* endSegment = selection.endSegment();
-
-      if (endSegment && endSegment->segmentType() != SegmentType::ChordRest)
-            endSegment = endSegment->next1(SegmentType::ChordRest);
-      if (endSegment && endSegment->element(dStaff * VOICES)) {
-            Element* e = endSegment->element(dStaff * VOICES);
+      if (auto endSegment = selection.endSegment()) {
+            auto eTrack = selection.elements().front()->track();
+            auto staffTrack   = staff2track(dStaff);
+            bool filtered = score()->selection().hasTemporaryFilter();
+            if (endSegment->segmentType() != SegmentType::ChordRest)
+                  endSegment = endSegment->next1(SegmentType::ChordRest);
+            if (!endSegment)
+                  return;
+            auto e = (filtered && endSegment->element(eTrack)) ? endSegment->element(eTrack) : endSegment->element(staffTrack);
             if (e) {
-                  ChordRest* cr = toChordRest(e);
+                  auto cr = toChordRest(e);
                   _score->startCmd();
                   _score->pasteStaff(xml, cr->segment(), cr->staffIdx());
                   _score->endCmd();
                   }
             else
-                  qDebug("ScoreView::cmdRepeatSelection: cannot paste: %p <%s>", e, e ? e->name() : "");
+                  qDebug("cmdRepeatSelection: cannot paste: endSegment: %p dStaff %d", endSegment, dStaff);
             }
-      else {
-            qDebug("cmdRepeatSelection: cannot paste: endSegment: %p dStaff %d", endSegment, dStaff);
-            }
+      else
+            qDebug() << "cmdRepeatSelection: no end segment";
       }
 
 //---------------------------------------------------------
@@ -5166,7 +5470,7 @@ QList<Element*> ScoreView::elementsNear(QPointF p)
       for (int i = 0; i < MAX_FOOTERS; i++)
             if (score()->footerText(i) != nullptr)      // gives the ability to select the footer
                   el.push_back(score()->footerText(i));
-      for (Element* e : el) {
+      for (Element* e : qAsConst(el)) {
             e->itemDiscovered = 0;
             if (!e->selectable() || e->isPage())
                   continue;
@@ -5178,7 +5482,7 @@ QList<Element*> ScoreView::elementsNear(QPointF p)
             //
             // if no relevant element hit, look nearby
             //
-            for (Element* e : el) {
+            for (Element* e : qAsConst(el)) {
                   if (e->isPage() || !e->selectable())
                         continue;
                   if (e->intersects(r))
@@ -5266,7 +5570,7 @@ void ScoreView::cmdMoveCR(bool left)
                   e = e->parent();
             QList<ChordRest*> crl;
             if (e->links()) {
-                  for (ScoreElement* cr : *e->links())
+                  for (ScoreElement* cr : qAsConst(*e->links()))
                         crl.append(static_cast<ChordRest*>(cr));
                   }
             else
@@ -5474,6 +5778,8 @@ void ScoreView::updateEditElement()
                         setEditElement(nullptr);
                         }
                   break;
+            case SelState::COMPARISON:
+                  break;
             }
       }
 
@@ -5488,7 +5794,7 @@ static const Element* visibleElementInScore(const Element* orig, const Score* s)
       if (orig->score() == s && orig->bbox().isValid())
             return orig;
 
-      for (const ScoreElement* se : orig->linkList()) {
+      for (ScoreElement*& se : orig->linkList()) {
             const Element* e = toElement(se);
             if (e->score() == s && e->bbox().isValid()) // bbox check to ensure the element is indeed visible
                   return e;

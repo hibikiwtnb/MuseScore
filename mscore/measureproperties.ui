@@ -214,6 +214,11 @@
               <string>64</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>128</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item row="0" column="4" colspan="2">
@@ -454,7 +459,7 @@
             </sizepolicy>
            </property>
            <property name="toolTip">
-            <string>Go to previous measure</string>
+            <string>Apply and go to previous measure</string>
            </property>
            <property name="text">
             <string notr="true"/>
@@ -474,7 +479,7 @@
             </sizepolicy>
            </property>
            <property name="toolTip">
-            <string>Go to next measure</string>
+            <string>Apply and go to next measure</string>
            </property>
            <property name="text">
             <string notr="true"/>

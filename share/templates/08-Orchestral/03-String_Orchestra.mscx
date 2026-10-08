@@ -10,7 +10,6 @@
       <staffUpperBorder>10</staffUpperBorder>
       <minSystemDistance>13.5</minSystemDistance>
       <enableVerticalSpread>1</enableVerticalSpread>
-      <useStandardNoteNames>0</useStandardNoteNames>
       <Spatium>1.75</Spatium>
       </Style>
     <showInvisible>1</showInvisible>
@@ -30,16 +29,16 @@
     <metaTag name="workTitle"></metaTag>
     <Order id="orchestral" customized="1">
       <name>Orchestral</name>
-      <instrument id="contrabass">
+      <instrument id="contrabasses">
         <family id="orchestral-strings">Orchestral Strings</family>
         </instrument>
-      <instrument id="viola">
+      <instrument id="violas">
         <family id="orchestral-strings">Orchestral Strings</family>
         </instrument>
-      <instrument id="violin">
+      <instrument id="violins">
         <family id="orchestral-strings">Orchestral Strings</family>
         </instrument>
-      <instrument id="violoncello">
+      <instrument id="violoncellos">
         <family id="orchestral-strings">Orchestral Strings</family>
         </instrument>
       <section id="woodwind" brackets="true" showSystemMarkings="true" barLineSpan="true" thinBrackets="true">
@@ -56,6 +55,8 @@
         <family>cornets</family>
         <family>flugelhorns</family>
         <family>trombones</family>
+        <family>baritone-horns</family>
+        <family>euphoniums</family>
         <family>tubas</family>
         </section>
       <section id="timpani" brackets="true" showSystemMarkings="false" barLineSpan="true" thinBrackets="true">
@@ -93,23 +94,17 @@
         <bracket type="2" span="2" col="1"/>
         <barLineSpan>1</barLineSpan>
         </Staff>
-      <trackName>Violin I</trackName>
-      <Instrument id="violin">
-        <longName>Violin I</longName>
-        <shortName>Vln. I</shortName>
-        <trackName>Violin</trackName>
+      <trackName>Violins I</trackName>
+      <Instrument id="violins">
+        <longName>Violins I</longName>
+        <shortName>Vlns. I</shortName>
+        <trackName>Violins</trackName>
         <minPitchP>55</minPitchP>
         <maxPitchP>103</maxPitchP>
         <minPitchA>55</minPitchA>
         <maxPitchA>88</maxPitchA>
-        <instrumentId>strings.violin</instrumentId>
-        <StringData>
-          <frets>24</frets>
-          <string>55</string>
-          <string>62</string>
-          <string>69</string>
-          <string>76</string>
-          </StringData>
+        <instrumentId>strings.group</instrumentId>
+        <glissandoStyle>portamento</glissandoStyle>
         <Articulation>
           <velocity>100</velocity>
           <gateTime>100</gateTime>
@@ -152,17 +147,19 @@
           </Articulation>
         <Channel name="arco">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
-          <program value="40"/>
+          <controller ctrl="32" value="21"/>
+          <program value="48"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="pizzicato">
+          <controller ctrl="0" value="0"/>
+          <controller ctrl="32" value="20"/>
           <program value="45"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="tremolo">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
+          <controller ctrl="32" value="21"/>
           <program value="44"/>
           <synti>Fluid</synti>
           </Channel>
@@ -175,23 +172,17 @@
           </StaffType>
         <barLineSpan>1</barLineSpan>
         </Staff>
-      <trackName>Violin II</trackName>
-      <Instrument id="violin">
-        <longName>Violin II</longName>
-        <shortName>Vln. II</shortName>
-        <trackName>Violin</trackName>
+      <trackName>Violins II</trackName>
+      <Instrument id="violins">
+        <longName>Violins II</longName>
+        <shortName>Vlns. II</shortName>
+        <trackName>Violins</trackName>
         <minPitchP>55</minPitchP>
         <maxPitchP>103</maxPitchP>
         <minPitchA>55</minPitchA>
         <maxPitchA>88</maxPitchA>
-        <instrumentId>strings.violin</instrumentId>
-        <StringData>
-          <frets>24</frets>
-          <string>55</string>
-          <string>62</string>
-          <string>69</string>
-          <string>76</string>
-          </StringData>
+        <instrumentId>strings.group</instrumentId>
+        <glissandoStyle>portamento</glissandoStyle>
         <Articulation>
           <velocity>100</velocity>
           <gateTime>100</gateTime>
@@ -217,22 +208,36 @@
           <gateTime>67</gateTime>
           </Articulation>
         <Articulation name="sforzato">
+          <velocity>150</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="sforzatoStaccato">
+          <velocity>150</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoStaccato">
+          <velocity>120</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoTenuto">
           <velocity>120</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel name="arco">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
-          <program value="40"/>
+          <controller ctrl="32" value="21"/>
+          <program value="48"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="pizzicato">
+          <controller ctrl="0" value="0"/>
+          <controller ctrl="32" value="20"/>
           <program value="45"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="tremolo">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
+          <controller ctrl="32" value="21"/>
           <program value="44"/>
           <synti>Fluid</synti>
           </Channel>
@@ -246,24 +251,18 @@
         <defaultClef>C3</defaultClef>
         <barLineSpan>1</barLineSpan>
         </Staff>
-      <trackName>Viola</trackName>
-      <Instrument id="viola">
-        <longName>Viola</longName>
-        <shortName>Vla.</shortName>
-        <trackName>Viola</trackName>
+      <trackName>Violas</trackName>
+      <Instrument id="violas">
+        <longName>Violas</longName>
+        <shortName>Vlas.</shortName>
+        <trackName>Violas</trackName>
         <minPitchP>48</minPitchP>
         <maxPitchP>93</maxPitchP>
         <minPitchA>48</minPitchA>
         <maxPitchA>79</maxPitchA>
-        <instrumentId>strings.viola</instrumentId>
+        <instrumentId>strings.group</instrumentId>
         <clef>C3</clef>
-        <StringData>
-          <frets>24</frets>
-          <string>48</string>
-          <string>55</string>
-          <string>62</string>
-          <string>69</string>
-          </StringData>
+        <glissandoStyle>portamento</glissandoStyle>
         <Articulation>
           <velocity>100</velocity>
           <gateTime>100</gateTime>
@@ -289,22 +288,36 @@
           <gateTime>67</gateTime>
           </Articulation>
         <Articulation name="sforzato">
+          <velocity>150</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="sforzatoStaccato">
+          <velocity>150</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoStaccato">
+          <velocity>120</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoTenuto">
           <velocity>120</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel name="arco">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
-          <program value="41"/>
+          <controller ctrl="32" value="31"/>
+          <program value="48"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="pizzicato">
+          <controller ctrl="0" value="0"/>
+          <controller ctrl="32" value="30"/>
           <program value="45"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="tremolo">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
+          <controller ctrl="32" value="31"/>
           <program value="44"/>
           <synti>Fluid</synti>
           </Channel>
@@ -318,24 +331,18 @@
         <defaultClef>F</defaultClef>
         <barLineSpan>1</barLineSpan>
         </Staff>
-      <trackName>Violoncello</trackName>
-      <Instrument id="violoncello">
-        <longName>Violoncello</longName>
-        <shortName>Vc.</shortName>
-        <trackName>Violoncello</trackName>
+      <trackName>Violoncellos</trackName>
+      <Instrument id="violoncellos">
+        <longName>Violoncellos</longName>
+        <shortName>Vcs.</shortName>
+        <trackName>Violoncellos</trackName>
         <minPitchP>36</minPitchP>
         <maxPitchP>90</maxPitchP>
         <minPitchA>36</minPitchA>
         <maxPitchA>67</maxPitchA>
-        <instrumentId>strings.cello</instrumentId>
+        <instrumentId>strings.group</instrumentId>
         <clef>F</clef>
-        <StringData>
-          <frets>24</frets>
-          <string>36</string>
-          <string>43</string>
-          <string>50</string>
-          <string>57</string>
-          </StringData>
+        <glissandoStyle>portamento</glissandoStyle>
         <Articulation>
           <velocity>100</velocity>
           <gateTime>100</gateTime>
@@ -361,22 +368,36 @@
           <gateTime>67</gateTime>
           </Articulation>
         <Articulation name="sforzato">
+          <velocity>150</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="sforzatoStaccato">
+          <velocity>150</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoStaccato">
+          <velocity>120</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoTenuto">
           <velocity>120</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel name="arco">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
-          <program value="42"/>
+          <controller ctrl="32" value="41"/>
+          <program value="48"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="pizzicato">
+          <controller ctrl="0" value="0"/>
+          <controller ctrl="32" value="40"/>
           <program value="45"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="tremolo">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
+          <controller ctrl="32" value="41"/>
           <program value="44"/>
           <synti>Fluid</synti>
           </Channel>
@@ -390,20 +411,21 @@
         <defaultConcertClef>F8vb</defaultConcertClef>
         <defaultTransposingClef>F</defaultTransposingClef>
         </Staff>
-      <trackName>Contrabass</trackName>
-      <Instrument id="contrabass">
-        <longName>Contrabass</longName>
-        <shortName>Cb.</shortName>
-        <trackName>Contrabass</trackName>
+      <trackName>Contrabasses</trackName>
+      <Instrument id="contrabasses">
+        <longName>Contrabasses</longName>
+        <shortName>Cbs.</shortName>
+        <trackName>Contrabasses</trackName>
         <minPitchP>24</minPitchP>
         <maxPitchP>67</maxPitchP>
         <minPitchA>28</minPitchA>
         <maxPitchA>62</maxPitchA>
         <transposeDiatonic>-7</transposeDiatonic>
         <transposeChromatic>-12</transposeChromatic>
-        <instrumentId>strings.contrabass</instrumentId>
+        <instrumentId>strings.group</instrumentId>
         <concertClef>F8vb</concertClef>
         <transposingClef>F</transposingClef>
+        <glissandoStyle>portamento</glissandoStyle>
         <Articulation>
           <velocity>100</velocity>
           <gateTime>100</gateTime>
@@ -429,22 +451,36 @@
           <gateTime>67</gateTime>
           </Articulation>
         <Articulation name="sforzato">
+          <velocity>150</velocity>
+          <gateTime>100</gateTime>
+          </Articulation>
+        <Articulation name="sforzatoStaccato">
+          <velocity>150</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoStaccato">
+          <velocity>120</velocity>
+          <gateTime>50</gateTime>
+          </Articulation>
+        <Articulation name="marcatoTenuto">
           <velocity>120</velocity>
           <gateTime>100</gateTime>
           </Articulation>
         <Channel name="arco">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
-          <program value="43"/>
+          <controller ctrl="32" value="51"/>
+          <program value="48"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="pizzicato">
-          <program value="32"/>
+          <controller ctrl="0" value="0"/>
+          <controller ctrl="32" value="50"/>
+          <program value="45"/>
           <synti>Fluid</synti>
           </Channel>
         <Channel name="tremolo">
           <controller ctrl="0" value="0"/>
-          <controller ctrl="32" value="17"/>
+          <controller ctrl="32" value="51"/>
           <program value="44"/>
           <synti>Fluid</synti>
           </Channel>
@@ -453,7 +489,6 @@
     <Staff id="1">
       <VBox>
         <height>10</height>
-        <boxAutoSize>0</boxAutoSize>
         <Text>
           <style>Title</style>
           <text>String Orchestra</text>

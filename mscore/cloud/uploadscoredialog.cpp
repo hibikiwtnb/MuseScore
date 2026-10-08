@@ -36,7 +36,7 @@ void MuseScore::showUploadScoreDialog()
             return;
       if (!currentScore()->sanityCheck(QString())) {
             QMessageBox msgBox;
-            msgBox.setWindowTitle(QObject::tr("Upload Error"));
+            msgBox.setWindowTitle(tr("Upload Error"));
             msgBox.setText(tr("This score cannot be saved online. Please fix the corrupted measures and try again."));
             msgBox.setDetailedText(MScore::lastError);
             msgBox.setTextFormat(Qt::RichText);
@@ -101,12 +101,11 @@ void UploadScoreDialog::upload(int nid)
      {
      Score* score = mscore->currentScore()->masterScore();
      const QString scoreTitle = title->text().trimmed().isEmpty() ? score->title() : title->text();
-     //revert changes partially made in c8278789267ab6d1c6fcf1cd2b39a2495862255c
-     /*QString path = QDir::tempPath() + "/" + mscore->currentScore()->masterScore()->fileInfo()->fileName();
-     if (QFile::exists(path))
-           path = QDir::tempPath() + QString("/%1-").arg(qrand() % 100000) + mscore->currentScore()->masterScore()->fileInfo()->fileName();
-     if (mscore->saveAs(score, true, path, "mscz")) {*/
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+     QString path = QDir::tempPath() + QString("/temp_%1.mscz").arg(QRandomGenerator().bounded(100000));
+#else
      QString path = QDir::tempPath() + QString("/temp_%1.mscz").arg(qrand() % 100000);
+#endif
      if(mscore->saveAs(score, true, path, "mscz")) {
            _nid = nid;
            _loginManager->upload(path, nid, scoreTitle);
@@ -175,8 +174,7 @@ void UploadScoreDialog::displaySuccess()
       QMessageBox::information(this,
                tr("Success"),
                tr("Finished! %1Go to my score%2.")
-                               .arg("<a href=\"" + _url + "\">")
-                               .arg("</a>"),
+                               .arg("<a href=\"" + _url + "\">", "</a>"),
                QMessageBox::Ok, QMessageBox::NoButton);
       }
 

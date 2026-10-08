@@ -10,21 +10,19 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "text.h"
-#include "textedit.h"
-#include "jump.h"
-#include "marker.h"
-#include "score.h"
-#include "segment.h"
-#include "measure.h"
-#include "system.h"
+#include "barline.h"
 #include "box.h"
 #include "page.h"
-#include "textframe.h"
-#include "sym.h"
-#include "xml.h"
-#include "undo.h"
+#include "measure.h"
 #include "mscore.h"
+#include "score.h"
+#include "segment.h"
+#include "sym.h"
+#include "system.h"
+#include "textedit.h"
+#include "textframe.h"
+#include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -35,7 +33,7 @@ namespace Ms {
 #endif
 
 static const qreal subScriptSize     = 0.6;
-static const qreal subScriptOffset   = 0.5;       // of x-height
+static const qreal subScriptOffset   = 0.5;      // of x-height
 static const qreal superScriptOffset = -.9;      // of x-height
 
 //static const qreal tempotextOffset = 0.4; // of x-height // 80% of 50% = 2 spatiums
@@ -48,17 +46,17 @@ static const qreal superScriptOffset = -.9;      // of x-height
 
 static QString accessibleChar(QChar chr)
       {
-      if (chr == " ") return QObject::tr("space");
-      if (chr == "-") return QObject::tr("dash");
-      if (chr == "=") return QObject::tr("equals");
-      if (chr == ",") return QObject::tr("comma");
-      if (chr == ".") return QObject::tr("period");
-      if (chr == ":") return QObject::tr("colon");
-      if (chr == ";") return QObject::tr("semicolon");
-      if (chr == "(") return QObject::tr("left parenthesis");
-      if (chr == ")") return QObject::tr("right parenthesis");
-      if (chr == "[") return QObject::tr("left bracket");
-      if (chr == "]") return QObject::tr("right bracket");
+      if (chr == ' ') return QObject::tr("space");
+      if (chr == '-') return QObject::tr("dash");
+      if (chr == '=') return QObject::tr("equals");
+      if (chr == ',') return QObject::tr("comma");
+      if (chr == '.') return QObject::tr("period");
+      if (chr == ':') return QObject::tr("colon");
+      if (chr == ';') return QObject::tr("semicolon");
+      if (chr == '(') return QObject::tr("left parenthesis");
+      if (chr == ')') return QObject::tr("right parenthesis");
+      if (chr == '[') return QObject::tr("left bracket");
+      if (chr == ']') return QObject::tr("right bracket");
       return chr;
       }
 
@@ -126,6 +124,20 @@ bool CharFormat::operator==(const CharFormat& cf) const
       }
 
 //---------------------------------------------------------
+//   operator=
+//---------------------------------------------------------
+
+CharFormat& CharFormat::operator=(const CharFormat& cf)
+      {
+      setStyle(cf.style());
+      setValign(cf.valign());
+      setFontSize(cf.fontSize());
+      setFontFamily(cf.fontFamily());
+
+      return *this;
+      }
+
+//---------------------------------------------------------
 //   clearSelection
 //---------------------------------------------------------
 
@@ -176,9 +188,10 @@ QChar TextCursor::currentCharacter() const
 
 QString TextCursor::currentWord() const
       {
+      static QRegularExpression regex (" .*");
       const TextBlock& t = _text->_layout[row()];
       QString s = t.text(column(), -1);
-      return s.remove(QRegularExpression(" .*"));
+      return s.remove(regex);
       }
 
 //---------------------------------------------------------
@@ -199,7 +212,8 @@ void TextCursor::updateCursorFormat()
       {
       TextBlock* block = &_text->_layout[_row];
       int col = hasSelection() ? selectColumn() : column();
-      const CharFormat* format = block->formatAt(col);
+      // Get format at the LEFT of the cursor position
+      const CharFormat* format = block->formatAt(std::max((col) -1, 0));
       if (!format || format->fontFamily() == "ScoreText")
             init();
       else
@@ -489,8 +503,6 @@ bool TextCursor::set(const QPointF& p, QTextCursor::MoveMode mode)
       QPointF pt  = p - _text->canvasPos();
       if (!_text->bbox().contains(pt))
             return false;
-      int oldRow    = _row;
-      int oldColumn = _column;
 
 //      if (_text->_layout.empty())
 //            _text->_layout.append(TextBlock());
@@ -504,13 +516,11 @@ bool TextCursor::set(const QPointF& p, QTextCursor::MoveMode mode)
             }
       _column = curLine().column(pt.x(), _text);
 
-      if (oldRow != _row || oldColumn != _column) {
-            _text->score()->setUpdateAll();
-            if (mode == QTextCursor::MoveAnchor)
-                  clearSelection();
-            if (hasSelection())
-                  QApplication::clipboard()->setText(selectedText(), QClipboard::Selection);
-            }
+      _text->score()->setUpdateAll();
+      if (mode == QTextCursor::MoveAnchor)
+            clearSelection();
+      if (hasSelection())
+            QApplication::clipboard()->setText(selectedText(), QClipboard::Selection);
       updateCursorFormat();
       return true;
       }
@@ -765,7 +775,7 @@ void TextFragment::draw(QPainter* p, const TextBase* t) const
 void TextBase::drawTextWorkaround(QPainter* p, QFont& f, const QPointF pos, const QString text)
       {
       qreal mm = p->worldTransform().m11();
-      if (!(MScore::pdfPrinting) && (mm < 1.0) && f.bold() && !(f.underline())) {
+      if (!(MScore::pdfPrinting) && (mm < 1.0) && f.bold() && !(f.underline() || f.strikeOut())) {
             // workaround for https://musescore.org/en/node/284218
             // and https://musescore.org/en/node/281601
             // only needed for certain artificially emboldened fonts
@@ -778,7 +788,7 @@ void TextBase::drawTextWorkaround(QPainter* p, QFont& f, const QPointF pos, cons
             qreal dx = p->worldTransform().dx();
             qreal dy = p->worldTransform().dy();
             // diagonal elements will now be changed to 1.0
-            p->setMatrix(QMatrix(1.0, 0.0, 0.0, 1.0, dx, dy));
+            p->setTransform(QTransform(1.0, 0.0, 0.0, 1.0, dx, dy));
             // correction factor for bold text drawing, due to the change of the diagonal elements
             qreal factor = 1.0 / mm;
             QFont fnew(f, p->device());
@@ -825,7 +835,7 @@ void TextBase::drawTextWorkaround(QPainter* p, QFont& f, const QPointF pos, cons
                   positions2.clear();
                   }
             // Restore the QPainter to its former state
-            p->setMatrix(QMatrix(mm, 0.0, 0.0, mm, dx, dy));
+            p->setTransform(QTransform(mm, 0.0, 0.0, mm, dx, dy));
             p->restore();
             }
       else {
@@ -848,11 +858,10 @@ QFont TextFragment::font(const TextBase* t) const
             m *= t->spatium() / SPATIUM20;
       if (format.valign() != VerticalAlignment::AlignNormal)
             m *= subScriptSize;
-      font.setUnderline(format.underline() || format.preedit());
 
       QString family;
       if (format.fontFamily() == "ScoreText") {
-            family = t->score()->styleSt(Sid::MusicalTextFont);
+            family = t->score()->styleSt(Sid::musicalTextFont);
 
             // check if all symbols are available
             font.setFamily(family);
@@ -882,12 +891,16 @@ QFont TextFragment::font(const TextBase* t) const
             if (fail)
                   family = ScoreFont::fallbackTextFont();
             }
-      else
+      else {
             family = format.fontFamily();
 
+            font.setBold(format.bold());
+            font.setItalic(format.italic());
+            font.setUnderline(format.underline());
+            font.setStrikeOut(format.strike());
+            }
+
       font.setFamily(family);
-      font.setBold(format.bold());
-      font.setItalic(format.italic());
       Q_ASSERT(m > 0.0);
 
       font.setPointSizeF(m * t->mag());
@@ -937,8 +950,10 @@ void TextBlock::layout(TextBase* t)
                         }
                         break;
                   case ElementType::MEASURE: {
+                        // ignore courtesy keysig, timesig, but fall back if needed
                         Measure* m = toMeasure(e);
-                        layoutWidth = m->bbox().width();
+                        const BarLine* bl = m->endBarLine();
+                        layoutWidth = bl ? bl->segment()->x() + bl->width() : m->bbox().width();
                         }
                         break;
                   default:
@@ -1246,7 +1261,6 @@ QString TextBlock::remove(int column, TextCursor* cursor)
       QString s;
       for (auto i = _fragments.begin(); i != _fragments.end(); ++i) {
             int idx  = 0;
-            int rcol = 0;
             for (const QChar& c : qAsConst(i->text)) {
                   if (col == column) {
                         if (c.isSurrogate()) {
@@ -1267,7 +1281,6 @@ QString TextBlock::remove(int column, TextCursor* cursor)
                   if (c.isHighSurrogate())
                         continue;
                   ++col;
-                  ++rcol;
                   }
             }
       insertEmptyFragmentIfNeeded(cursor); // without this, cursorRect can't calculate the y position of the cursor correctly
@@ -1308,7 +1321,6 @@ QString TextBlock::remove(int start, int n, TextCursor* cursor)
       int col = 0;
       QString s;
       for (auto i = _fragments.begin(); i != _fragments.end();) {
-            int rcol = 0;
             bool inc = true;
             for( int idx = 0; idx < i->text.length(); ) {
                   QChar c = i->text[idx];
@@ -1335,7 +1347,6 @@ QString TextBlock::remove(int start, int n, TextCursor* cursor)
                   if (c.isHighSurrogate())
                         continue;
                   ++col;
-                  ++rcol;
                   }
             if (inc)
                   ++i;
@@ -1404,6 +1415,9 @@ void CharFormat::setFormat(FormatId id, QVariant data)
                   break;
             case FormatId::Underline:
                   setUnderline(data.toBool());
+                  break;
+            case FormatId::Strike:
+                  setStrike(data.toBool());
                   break;
             case FormatId::Valign:
                   _valign = static_cast<VerticalAlignment>(data.toInt());
@@ -1521,9 +1535,9 @@ TextBase::TextBase(const TextBase& st)
    : Element(st)
       {
       _text                        = st._text;
-      _layout                      = st._layout;
       textInvalid                  = st.textInvalid;
       layoutInvalid                = st.layoutInvalid;
+      _layout                      = st._layout;
       frame                        = st.frame;
       _layoutToParentWidth         = st._layoutToParentWidth;
       hexState                     = -1;
@@ -1627,7 +1641,8 @@ static qreal parseNumProperty(const QString& s)
 
 void TextBase::createLayout()
       {
-      _layout.clear();  // deletes the text fragments so we lose all formatting information
+      // reset all previous formatting information
+      _layout.clear();
       TextCursor cursor(this);
       cursor.init();
 
@@ -1695,6 +1710,12 @@ void TextBase::createLayout()
                               }
                         else if (token == "/u")
                               cursor.format()->setUnderline(false);
+                        else if (token == "s") {
+                              cursor.format()->setStrike(true);
+                              unstyleFontStyle = true;
+                              }
+                        else if (token == "/s")
+                              cursor.format()->setStrike(false);
                         else if (token == "sub")
                               cursor.format()->setValign(VerticalAlignment::AlignSubScript);
                         else if (token == "/sub")
@@ -1798,6 +1819,8 @@ void TextBase::layout1()
             _layout.append(TextBlock());
       QRectF bb;
       qreal y = 0;
+
+      // adjust the bounding box for the text item
       for (int i = 0; i < rows(); ++i) {
             TextBlock* t = &_layout[i];
             t->layout(this);
@@ -1830,7 +1853,7 @@ void TextBase::layout1()
                   else if (parent()->isPage()) {
                         Page* p = toPage(parent());
                         h = p->height() - p->tm() - p->bm();
-                        yoff = p->tm();
+                        yoff = _layoutRelativeToBottom ? -p->bm() : p->tm(); // used to keep footers inside page margins
                         }
                   else if (parent()->isMeasure())
                         ;
@@ -1879,7 +1902,7 @@ void TextBase::layoutFrame()
       else
             frame = bbox();
 
-      if (square()) {
+      if (rectangle()) {
 #if 0
             // "real" square
             if (frame.width() > frame.height()) {
@@ -1891,8 +1914,8 @@ void TextBase::layoutFrame()
                   frame.adjust(-w * .5, 0.0, w * .5, 0.0);
                   }
 #else
-            // make sure width >= height
-            if (frame.height() > frame.width()) {
+            // make sure width >= height and only a single line (so basically square for single characters)
+            if (frame.height() > frame.width() && rows() == 1) {
                   qreal w = frame.height() - frame.width();
                   frame.adjust(-w * .5, 0.0, w * .5, 0.0);
                   }
@@ -1960,6 +1983,7 @@ class XmlNesting : public QStack<QString> {
       void pushB() { pushToken("b"); }
       void pushI() { pushToken("i"); }
       void pushU() { pushToken("u"); }
+      void pushS() { pushToken("s"); }
 
       QString popToken() {
             QString s = pop();
@@ -1982,6 +2006,7 @@ class XmlNesting : public QStack<QString> {
       void popB() { popToken("b"); }
       void popI() { popToken("i"); }
       void popU() { popToken("u"); }
+      void popS() { popToken("s"); }
       };
 
 //---------------------------------------------------------
@@ -1994,6 +2019,7 @@ void TextBase::genText() const
       bool bold_      = false;
       bool italic_    = false;
       bool underline_ = false;
+      bool strike_    = false;
 
       for (const TextBlock& block : _layout) {
             for (const TextFragment& f : block.fragments()) {
@@ -2003,6 +2029,8 @@ void TextBase::genText() const
                         italic_ = true;
                   if (!f.format.underline() && underline())
                         underline_ = true;
+                  if (!f.format.strike() && strike())
+                        strike_ = true;
                   }
             }
       CharFormat fmt;
@@ -2019,6 +2047,8 @@ void TextBase::genText() const
             xmlNesting.pushI();
       if (underline_)
             xmlNesting.pushU();
+      if (strike_)
+            xmlNesting.pushS();
 
       for (const TextBlock& block : _layout) {
             for (const TextFragment& f : block.fragments()) {
@@ -2043,6 +2073,12 @@ void TextBase::genText() const
                               xmlNesting.pushU();
                         else
                               xmlNesting.popU();
+                        }
+                  if (fmt.strike() != format.strike()) {
+                        if (format.strike())
+                              xmlNesting.pushS();
+                        else
+                              xmlNesting.popS();
                         }
 
                   if (format.fontSize() != fmt.fontSize())
@@ -2182,28 +2218,24 @@ bool TextBase::readProperties(XmlReader& e)
             setXmlText(e.readXml());
       else if (tag == "bold") {
             bool val = e.readInt();
-            if (val)
-                  _fontStyle = _fontStyle + FontStyle::Bold;
-            else
-                  _fontStyle = _fontStyle - FontStyle::Bold;
+            setBold(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
       else if (tag == "italic") {
             bool val = e.readInt();
-            if (val)
-                  _fontStyle = _fontStyle + FontStyle::Italic;
-            else
-                  _fontStyle = _fontStyle - FontStyle::Italic;
+            setItalic(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
       else if (tag == "underline") {
             bool val = e.readInt();
-            if (val)
-                  _fontStyle = _fontStyle + FontStyle::Underline;
-            else
-                  _fontStyle = _fontStyle - FontStyle::Underline;
+            setUnderline(val);            if (isStyled(Pid::FONT_STYLE))
+                  setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
+            }
+      else if (tag == "strike") {
+            bool val = e.readInt();
+            setStrike(val);
             if (isStyled(Pid::FONT_STYLE))
                   setPropertyFlags(Pid::FONT_STYLE, PropertyFlags::UNSTYLED);
             }
@@ -2298,7 +2330,7 @@ bool TextBase::mousePress(EditData& ed)
       TextEditData* ted = static_cast<TextEditData*>(ed.getData(this));
       if (!ted->cursor.set(ed.startMove, shift ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor))
             return false;
-      if (ed.buttons == Qt::MidButton)
+      if (ed.buttons == Qt::MiddleButton)
             paste(ed);
       score()->setUpdateAll();
       return true;
@@ -2347,6 +2379,44 @@ void TextBase::setXmlText(const QString& s)
       _text = s;
       layoutInvalid = true;
       textInvalid   = false;
+      }
+
+//---------------------------------------------------------
+//   fragmentList
+//---------------------------------------------------------
+
+/*
+ Return the text as a single list of TextFragment
+ Used by the MusicXML formatted export to avoid parsing the xml text format
+ */
+
+QList<TextFragment> TextBase::fragmentList() const
+      {
+      QList<TextFragment> res;
+
+      const TextBase* text = this;
+      std::unique_ptr<TextBase> tmpText;
+      if (layoutInvalid) {
+            // Create temporary text object to avoid side effects
+            // of createLayout() call.
+            tmpText.reset(toTextBase(this->clone()));
+            tmpText->createLayout();
+            text = tmpText.get();
+            }
+      for (const TextBlock& block : text->_layout) {
+            for (const TextFragment& f : block.fragments()) {
+                  /* TODO TBD
+                  if (f.text.empty())                     // skip empty fragments, not to
+                        continue;                           // insert extra HTML formatting
+                   */
+                  res.append(f);
+                  if (block.eol()) {
+                        // simply append a newline
+                        res.last().text += "\n";
+                        }
+                  }
+            }
+      return res;
       }
 
 //---------------------------------------------------------
@@ -2443,7 +2513,11 @@ QString TextBase::convertFromHtml(const QString& ss) const
                               s += "<i>";
                         if (font.underline())
                               s += "<u>";
+                        if (font.strikeOut())
+                              s += "<s>";
                         s += f.text().toHtmlEscaped();
+                        if (font.strikeOut())
+                              s += "</s>";
                         if (font.underline())
                               s += "</u>";
                         if (font.italic())
@@ -2614,34 +2688,6 @@ QString TextBase::subtypeName() const
       }
 
 //---------------------------------------------------------
-//   fragmentList
-//---------------------------------------------------------
-
-/*
- Return the text as a single list of TextFragment
- Used by the MusicXML formatted export to avoid parsing the xml text format
- */
-
-QList<TextFragment> TextBase::fragmentList() const
-      {
-      QList<TextFragment> res;
-      for (const TextBlock& block : _layout) {
-            for (const TextFragment& f : block.fragments()) {
-                  /* TODO TBD
-                  if (f.text.empty())                     // skip empty fragments, not to
-                        continue;                           // insert extra HTML formatting
-                   */
-                  res.append(f);
-                  if (block.eol()) {
-                        // simply append a newline
-                        res.last().text += "\n";
-                        }
-                  }
-            }
-      return res;
-      }
-
-//---------------------------------------------------------
 //   validateText
 //    check if s is a valid musescore xml text string
 //    - simple bugs are automatically adjusted
@@ -2671,7 +2717,7 @@ bool TextBase::validateText(QString& s)
                         d.append("&amp;");
                   }
             else if (c == '<') {
-                  const char* ok[] { "b>", "/b>", "i>", "/i>", "u>", "/u", "font ", "/font>", "sym>", "/sym>" };
+                  const char* ok[] { "b>", "/b>", "i>", "/i>", "u>", "/u", "s>", "/s>", "font ", "/font>", "sym>", "/sym>", "sub>", "/sub>", "sup>", "/sup>" };
                   QString t = s.mid(i+1);
                   bool found = false;
                   for (auto k : ok) {
@@ -2717,6 +2763,8 @@ QFont TextBase::font() const
       QFont f(_family, m, bold() ? QFont::Bold : QFont::Normal, italic());
       if (underline())
             f.setUnderline(underline());
+      if (strike())
+            f.setStrikeOut(strike());
 
       return f;
       }
@@ -2778,6 +2826,11 @@ bool TextBase::setProperty(Pid pid, const QVariant& v)
             genText();
       bool rv = true;
       switch (pid) {
+            case Pid::COLOR:
+                  if (color() == frameColor())
+                        setFrameColor(v.value<QColor>());
+                  Element::setProperty(pid, v);
+                  break;
             case Pid::SUB_STYLE:
                   initTid(Tid(v.toInt()));
                   break;
@@ -2952,13 +3005,13 @@ void TextBase::styleChanged()
       for (const StyledProperty& spp : *_elementStyle) {
             PropertyFlags f = _propertyFlagsList[i];
             if (f == PropertyFlags::STYLED)
-                  setProperty(spp.pid, styleValue(spp.pid, getPropertyStyle(spp.pid)));
+                  setProperty(spp.pid, safePropertyStyleValue(spp.pid));
             ++i;
             }
       for (const StyledProperty& spp : *textStyle(tid())) {
             PropertyFlags f = _propertyFlagsList[i];
             if (f == PropertyFlags::STYLED)
-                  setProperty(spp.pid, styleValue(spp.pid, getPropertyStyle(spp.pid)));
+                  setProperty(spp.pid, safePropertyStyleValue(spp.pid));
             ++i;
             }
       }
@@ -3018,7 +3071,7 @@ void TextBase::editCut(EditData& ed)
       QString s = _cursor->selectedText();
 
       if (!s.isEmpty()) {
-            QApplication::clipboard()->setText(s, QClipboard::Clipboard);
+            QApplication::clipboard()->setText(s);
             ed.curGrip = Grip::START;
             ed.key     = Qt::Key_Delete;
             ed.s       = QString();
@@ -3039,7 +3092,7 @@ void TextBase::editCopy(EditData& ed)
       TextCursor* _cursor = &ted->cursor;
       QString s = _cursor->selectedText();
       if (!s.isEmpty())
-            QApplication::clipboard()->setText(s, QClipboard::Clipboard);
+            QApplication::clipboard()->setText(s);
       }
 
 //---------------------------------------------------------
@@ -3061,7 +3114,7 @@ void TextBase::draw(QPainter* p) const
       {
       if (hasFrame()) {
             qreal baseSpatium = MScore::baseStyle().value(Sid::spatium).toDouble();
-            if (frameWidth().val() != 0.0) {
+            if (!qFuzzyIsNull(frameWidth().val())) {
                   QColor fColor = curColor(visible(), frameColor());
                   qreal frameWidthVal = frameWidth().val() * (sizeIsSpatiumDependent() ? spatium() : baseSpatium);
 
@@ -3143,9 +3196,9 @@ void TextBase::drawEditMode(QPainter* p, EditData& ed)
       if (!_cursor->hasSelection())
             p->drawRect(_cursor->cursorRect());
 
-      QMatrix matrix = p->worldTransform().toAffine();
+      QTransform transform = p->worldTransform();
       p->translate(-pos);
-      p->setPen(QPen(QBrush(Qt::lightGray), 4.0 / matrix.m11()));  // 4 pixel pen size
+      p->setPen(QPen(QBrush(Qt::lightGray), 4.0 / transform.m11()));  // 4 pixel pen size
       p->setBrush(Qt::NoBrush);
 
       qreal m = spatium();
@@ -3202,6 +3255,7 @@ QString TextBase::stripText(bool removeStyle, bool removeSize, bool removeFace) 
       bool bold_      = false;
       bool italic_    = false;
       bool underline_ = false;
+      bool strike_    = false;
 
       for (const TextBlock& block : _layout) {
             for (const TextFragment& f : block.fragments()) {
@@ -3211,6 +3265,8 @@ QString TextBase::stripText(bool removeStyle, bool removeSize, bool removeFace) 
                         italic_ = true;
                   if (!f.format.underline() && underline())
                         underline_ = true;
+                  if (!f.format.strike() && strike())
+                        strike_ = true;
                   }
             }
       CharFormat fmt;
@@ -3228,6 +3284,8 @@ QString TextBase::stripText(bool removeStyle, bool removeSize, bool removeFace) 
                   xmlNesting.pushI();
             if (underline_)
                   xmlNesting.pushU();
+            if (strike_)
+                  xmlNesting.pushS();
             }
 
       for (const TextBlock& block : _layout) {
@@ -3253,6 +3311,12 @@ QString TextBase::stripText(bool removeStyle, bool removeSize, bool removeFace) 
                                     xmlNesting.pushU();
                               else
                                     xmlNesting.popU();
+                              }
+                        if (fmt.strike() != format.strike()) {
+                              if (format.strike())
+                                    xmlNesting.pushS();
+                              else
+                                    xmlNesting.popS();
                               }
                         }
 

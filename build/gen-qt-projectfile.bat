@@ -12,14 +12,18 @@ echo FORMS = \
 for /r %1 %%a in (*.ui) do echo     %%a \
 echo.
 
+echo INCLUDEPATH = \
+echo     %1/libmscore \
+echo     %1/mscore \
+echo.
+
 echo SOURCES = \
 for /r %1 %%a in (*.cpp) do echo     %%a \
 echo.
-echo.
 
 echo RESOURCES = \
-echo     ./mscore/qml.qrc \
-echo     ./telemetry/telemetry_resources.qrc \
+echo     %1/mscore/qml.qrc \
+echo     %1/telemetry/telemetry_resources.qrc \
 echo.
 
 cd /d %OLD_DIR%

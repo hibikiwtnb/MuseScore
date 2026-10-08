@@ -15,6 +15,7 @@
 #include "libmscore/score.h"
 #include "libmscore/measure.h"
 #include "libmscore/chordrest.h"
+#include "libmscore/chord.h"
 
 #define DIR QString("libmscore/beam/")
 
@@ -47,6 +48,8 @@ class TestBeam : public QObject, public MTest
       void beamCrossMeasure2() { beam("Beam-CrossM2.mscx"); }
       void beamCrossMeasure3() { beam("Beam-CrossM3.mscx"); }
       void beamCrossMeasure4() { beam("Beam-CrossM4.mscx"); }
+      void beamStemDir();
+      void flipBeamStemDir();
       };
 
 //---------------------------------------------------------
@@ -92,6 +95,46 @@ void TestBeam::beamCrossMeasure1()
       // locate the beam again, and check if it is still b
       Beam* new_b = first_note->beam();
       QCOMPARE(new_b, b);
+      delete score;
+      }
+
+//---------------------------------------------------------
+//   beamStemDir
+//   This method tests if a beam's stem direction can be
+//   set with a note other than the first one.
+//---------------------------------------------------------
+void TestBeam::beamStemDir()
+      {
+      MasterScore* score = readScore(DIR + "beamStemDir.mscx");
+      QVERIFY(score);
+      Measure* m1 = score->firstMeasure();
+      ChordRest* cr = toChordRest(m1->findSegment(SegmentType::ChordRest, m1->tick())->element(0));
+      Chord* c2 = toChord(cr->beam()->elements()[1]);
+      c2->setStemDirection(Direction::UP);
+      score->update();
+      score->doLayout();
+      QVERIFY(saveCompareScore(score, "beamStemDir-01.mscx", DIR + "beamStemDir-01-ref.mscx"));
+      delete score;
+      }
+
+//---------------------------------------------------------
+//   flipBeamStemDir
+//   This method tests if a beam's stem direction can be
+//   set with a note after its direction has been set
+//   with the beam's own setBeamDirection method.
+//---------------------------------------------------------
+void TestBeam::flipBeamStemDir()
+      {
+      MasterScore* score = readScore(DIR + "flipBeamStemDir.mscx");
+      QVERIFY(score);
+      Measure* m1 = score->firstMeasure();
+      ChordRest* cr = toChordRest(m1->findSegment(SegmentType::ChordRest, m1->tick())->element(0));
+      Chord* c2 = toChord(cr->beam()->elements()[1]);
+      cr->beam()->setBeamDirection(Direction::UP);
+      c2->setStemDirection(Direction::DOWN);
+      score->update();
+      score->doLayout();
+      QVERIFY(saveCompareScore(score, "flipBeamStemDir-01.mscx", DIR + "flipBeamStemDir-01-ref.mscx"));
       delete score;
       }
 QTEST_MAIN(TestBeam)

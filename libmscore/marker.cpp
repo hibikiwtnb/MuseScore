@@ -11,10 +11,9 @@
 //=============================================================================
 
 #include "marker.h"
-#include "score.h"
-#include "sym.h"
-#include "xml.h"
 #include "measure.h"
+#include "score.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -231,7 +230,7 @@ void Marker::undoSetLabel(const QString& s)
 //   undoSetMarkerType
 //---------------------------------------------------------
 
-void Marker::undoSetMarkerType(Type t)
+void Marker::undoSetMarkerType(const Type t)
       {
       undoChangeProperty(Pid::MARKER_TYPE, int(t));
       }
@@ -264,14 +263,14 @@ bool Marker::setProperty(Pid propertyId, const QVariant& v)
                   setLabel(v.toString());
                   break;
             case Pid::MARKER_TYPE:
-                  setMarkerType(Type(v.toInt()));
+                  setMarkerType(v.value<Marker::Type>());
                   break;
             default:
                   if (!TextBase::setProperty(propertyId, v))
                         return false;
                   break;
             }
-      triggerLayoutAll();
+      triggerLayout();
       return true;
       }
 
@@ -304,12 +303,12 @@ Element* Marker::nextSegmentElement()
       Segment* seg;
       if (markerType() == Marker::Type::FINE) {
             seg = measure()->last();
-            return seg->firstElement(staffIdx());
+            return seg->firstElementForNavigation(staffIdx());
             }
       Measure* prevMeasure = measure()->prevMeasureMM();
       if (prevMeasure) {
             seg = prevMeasure->last();
-            return seg->firstElement(staffIdx());
+            return seg->firstElementForNavigation(staffIdx());
             }
       return Element::nextSegmentElement();
       }

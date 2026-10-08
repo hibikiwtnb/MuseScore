@@ -923,7 +923,7 @@ MasterScore* TestParts::doAddImage()
       MasterScore* score = readScore(DIR + "part1-2o.mscx");
 
       Measure* m   = score->firstMeasure();
-      Segment* s   = m->tick2segment(MScore::division);
+      Segment* s   = m->tick2segment(DIVISION);
       Ms::Chord* chord = static_cast<Ms::Chord*>(s->element(0));
       Note* note   = chord->upNote();
       EditData dd(0);
@@ -1087,4 +1087,3 @@ void TestParts::textLines()
 QTEST_MAIN(TestParts)
 
 #include "tst_parts.moc"
-

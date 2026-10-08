@@ -18,28 +18,24 @@
  Definition of undo-releated classes and structs.
 */
 
-#include "spatium.h"
-#include "mscore.h"
-#include "sig.h"
-#include "tempo.h"
-#include "input.h"
-#include "style.h"
-#include "key.h"
-#include "select.h"
-#include "instrument.h"
-#include "pitchvalue.h"
-#include "timesig.h"
-#include "noteevent.h"
-#include "synthesizerstate.h"
-#include "dynamic.h"
-#include "staff.h"
-#include "stafftype.h"
 #include "cleflist.h"
-#include "note.h"
 #include "chord.h"
 #include "drumset.h"
-#include "rest.h"
+#include "dynamic.h"
 #include "fret.h"
+#include "input.h"
+#include "instrument.h"
+#include "key.h"
+#include "mscore.h"
+#include "note.h"
+#include "noteevent.h"
+#include "pitchvalue.h"
+#include "select.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "style.h"
+#include "synthesizerstate.h"
+#include "timesig.h"
 
 #include "audio/midi/midipatch.h"
 
@@ -103,7 +99,7 @@ class UndoCommand {
       void appendChildren(UndoCommand*);
 
    public:
-      enum class Filter {
+      enum class Filter : char {
             TextEdit,
             AddElement,
             AddElementLinked,
@@ -558,7 +554,7 @@ class AddElement : public UndoCommand {
    public:
       AddElement(Element*);
       Element* getElement() const { return element; }
-      virtual void cleanup(bool);
+      virtual void cleanup(bool) override;
       virtual const char* name() const override;
 
       bool isFiltered(UndoCommand::Filter f, const Element* target) const override;
@@ -575,7 +571,7 @@ class RemoveElement : public UndoCommand {
       RemoveElement(Element*);
       virtual void undo(EditData*) override;
       virtual void redo(EditData*) override;
-      virtual void cleanup(bool);
+      virtual void cleanup(bool) override;
       virtual const char* name() const override;
 
       bool isFiltered(UndoCommand::Filter f, const Element* target) const override;
@@ -668,6 +664,22 @@ class ChangeStaffType : public UndoCommand {
    public:
       ChangeStaffType(Staff* s, const StaffType& t) : staff(s), staffType(t) {}
       UNDO_NAME("ChangeStaffType")
+      };
+
+//---------------------------------------------------------
+//   ChangePianoRollNoteShape
+//---------------------------------------------------------
+
+class ChangePianoRollNoteShape : public UndoCommand {
+      Instrument* instrument;
+      PianoRollNoteShape shape;
+
+      void flip(EditData*) override;
+
+   public:
+      ChangePianoRollNoteShape(Instrument* i, PianoRollNoteShape s)
+         : instrument(i), shape(s) {}
+      UNDO_NAME("ChangePianoRollNoteShape")
       };
 
 //---------------------------------------------------------

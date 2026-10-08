@@ -11,7 +11,6 @@
 //=============================================================================
 
 #include <stdio.h>
-#include "all.h"
 
 static QFile logFile;
 static int processed = 0;
@@ -50,7 +49,7 @@ const char* tests[] = {
       "libmscore/tools/tst_tools",                    // some tests disabled
       "libmscore/plugins/tst_plugins",
       "libmscore/album/tst_album",
-      "scripting/tst_scripting"
+      "scripting/tst_scripting",
       "guitarpro/tst_guitarpro",
       "biab/tst_biab",
       "capella/io/tst_capella_io",
@@ -152,4 +151,3 @@ int main(int argc, char* argv[])
       printf("================\n");
       return 0;
       }
-

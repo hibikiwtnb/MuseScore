@@ -22,6 +22,9 @@
 
 #include "ui_textpalette.h"
 
+class QLabel;
+class QToolButton;
+
 namespace Ms {
 
 class TextBase;
@@ -42,6 +45,12 @@ class TextPalette : public QWidget, public Ui::TextPaletteBase {
 
       QListWidget* lws;
       QListWidget* lwu;
+
+      QLabel* zoomLabel = nullptr;
+      QToolButton* zoomResetButton = nullptr;
+
+      Palette* currentZoomPalette() const;
+      void updateZoomControls();
 
       virtual void hideEvent(QHideEvent*);
       void closeEvent(QCloseEvent* ev);

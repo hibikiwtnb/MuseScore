@@ -17,37 +17,19 @@
 #  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #=============================================================================
 
-project(mscore)
+cmake_minimum_required(VERSION 3.16)
 
-# Minimum tested, report if it works with older
-CMAKE_MINIMUM_REQUIRED(VERSION 3.3.0)
+project(mscore)
 
 include(build/functions.cmake) # library of CMake functions ("fn__" namespace)
 
 # Print Qt version or fail the build if Qt (qmake) is not in PATH.
 fn__require_program(QMAKE Qt --version "https://musescore.org/en/handbook/developers-handbook/compilation" qmake)
 
-# Libraries linked via full path no longer produce linker search paths.
-cmake_policy(SET CMP0003 NEW)
-
-# Apparently needed on Mac only (?)
-if (APPLE)
-    # Issue no warning non-existent target argument to get_target_property()
-    # and set the result variable to a -NOTFOUND value rather than issuing a FATAL_ERROR 40
-    if(POLICY CMP0045)
-        cmake_policy(SET CMP0045 OLD)
-    endif(POLICY CMP0045)
-
-    # Silently ignore non-existent dependencies (mops1, mops2)
-    if(POLICY CMP0046)
-        cmake_policy(SET CMP0046 OLD)
-    endif(POLICY CMP0046)
-endif (APPLE)
-
-# RPATH settings on macOS do not affect install_name
-if(POLICY CMP0068)
-      cmake_policy(SET CMP0068 NEW)
-endif(POLICY CMP0068)
+# Supress "The ``exec_program()`` command should not be called."
+if(POLICY CMP0153)
+      cmake_policy(SET CMP0153 OLD)
+endif(POLICY CMP0153)
 
 # Don't process generated source files with AUTOMOC
 if(POLICY CMP0071)
@@ -58,19 +40,6 @@ endif(POLICY CMP0071)
 if (MSVC)
    set (MINGW false)
 endif (MSVC)
-
-# We need this early, before FindQt5
-option(BUILD_WEBENGINE "Built in webengine support" ON)
-
-if (BUILD_WEBENGINE)
-   if (MINGW)
-      SET (USE_WEBENGINE 0)
-   else (MINGW)
-      SET (USE_WEBENGINE 1)
-   endif(MINGW)
-else (BUILD_WEBENGINE)
-   SET (USE_WEBENGINE 0)
-endif (BUILD_WEBENGINE)
 
 set(SCRIPT_INTERFACE  TRUE)
 #  Look for Qt5
@@ -85,13 +54,15 @@ include (FindQt5)
 include (UsePkgConfig1) # Defines MACRO(PKGCONFIG1 _package _minVersion _include_DIR _link_DIR _link_FLAGS _cflags)
 include (FindPulseAudio)
 include (GetCompilerVersion)
-include (CreatePrecompiledHeader)
 
 # For debugging the make system uncomment next line:
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(CMAKE_AUTOMOC     TRUE)
 set(USE_SSE           TRUE)
+
+# Enable qDebug() output and message context in release builds
+set(ENABLE_RELEASE_DEBUG_LOG ON)
 
 set(MUSESCORE_REVISION "" CACHE STRING "Build revision")
 
@@ -107,6 +78,10 @@ message(STATUS "MUSESCORE_REVISION: ${MUSESCORE_REVISION}")
 
 add_definitions(-DMUSESCORE_REVISION="${MUSESCORE_REVISION}")
 
+if (ENABLE_RELEASE_DEBUG_LOG)
+      add_definitions(-DQT_MESSAGELOGCONTEXT)
+endif()
+
 # Setup version number and general build settings
 SET(MUSESCORE_BUILD_CONFIG "dev" CACHE STRING "Build config")
 # Possible MUSESCORE_BUILD_CONFIG values:
@@ -120,7 +95,7 @@ if (MUSESCORE_LABEL)
 endif (MUSESCORE_LABEL)
 
 if (MSCORE_UNSTABLE)
-  SET (MUSESCORE_NAME_VERSION "${MUSESCORE_NAME_VERSION} (${MUSESCORE_VERSION_FULL} unstable)")
+  SET (MUSESCORE_NAME_VERSION "${MUSESCORE_NAME_VERSION} Evolution")
 endif (MSCORE_UNSTABLE)
 
 # Disable components not supported on Windows
@@ -201,12 +176,8 @@ else(BUILD_CRASH_REPORTER)
 endif(BUILD_CRASH_REPORTER)
 
 if (APPLE)
-      set (CMAKE_CXX_COMPILER   clang++)
-      set (CMAKE_CXX_COMPILER_ID "Clang")
-      set(CMAKE_OSX_ARCHITECTURES x86_64)
-
-      set(MACOSX_DEPLOYMENT_TARGET 10.10)
-      set(CMAKE_OSX_DEPLOYMENT_TARGET 10.10)
+      set(MACOSX_DEPLOYMENT_TARGET 10.13)
+      set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13)
 
       set(HAS_AUDIOFILE TRUE)            # Requires libsndfile
       set(MAC_APPCAST_URL "")
@@ -281,7 +252,7 @@ endif (NOT MSVC)
 
 if (APPLE)
    if (XCODE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
    else (XCODE)
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11 -fPIC -stdlib=libc++ -Wno-inconsistent-missing-override -Wno-deprecated-register")
    endif (XCODE)
@@ -295,7 +266,7 @@ else (APPLE)
       if (BUILD_64 STREQUAL "ON")
          set(USE_SSE FALSE)
       endif(BUILD_64 STREQUAL "ON")
-   # Set compiler options for VS2017/19 toolchain.
+   # Set compiler options for VS2017/19/22 toolchain.
    # Note: /D_CRT_SECURE_NO WARNINGS disables warnings when using "non-secure" library functions like sscanf...
       set(CMAKE_CXX_FLAGS                "/MP /DWIN32 /D_WINDOWS /GR /EHsc /D_UNICODE /DUNICODE /D_CRT_SECURE_NO_WARNINGS /execution-charset:utf-8 /source-charset:utf-8")
       set(CMAKE_C_FLAGS                  "/MP /DWIN32 /D_WINDOWS /D_CRT_SECURE_NO_WARNINGS")
@@ -304,25 +275,43 @@ else (APPLE)
          set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} /arch:SSE")
          set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS} /arch:SSE")
       endif (USE_SSE)
-      set(CMAKE_CXX_FLAGS_DEBUG          "/MT /permissive- /std:c++14 /W4 /Zi /Ob0 /Od /RTC1 /wd4996")
-      set(CMAKE_CXX_FLAGS_RELEASE        "/MT /permissive- /std:c++14 /W4 /O2 /Ob2 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT")
-      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /permissive- /std:c++14 /W4 /Zi /O2 /Ob1 /DNDEBUG /DQT_NO_DEBUG /DQT_NO_DEBUG_OUTPUT /wd4996")
+      set(CMAKE_CXX_FLAGS_DEBUG          "/MT /permissive- /std:c++20 /Zc:__cplusplus /W4 /Zi /Ob0 /Od /RTC1 /wd4996")
+      set(CMAKE_CXX_FLAGS_RELEASE        "/MT /permissive- /std:c++20 /Zc:__cplusplus /W4 /O2 /Ob2 /DNDEBUG /DQT_NO_DEBUG")
+      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /permissive- /std:c++20 /Zc:__cplusplus /W4 /Zi /O2 /Ob1 /DNDEBUG /DQT_NO_DEBUG /wd4996")
+
+      if (NOT ENABLE_RELEASE_DEBUG_LOG)
+            set(CMAKE_CXX_FLAGS_RELEASE        "${CMAKE_CXX_FLAGS_RELEASE} /DQT_NO_DEBUG_OUTPUT")
+            set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /DQT_NO_DEBUG_OUTPUT")
+      endif()
+
       set(CMAKE_C_FLAGS_DEBUG            "/MT /W4 /Zi /Ob0 /Od /RTC1")
       set(CMAKE_C_FLAGS_RELEASE          "/MT /W4 /O2 /Ob2 /DNDEBUG")
       set(CMAKE_C_FLAGS_RELWITHDEBINFO   "/MT /W4 /Zi /O2 /Ob1 /DNDEBUG")
-      set(CMAKE_EXE_LINKER_FLAGS         "/DYNAMICBASE:NO")
+      if (BUILD_JACK)
+          set(CMAKE_EXE_LINKER_FLAGS     "/DYNAMICBASE:NO /NODEFAULTLIB:LIBCMT") # Disable ASLR
+      else (BUILD_JACK)
+          set(CMAKE_EXE_LINKER_FLAGS     "/NODEFAULTLIB:LIBCMT")
+      endif (BUILD_JACK)
    else (MSVC)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
       if (MINGW)
+         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a -D_UNICODE -DUNICODE")
          # -mno-ms-bitfields see #22048
          set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -mno-ms-bitfields")
          if (NOT BUILD_64)
              set(CMAKE_EXE_LINKER_FLAGS "-Wl,--large-address-aware")
          endif (NOT BUILD_64)
       else (MINGW)
+         if (ARCH_TYPE=_x64)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -D_UNICODE -DUNICODE")
+         else (ARCH_TYPE=_x64) # arm*
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a -D_UNICODE -DUNICODE")
+         endif (ARCH_TYPE=_x64)
          set(CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -fPIC")
          set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Woverloaded-virtual")
-         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DQT_NO_DEBUG_OUTPUT")
+
+         if (NOT ENABLE_RELEASE_DEBUG_LOG)
+               set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DQT_NO_DEBUG_OUTPUT")
+         endif()
       endif (MINGW)
       set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -Wno-deprecated-declarations -Wno-cast-function-type") # don't want to see those in 3.x when using Qt 5.15
    endif (MSVC)
@@ -349,7 +338,7 @@ endif (MINGW OR MSVC OR APPLE)
 
 # Download MuseScore SoundFont
 if (DOWNLOAD_SOUNDFONT)
-  set (SF_VERSION_REMOTE_FILE ${PROJECT_BINARY_DIR}/VERSION)
+  set (SF_VERSION_REMOTE_FILE ${PROJECT_BINARY_DIR}/SF_VERSION)
   set (SF_VERSION_LOCAL_FILE ${PROJECT_SOURCE_DIR}/share/sound/VERSION)
   set (DOWNLOAD_URL_ROOT "https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General")
   set (SOUND_DIRECTORY ${PROJECT_SOURCE_DIR}/share/sound)
@@ -397,6 +386,13 @@ if (BUILD_FOR_WINSTORE)
   set(FOR_WINSTORE 1)
 endif(BUILD_FOR_WINSTORE)
 
+#
+# Precompiled header
+#
+if (BUILD_PCH)
+      include (CreatePrecompiledHeader)
+endif (BUILD_PCH)
+
 if (USE_ZITA_REVERB)
     add_definitions(-DZITA_REVERB)
 endif(USE_ZITA_REVERB)
@@ -418,7 +414,9 @@ if (USE_SYSTEM_FREETYPE)
       else (APPLE)
             find_package(Freetype REQUIRED)
       endif (APPLE)
-endif (USE_SYSTEM_FREETYPE)
+else()
+      add_subdirectory(thirdparty/freetype)
+endif()
 
 ##
 ## ALSA >= 1.0.0
@@ -735,48 +733,17 @@ if (NOT MINGW AND NOT MSVC AND NOT APPLE)
     # Install man pages in either compressed or uncompressed form
     install( FILES ${MAN_BUILD} DESTINATION share/man/man1 COMPONENT doc)
     # Create symlink alias for man pages so `man musescore` = `man mscore`
-    find_program( LN_EXECUTABLE ln DOC "A tool for creating symbolic link aliases (optional)." )
-    if (LN_EXECUTABLE)
-        message(STATUS "Found 'ln'. Symlink aliases will be created for MuseScore executable and the man pages.")
-        add_custom_command(
-            TARGET manpages
-            COMMAND echo "Creating symlink alias for man pages."
-            COMMAND ${LN_EXECUTABLE} -sf "${MAN_FULL_NAME}" "${MAN_FULL_ALIAS}"
-            COMMAND echo 'Symlink alias: ${MAN_FULL_ALIAS} -> ${MAN_FULL_NAME}'
-            )
-        install( FILES ${PROJECT_BINARY_DIR}/${MAN_FULL_ALIAS} DESTINATION share/man/man1 COMPONENT doc)
-     else (LN_EXECUTABLE)
-         message(STATUS "'ln' not found (it is optional). No symlink aliases will be created.")
-     endif (LN_EXECUTABLE)
+    install(CODE "message(STATUS \"Creating symlink \$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/man/man1/${MAN_FULL_ALIAS} -> ${CMAKE_INSTALL_PREFIX}/share/man/man1/${MAN_FULL_NAME}\")
+                  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink \"${CMAKE_INSTALL_PREFIX}/share/man/man1/${MAN_FULL_NAME}\" \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/man/man1/${MAN_FULL_ALIAS}\")"
+            COMPONENT doc)
     # Add .MSCZ and .MSCX to MIME database (informs system that filetypes .MSCZ & .MSCX are MuseScore files)
     configure_file(build/Linux+BSD/musescore.xml.in musescore${MSCORE_INSTALL_SUFFIX}.xml)
     install( FILES ${PROJECT_BINARY_DIR}/musescore${MSCORE_INSTALL_SUFFIX}.xml DESTINATION share/mime/packages COMPONENT doc)
     # Note: Must now run "update-mime-database" to apply changes. This is done in the Makefile.
 endif (NOT MINGW AND NOT MSVC AND NOT APPLE)
 
-#
-#  Create precompiled header file
-#
-
-# all.h is expected in PROJECT_BINARY_DIR by subdirs, except for MSVC
-if (NOT MSVC)
-   execute_process(
-      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/all.h ${PROJECT_BINARY_DIR}/all.h
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-      )
-endif (NOT MSVC)
-
-precompiled_header(QT_INCLUDES all ${BUILD_PCH})
-
-# MSVC does not require these targets, as all.h is not copied and the
-#   PCH generation is done per-project
-if (NOT MSVC)
-   ADD_CUSTOM_TARGET(mops1 DEPENDS ${PROJECT_BINARY_DIR}/all.h)
-   ADD_CUSTOM_TARGET(mops2 DEPENDS ${PCH})
-endif (NOT MSVC)
 
 ##
-
 ## Includes
 ##
 include_directories(
@@ -789,6 +756,7 @@ include_directories(
    ${VORBIS_INCDIR}
    ${SNDFILE_INCDIR}
    ${LAME_INCLUDE_DIR}
+   ${FREETYPE_INCLUDE_DIRS}
 )
 
 if (MSVC)
@@ -800,12 +768,6 @@ if (MSVC)
    include_directories(${PORTAUDIO_INCLUDE_DIR})
    include_directories(${OGG_INCLUDE_DIR})
 endif (MSVC)
-
-if (USE_SYSTEM_FREETYPE)
-      include_directories(${FREETYPE_INCLUDE_DIRS})
-else (USE_SYSTEM_FREETYPE)
-      include_directories(${PROJECT_SOURCE_DIR}/thirdparty/freetype/include)
-endif (USE_SYSTEM_FREETYPE)
 
 if (OMR)
  if (NOT USE_SYSTEM_POPPLER)
@@ -845,14 +807,14 @@ configure_file (
 ##
 ## Add subdirs
 ##
-add_subdirectory(effects)
 add_subdirectory(audio)
 add_subdirectory(audiofile)
-
-subdirs(
-      awl bww2mxml share libmscore
-      thirdparty/qzip
-      )
+add_subdirectory(awl)
+add_subdirectory(bww2mxml)
+add_subdirectory(effects)
+add_subdirectory(libmscore)
+add_subdirectory(share)
+add_subdirectory(thirdparty/qzip)
 
 if (BUILD_CRASH_REPORTER)
       set(ENABLE_CRASH_REPORTER OFF CACHE BOOL "Disable libcrashreporter-qt GUI component")
@@ -895,10 +857,6 @@ if (OSC)
       add_subdirectory(thirdparty/ofqf)
 endif (OSC)
 
-if (NOT USE_SYSTEM_FREETYPE)
-      add_subdirectory(thirdparty/freetype)
-endif (NOT USE_SYSTEM_FREETYPE)
-
 ##
 ##  Include packaging
 ##
@@ -913,11 +871,11 @@ include(Packaging)
 
 add_custom_target(lupdate
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-qt-projectfile ${PROJECT_SOURCE_DIR} > mscore.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/mscore.pro
+   COMMAND Qt5::lupdate -no-obsolete ${PROJECT_BINARY_DIR}/mscore.pro
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-instruments-projectfile ${PROJECT_SOURCE_DIR}/share/instruments > instruments.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/instruments.pro
+   COMMAND Qt5::lupdate -no-obsolete ${PROJECT_BINARY_DIR}/instruments.pro
    COMMAND ${PROJECT_SOURCE_DIR}/build/gen-tours-projectfile ${PROJECT_SOURCE_DIR}/share/tours > tours.pro
-   COMMAND Qt5::lupdate ${PROJECT_BINARY_DIR}/tours.pro
+   COMMAND Qt5::lupdate -no-obsolete ${PROJECT_BINARY_DIR}/tours.pro
    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
    )
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-title>Title</work-title>
     </work>
@@ -34,7 +34,7 @@
   <part id="P1">
     <measure number="1">
       <attributes>
-        <divisions>480</divisions>
+        <divisions>9</divisions>
         <key>
           <fifths>-3</fifths>
           <mode>major</mode>
@@ -54,27 +54,25 @@
           </clef>
         </attributes>
       <note>
-        <rest/>
-        <duration>1920</duration>
+        <rest measure="yes"/>
+        <duration>36</duration>
         <voice>1</voice>
-        <type>whole</type>
         <staff>1</staff>
         </note>
       <backup>
-        <duration>1920</duration>
+        <duration>36</duration>
         </backup>
       <note>
-        <rest/>
-        <duration>1920</duration>
+        <rest measure="yes"/>
+        <duration>36</duration>
         <voice>5</voice>
-        <type>whole</type>
         <staff>2</staff>
         </note>
       </measure>
     <measure number="2">
       <note>
         <rest/>
-        <duration>960</duration>
+        <duration>18</duration>
         <voice>1</voice>
         <type>half</type>
         <staff>1</staff>
@@ -84,7 +82,7 @@
           <step>G</step>
           <octave>4</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
         <time-modification>
@@ -105,10 +103,10 @@
           <alter>-1</alter>
           <octave>4</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
-        <accidental>flat</accidental>
+        <accidental cautionary="yes" parentheses="no">flat</accidental>
         <time-modification>
           <actual-notes>9</actual-notes>
           <normal-notes>8</normal-notes>
@@ -124,10 +122,10 @@
           <alter>-1</alter>
           <octave>4</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
-        <accidental>flat</accidental>
+        <accidental cautionary="yes" parentheses="no">flat</accidental>
         <time-modification>
           <actual-notes>9</actual-notes>
           <normal-notes>8</normal-notes>
@@ -142,7 +140,7 @@
           <step>C</step>
           <octave>5</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
         <time-modification>
@@ -159,7 +157,7 @@
           <step>D</step>
           <octave>5</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
         <time-modification>
@@ -177,10 +175,10 @@
           <alter>-1</alter>
           <octave>5</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
-        <accidental>flat</accidental>
+        <accidental cautionary="yes" parentheses="no">flat</accidental>
         <time-modification>
           <actual-notes>9</actual-notes>
           <normal-notes>8</normal-notes>
@@ -195,10 +193,10 @@
           <step>F</step>
           <octave>5</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
-        <accidental>natural</accidental>
+        <accidental cautionary="yes" parentheses="no">natural</accidental>
         <time-modification>
           <actual-notes>9</actual-notes>
           <normal-notes>8</normal-notes>
@@ -213,7 +211,7 @@
           <step>G</step>
           <octave>5</octave>
           </pitch>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
         <time-modification>
@@ -227,7 +225,7 @@
         </note>
       <note>
         <rest/>
-        <duration>107</duration>
+        <duration>2</duration>
         <voice>1</voice>
         <type>16th</type>
         <time-modification>
@@ -240,13 +238,12 @@
           </notations>
         </note>
       <backup>
-        <duration>1920</duration>
+        <duration>36</duration>
         </backup>
       <note>
-        <rest/>
-        <duration>1920</duration>
+        <rest measure="yes"/>
+        <duration>36</duration>
         <voice>5</voice>
-        <type>whole</type>
         <staff>2</staff>
         </note>
       <barline location="right">

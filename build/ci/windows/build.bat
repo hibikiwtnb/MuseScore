@@ -29,10 +29,10 @@ IF NOT %TARGET_PROCESSOR_BITS% == 64 (
 
 SET /p BUILD_MODE=<%ARTIFACTS_DIR%\env\build_mode.env
 SET "MUSESCORE_BUILD_CONFIG=dev"
-IF %BUILD_MODE% == devel_build   ( SET "MUSESCORE_BUILD_CONFIG=dev" ) ELSE (
-IF %BUILD_MODE% == nightly_build ( SET "MUSESCORE_BUILD_CONFIG=dev" ) ELSE (
-IF %BUILD_MODE% == testing_build ( SET "MUSESCORE_BUILD_CONFIG=testing" ) ELSE (
-IF %BUILD_MODE% == stable_build  ( SET "MUSESCORE_BUILD_CONFIG=release" ) ELSE (
+IF %BUILD_MODE% == devel ( SET "MUSESCORE_BUILD_CONFIG=dev" ) ELSE (
+IF %BUILD_MODE% == nightly ( SET "MUSESCORE_BUILD_CONFIG=dev" ) ELSE (
+IF %BUILD_MODE% == testing ( SET "MUSESCORE_BUILD_CONFIG=testing" ) ELSE (
+IF %BUILD_MODE% == stable  ( SET "MUSESCORE_BUILD_CONFIG=release" ) ELSE (
     ECHO "error: unknown BUILD_MODE: %BUILD_MODE%"
     EXIT /b 1
 ))))
@@ -58,17 +58,22 @@ ECHO "BUILD_UI_MU4: %BUILD_UI_MU4%"
 XCOPY "C:\musescore_dependencies" %CD% /E /I /Y
 ECHO "Finished copy dependencies"
 
-SET GENERATOR_NAME=Visual Studio 16 2019
+SET GENERATOR_NAME=Visual Studio 17 2022
 SET MSCORE_STABLE_BUILD="TRUE"
 
 :: TODO We need define paths during image creation
 SET "JACK_DIR=C:\Program Files (x86)\Jack"
-SET "QT_DIR=C:\Qt\5.9.9"
 
 IF %TARGET_PROCESSOR_BITS% == 32 ( 
-    SET "PATH=%QT_DIR%\msvc2015\bin;%JACK_DIR%;%PATH%"
+    :: SET "QT_DIR=C:\Qt\5.9.9"
+    :: SET "PATH=%QT_DIR%\msvc2015\bin;%JACK_DIR%;%PATH%"
+    :: for some strange reason the above doesn't work
+    SET "PATH=C:\Qt\5.9.9\msvc2015\bin;%JACK_DIR%;%PATH%"
 ) ELSE (
-    SET "PATH=%QT_DIR%\msvc2017_64\bin;%JACK_DIR%;%PATH%"
+    :: SET "QT_DIR=C:\Qt\5.15.2"
+    :: SET "PATH=%QT_DIR%\msvc2019_64\bin;%JACK_DIR%;%PATH%"
+    :: for some strange reason the above doesn't work
+    SET "PATH=C:\Qt\5.15.2\msvc2019_64\bin;%JACK_DIR%;%PATH%"
 )
 
 bash ./build/ci/tools/make_revision_env.sh 

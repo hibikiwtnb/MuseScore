@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile: makam music accidentals</work-number>
     <work-title>Non standard key signature 3</work-title>
@@ -41,19 +41,19 @@
           <key-alter>0.5</key-alter>
           <key-accidental>quarter-sharp</key-accidental>
           <key-step>D</key-step>
-          <key-alter>0</key-alter>
+          <key-alter>0.56</key-alter>
           <key-accidental>slash-quarter-sharp</key-accidental>
           <key-step>E</key-step>
-          <key-alter>0</key-alter>
+          <key-alter>0.89</key-alter>
           <key-accidental>slash-sharp</key-accidental>
           <key-step>F</key-step>
           <key-alter>-0.5</key-alter>
           <key-accidental>quarter-flat</key-accidental>
           <key-step>G</key-step>
-          <key-alter>0</key-alter>
+          <key-alter>-0.44</key-alter>
           <key-accidental>slash-flat</key-accidental>
           <key-step>A</key-step>
-          <key-alter>0</key-alter>
+          <key-alter>-0.89</key-alter>
           <key-accidental>double-slash-flat</key-accidental>
           </key>
         <time>

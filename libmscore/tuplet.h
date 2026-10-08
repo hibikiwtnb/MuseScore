@@ -45,6 +45,7 @@ class Tuplet final : public DurationElement {
       TDuration _baseLen;      // 1/8 for a triplet of 1/8
 
       bool _isUp;
+      bool _isSmall;
 
       Fraction _tick;
 
@@ -119,6 +120,7 @@ class Tuplet final : public DurationElement {
       void setDirection(Direction d)          { _direction = d; }
       Direction direction() const             { return _direction; }
       bool isUp() const                       { return _isUp; }
+      bool isSmall() const                    { return _isSmall; }
       Fraction tick() const override  { return _tick; }
       Fraction rtick() const override;
       void setTick(const Fraction& v)         { _tick = v; }
@@ -127,6 +129,7 @@ class Tuplet final : public DurationElement {
       bool cross() const;
 
       void setVisible(bool f) override;
+      void setColor(const QColor& col) override;
 
       QVariant getProperty(Pid propertyId) const override;
       bool setProperty(Pid propertyId, const QVariant& v) override;
@@ -142,6 +145,9 @@ class Tuplet final : public DurationElement {
 
       void sanitizeTuplet();
       void addMissingElements();
+
+      Element* nextElement() override;
+      Element* prevElement() override;
       };
 
 

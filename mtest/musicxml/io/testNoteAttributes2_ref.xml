@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Note Attributes 2</work-title>
@@ -246,6 +246,9 @@
         <type>quarter</type>
         <stem>down</stem>
         <notations>
+          <ornaments>
+            <other-ornament smufl="brassMuteClosed"/>
+            </ornaments>
           <technical>
             <stopped/>
             </technical>
@@ -371,7 +374,7 @@
         <stem>down</stem>
         <notations>
           <articulations>
-            <breath-mark/>
+            <breath-mark placement="above">comma</breath-mark>
             </articulations>
           </notations>
         </note>
@@ -386,7 +389,7 @@
         <stem>down</stem>
         <notations>
           <articulations>
-            <breath-mark/>
+            <breath-mark placement="above">comma</breath-mark>
             </articulations>
           </notations>
         </note>
@@ -448,7 +451,8 @@
         <stem>up</stem>
         <notations>
           <articulations>
-            <detached-legato/>
+            <tenuto/>
+            <staccato/>
             </articulations>
           </notations>
         </note>
@@ -465,7 +469,7 @@
         <stem>up</stem>
         <notations>
           <articulations>
-            <staccatissimo/>
+            <spiccato/>
             </articulations>
           </notations>
         </note>
@@ -510,7 +514,7 @@
         <stem>up</stem>
         <notations>
           <technical>
-            <open-string/>
+            <open/>
             </technical>
           </notations>
         </note>
@@ -568,7 +572,7 @@
         <stem>up</stem>
         <notations>
           <articulations>
-            <caesura/>
+            <caesura placement="above"/>
             </articulations>
           </notations>
         </note>

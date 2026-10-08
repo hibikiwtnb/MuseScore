@@ -18,23 +18,21 @@
 //=============================================================================
 
 #include "musescore.h"
-#include "timeline.h"
+#include "pathlistdialog.h"
 #include "preferences.h"
 #include "prefsdialog.h"
+#include "resourceManager.h"
 #include "seq.h"
-#include "shortcutcapturedialog.h"
 #include "scoreview.h"
 #include "shortcut.h"
+#include "shortcutcapturedialog.h"
+#include "timeline.h"
 #include "workspace.h"
 
-#include "audio/drivers/pa.h"
+#include "audiodrivers/pa.h"
 #ifdef USE_PORTMIDI
-#include "audio/drivers/pm.h"
+#include "audiodrivers/pm.h"
 #endif
-
-#include "pathlistdialog.h"
-#include "resourceManager.h"
-#include "audio/midi/msynthesizer.h"
 
 #ifdef AVSOMR
 #include "avsomr/avsomrlocal.h"
@@ -179,6 +177,7 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
 
       connect(myScoresButton, &QToolButton::clicked, this, &PreferenceDialog::selectScoresDirectory);
       connect(myStylesButton, &QToolButton::clicked, this, &PreferenceDialog::selectStylesDirectory);
+      connect(myScoreFontsButton, &QToolButton::clicked, this, &PreferenceDialog::selectScoreFontsDirectory);
       connect(myTemplatesButton, &QToolButton::clicked, this, &PreferenceDialog::selectTemplatesDirectory);
       connect(myPluginsButton, &QToolButton::clicked, this, &PreferenceDialog::selectPluginsDirectory);
       connect(mySoundfontsButton, &QToolButton::clicked, this, &PreferenceDialog::changeSoundfontPaths);
@@ -187,6 +186,7 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
 
       myScoresButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       myStylesButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
+      myScoreFontsButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       myTemplatesButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       myPluginsButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       mySoundfontsButton->setIcon(*icons[int(Icons::edit_ICON)]);
@@ -204,6 +204,15 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
       connect(scoreOrderList2Button,  &QToolButton::clicked, this, &PreferenceDialog::selectScoreOrderList2);
       connect(startWithButton,        &QToolButton::clicked, this, &PreferenceDialog::selectStartWith);
 
+      connect(metronomeDownbeatSoundButton, &QToolButton::clicked,
+              this, &PreferenceDialog::selectMetronomeDownbeatSound);
+
+      connect(metronomeBeatSoundButton, &QToolButton::clicked,
+              this, &PreferenceDialog::selectMetronomeBeatSound);
+
+      connect(metronomeSoundsReset, &QPushButton::clicked,
+              this, &PreferenceDialog::resetMetronomeSounds);
+
       defaultStyleButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       partStyleButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       styleFileButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
@@ -212,6 +221,9 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
       scoreOrderList1Button->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       scoreOrderList2Button->setIcon(*icons[int(Icons::fileOpen_ICON)]);
       startWithButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
+
+      metronomeDownbeatSoundButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
+      metronomeBeatSoundButton->setIcon(*icons[int(Icons::fileOpen_ICON)]);
 
       connect(shortcutList,   &QTreeWidget::itemActivated, this, &PreferenceDialog::defineShortcutClicked);
       connect(resetShortcut,  &QToolButton::clicked, this, &PreferenceDialog::resetShortcutClicked);
@@ -245,7 +257,11 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
       recordButtons->addButton(recordEditMode, RMIDI_NOTE_EDIT_MODE);
       recordButtons->addButton(recordRealtimeAdvance, RMIDI_REALTIME_ADVANCE);
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+      connect(recordButtons,              QOverload<int>::of(&QButtonGroup::idClicked), this, &PreferenceDialog::recordButtonClicked);
+#else
       connect(recordButtons,              QOverload<int>::of(&QButtonGroup::buttonClicked), this, &PreferenceDialog::recordButtonClicked);
+#endif
       connect(midiRemoteControlClear,     &QToolButton::clicked, this, &PreferenceDialog::midiRemoteControlClearClicked);
       connect(portaudioDriver,            &QGroupBox::toggled, this, &PreferenceDialog::exclusiveAudioDriver);
       connect(pulseaudioDriver,           &QGroupBox::toggled, this, &PreferenceDialog::exclusiveAudioDriver);
@@ -264,7 +280,7 @@ PreferenceDialog::PreferenceDialog(QWidget* parent)
       connect(resetPreference, &QPushButton::clicked, this, &PreferenceDialog::resetAdvancedPreferenceToDefault);
       connect(this, &PreferenceDialog::preferencesChanged, mscore->timeline(),  &Timeline::updateTimelineTheme); // this should probably be moved to updateUiStyleAndTheme
       MuseScore::restoreGeometry(this);
-#if !defined(Q_OS_MAC) && (!defined(Q_OS_WIN) || defined(FOR_WINSTORE))
+#if !defined(Q_OS_MAC) && (!defined(Q_OS_WIN) || defined(FOR_WINSTORE)) || !0
       General->removeTab(General->indexOf(tabUpdate)); // updateTab not needed on Linux and not wanted in Windows Store
 #endif
       }
@@ -294,12 +310,15 @@ void PreferenceDialog::start()
       normalWidgets = std::vector<PreferenceItem*>{
                   new IntPreferenceItem(PREF_APP_AUTOSAVE_AUTOSAVETIME, autoSaveTime),
                   new BoolPreferenceItem(PREF_APP_AUTOSAVE_USEAUTOSAVE, autoSave),
+                  new StringPreferenceItem(PREF_APP_PLAYBACK_METRONOME_DOWNBEAT_SOUND, metronomeDownbeatSound),
+                  new StringPreferenceItem(PREF_APP_PLAYBACK_METRONOME_BEAT_SOUND, metronomeBeatSound),
                   new StringPreferenceItem(PREF_APP_PATHS_INSTRUMENTLIST1, instrumentList1),
                   new StringPreferenceItem(PREF_APP_PATHS_INSTRUMENTLIST2, instrumentList2),
                   new StringPreferenceItem(PREF_APP_PATHS_SCOREORDERLIST1, scoreOrderList1),
                   new StringPreferenceItem(PREF_APP_PATHS_SCOREORDERLIST2, scoreOrderList2),
                   new StringPreferenceItem(PREF_APP_PATHS_MYIMAGES, myImages),
                   new StringPreferenceItem(PREF_APP_PATHS_MYPLUGINS, myPlugins),
+                  new StringPreferenceItem(PREF_APP_PATHS_MYSCOREFONTS, myScoreFonts),
                   new StringPreferenceItem(PREF_APP_PATHS_MYSCORES, myScores),
                   new StringPreferenceItem(PREF_APP_PATHS_MYSOUNDFONTS, mySoundfonts),
                   new StringPreferenceItem(PREF_APP_PATHS_MYSTYLES, myStyles),
@@ -317,6 +336,7 @@ void PreferenceDialog::start()
                                             bool value = preferences.getBool(PREF_MIGRATION_DO_NOT_ASK_ME_AGAIN_XML) && preferences.getBool(PREF_MIGRATION_APPLY_EDWIN_FOR_XML_FILES);
                                             applyDefaultTypeFaceToImportedScores->setChecked(value);
                                             }), // update function
+                  new BoolPreferenceItem(PREF_IMPORT_MUSICXML_IMPORTINFERTEXTTYPE, inferTextTypes),
             #ifdef AVSOMR
                   new BoolPreferenceItem(PREF_IMPORT_AVSOMR_USELOCAL, useLocalAvsOmr, [&](){ updateUseLocalAvsOmr(); }),
             #endif
@@ -325,6 +345,7 @@ void PreferenceDialog::start()
                   new BoolPreferenceItem(PREF_IO_MIDI_EXPANDREPEATS, expandRepeats),
                   new BoolPreferenceItem(PREF_EXPORT_AUDIO_NORMALIZE, normalize),
                   new BoolPreferenceItem(PREF_IO_MIDI_EXPORTRPNS, exportRPNs),
+                  // TODO? new BoolPreferenceItem(PREF_IO_MIDI_SPACELYRICS, spaceLyrics),
                   new IntPreferenceItem(PREF_IO_MIDI_REALTIMEDELAY, realtimeDelay),
                   new BoolPreferenceItem(PREF_IO_MIDI_USEREMOTECONTROL, rcGroup),
                   new IntPreferenceItem(PREF_IO_OSC_PORTNUMBER, oscPort),
@@ -340,8 +361,6 @@ void PreferenceDialog::start()
                   new BoolPreferenceItem(PREF_UI_APP_STARTUP_SHOWSTARTCENTER, showStartcenter),
                   new BoolPreferenceItem(PREF_UI_APP_STARTUP_SHOWTOURS, showTours),
                   new BoolPreferenceItem(PREF_APP_TELEMETRY_ALLOWED, collectTelemetry),
-                  new BoolPreferenceItem(PREF_IO_JACK_TIMEBASEMASTER, becomeTimebaseMaster),
-                  new BoolPreferenceItem(PREF_IO_JACK_REMEMBERLASTCONNECTIONS, rememberLastMidiConnections),
                   new BoolPreferenceItem(PREF_SCORE_NOTE_WARNPITCHRANGE, warnPitchRange),
                   new StringPreferenceItem(PREF_IMPORT_OVERTURE_CHARSET, importCharsetListOve, nullptr, [&](){ updateCharsetListOve(); }),      // keep the default apply
                   new StringPreferenceItem(PREF_IMPORT_GUITARPRO_CHARSET, importCharsetListGP, nullptr, [&](){ updateCharsetListGP(); }),       // keep the default apply
@@ -500,17 +519,25 @@ void PreferenceDialog::start()
       audioRelatedWidgets = std::vector<PreferenceItem*>{
                   new BoolPreferenceItem(PREF_IO_ALSA_USEALSAAUDIO, alsaDriver, doNothing),
                   new BoolPreferenceItem(PREF_IO_JACK_USEJACKAUDIO, useJackAudio, doNothing),
+#ifdef USE_PORTAUDIO
                   new BoolPreferenceItem(PREF_IO_PORTAUDIO_USEPORTAUDIO, portaudioDriver, doNothing),
+#endif
                   new BoolPreferenceItem(PREF_IO_PULSEAUDIO_USEPULSEAUDIO, pulseaudioDriver, doNothing),
                   new BoolPreferenceItem(PREF_IO_JACK_USEJACKMIDI, useJackMidi, doNothing),
                   new BoolPreferenceItem(PREF_IO_JACK_USEJACKTRANSPORT, useJackTransport, doNothing),
+                  new BoolPreferenceItem(PREF_IO_JACK_TIMEBASEMASTER, becomeTimebaseMaster, doNothing),
+                  new BoolPreferenceItem(PREF_IO_JACK_REMEMBERLASTCONNECTIONS, rememberLastMidiConnections, doNothing),
+#ifdef USE_ALSA
                   new StringPreferenceItem(PREF_IO_ALSA_DEVICE, alsaDevice, doNothing),
                   new IntPreferenceItem(PREF_IO_ALSA_SAMPLERATE, alsaSampleRate, doNothing),
                   new IntPreferenceItem(PREF_IO_ALSA_PERIODSIZE, alsaPeriodSize, doNothing),
                   new IntPreferenceItem(PREF_IO_ALSA_FRAGMENTS, alsaFragments, doNothing),
+#endif
+#ifdef USE_PORTAUDIO
                   new IntPreferenceItem(PREF_IO_PORTAUDIO_DEVICE, portaudioApi, doNothing, doNothing),
                   new IntPreferenceItem(PREF_IO_PORTAUDIO_DEVICE, portaudioDevice, doNothing, doNothing),
-            #ifdef USE_PORTMIDI
+#endif
+#ifdef USE_PORTMIDI
                   new StringPreferenceItem(PREF_IO_PORTMIDI_INPUTDEVICE, portMidiInput, doNothing, doNothing),
                   new StringPreferenceItem(PREF_IO_PORTMIDI_OUTPUTDEVICE, portMidiOutput, doNothing, doNothing),
                   new IntPreferenceItem(PREF_IO_PORTMIDI_OUTPUTLATENCYMILLISECONDS, portMidiOutputLatencyMilliseconds),
@@ -586,7 +613,7 @@ void PreferenceDialog::hideEvent(QHideEvent* ev)
 
 void PreferenceDialog::recordButtonClicked(int val)
       {
-      for (QAbstractButton* b : recordButtons->buttons()) {
+      for (QAbstractButton*& b : recordButtons->buttons()) {
             b->setChecked(recordButtons->id(b) == val);
             }
       mscore->setMidiRecordId(val);
@@ -704,10 +731,18 @@ void PreferenceDialog::updateValues(bool useDefaultValues, bool setup)
                         QStringList midiInputs = midiDriver->deviceInList();
                         int curMidiInIdx = 0;
                         portMidiInput->clear();
+                        portMidiInput->insertItem(0," "); // note: a space to be different from the default empty string.
+                        // The current input device can be different from the saved preference if the preference was empty
+                        // because of automatic grabbing of the default input device if not explicitly told otherwise.
+                        // Therefore, comparison must be done with respect to the actual current input device name.
+                        const PmDeviceInfo* info = Pm_GetDeviceInfo(midiDriver->getInputId());
+                        QString portmidiInputDevice;
+                        if(info && (info->input))
+                              portmidiInputDevice = QString(info->interf) + "," + QString(info->name);
                         for(int i = 0; i < midiInputs.size(); ++i) {
-                              portMidiInput->addItem(midiInputs.at(i), i);
-                              if (midiInputs.at(i) == preferences.getString(PREF_IO_PORTMIDI_INPUTDEVICE))
-                                    curMidiInIdx = i;
+                              portMidiInput->insertItem(i+1, midiInputs.at(i));
+                              if (midiInputs.at(i) == portmidiInputDevice)
+                                    curMidiInIdx = i + 1;
                               }
                         portMidiInput->setCurrentIndex(curMidiInIdx);
 
@@ -780,7 +815,7 @@ bool ShortcutItem::operator<(const QTreeWidgetItem& item) const
 void PreferenceDialog::updateSCListView()
       {
       shortcutList->clear();
-      for (Shortcut* s : localShortcuts) {
+      for (Shortcut*& s : localShortcuts) {
             if (!s)
                   continue;
             ShortcutItem* newItem = new ShortcutItem;
@@ -790,16 +825,14 @@ void PreferenceDialog::updateSCListView()
             newItem->setText(1, s->keysToString());
             newItem->setData(0, Qt::UserRole, s->key());
             QString accessibleInfo = tr("Action: %1; Shortcut: %2")
-               .arg(newItem->text(0)).arg(newItem->text(1).isEmpty()
+               .arg(newItem->text(0), newItem->text(1).isEmpty()
                   ? tr("No shortcut defined") : newItem->text(1));
             newItem->setData(0, Qt::AccessibleTextRole, accessibleInfo);
             newItem->setData(1, Qt::AccessibleTextRole, accessibleInfo);
             if (enableExperimental
                         || (!s->key().startsWith("media")
                             && !s->key().startsWith("layer")
-#ifdef NDEBUG
                             && !s->key().startsWith("debugger")
-#endif
                             && !s->key().startsWith("edit_harmony")
                             && !s->key().startsWith("insert-fretframe"))) {
                   shortcutList->addTopLevelItem(newItem);
@@ -910,7 +943,7 @@ void PreferenceDialog::filterAdvancedPreferences(const QString& query)
 void PreferenceDialog::resetAdvancedPreferenceToDefault()
       {
       preferences.setReturnDefaultValuesMode(true);
-      for (QTreeWidgetItem* item : advancedWidget->selectedItems()) {
+      for (QTreeWidgetItem*& item : advancedWidget->selectedItems()) {
             PreferenceItem* pref = static_cast<PreferenceItem*>(item);
             pref->setDefaultValue();
             }
@@ -1066,6 +1099,62 @@ void PreferenceDialog::selectStartWith()
       }
 
 //---------------------------------------------------------
+//   selectMetronomeDownbeatSound
+//---------------------------------------------------------
+
+void PreferenceDialog::selectMetronomeDownbeatSound()
+      {
+      QString s = QFileDialog::getOpenFileName(
+            this,
+            tr("Choose Metronome Downbeat Sound"),
+            metronomeDownbeatSound->text(),
+            tr("Audio Files")
+                  + " (*.wav *.wave *.aif *.aiff *.flac *.ogg);;"
+                  + tr("All") + " (*)",
+            0,
+            preferences.getBool(PREF_UI_APP_USENATIVEDIALOGS)
+                  ? QFileDialog::Options()
+                  : QFileDialog::DontUseNativeDialog
+            );
+
+      if (!s.isNull())
+            metronomeDownbeatSound->setText(s);
+      }
+
+//---------------------------------------------------------
+//   selectMetronomeBeatSound
+//---------------------------------------------------------
+
+void PreferenceDialog::selectMetronomeBeatSound()
+      {
+      QString s = QFileDialog::getOpenFileName(
+            this,
+            tr("Choose Metronome Beat Sound"),
+            metronomeBeatSound->text(),
+            tr("Audio Files")
+                  + " (*.wav *.wave *.aif *.aiff *.flac *.ogg);;"
+                  + tr("All") + " (*)",
+            0,
+            preferences.getBool(PREF_UI_APP_USENATIVEDIALOGS)
+                  ? QFileDialog::Options()
+                  : QFileDialog::DontUseNativeDialog
+            );
+
+      if (!s.isNull())
+            metronomeBeatSound->setText(s);
+      }
+
+//---------------------------------------------------------
+//   resetMetronomeSounds
+//---------------------------------------------------------
+
+void PreferenceDialog::resetMetronomeSounds()
+      {
+      metronomeDownbeatSound->clear();
+      metronomeBeatSound->clear();
+      }
+
+//---------------------------------------------------------
 //   fgClicked
 //---------------------------------------------------------
 
@@ -1155,7 +1244,7 @@ void PreferenceDialog::updateCharsetListGP()
       std::sort(charsets.begin(), charsets.end());
       int idx = 0;
       importCharsetListGP->clear();
-      for (QByteArray charset : charsets) {
+      for (QByteArray& charset : charsets) {
             importCharsetListGP->addItem(charset);
             if (charset == preferences.getString(PREF_IMPORT_GUITARPRO_CHARSET))
                   importCharsetListGP->setCurrentIndex(idx);
@@ -1173,7 +1262,7 @@ void PreferenceDialog::updateCharsetListOve()
       std::sort(charsets.begin(), charsets.end());
       int idx = 0;
       importCharsetListOve->clear();
-      for (QByteArray charset : charsets) {
+      for (QByteArray& charset : charsets) {
             importCharsetListOve->addItem(charset);
             if (charset == preferences.getString(PREF_IMPORT_OVERTURE_CHARSET))
                   importCharsetListOve->setCurrentIndex(idx);
@@ -1215,9 +1304,9 @@ void PreferenceDialog::applyPageVertical()
       const auto cv = mscore->currentScoreView();
       preferences.setPreference(PREF_UI_CANVAS_SCROLL_VERTICALORIENTATION, pageVertical->isChecked());
       MScore::setVerticalOrientation(pageVertical->isChecked());
-      for (Score* s : mscore->scores()) {
+      for (Score* s : qAsConst(mscore->scores())) {
             s->doLayout();
-            for (Score* ss : s->scoreList())
+            for (Score*& ss : s->scoreList())
                   ss->doLayout();
             }
       if (cv)
@@ -1360,7 +1449,7 @@ void PreferenceDialog::apply()
       buttonBox->repaint();
 
       std::vector<QString> changedAdvancedProperties = advancedWidget->save();
-      for (auto x : changedAdvancedProperties)
+      for (auto& x : changedAdvancedProperties)
             if (x.startsWith("ui"))
                   uiStyleThemeChanged = true;
 
@@ -1391,9 +1480,10 @@ void PreferenceDialog::apply()
                         || preferences.getBool(PREF_IO_JACK_REMEMBERLASTCONNECTIONS) != rememberLastMidiConnections->isChecked()
                         || preferences.getBool(PREF_IO_JACK_TIMEBASEMASTER) != becomeTimebaseMaster->isChecked())
                         && (wasJack && nowJack);
-            //till this
 
-            preferences.setPreference(PREF_IO_JACK_USEJACKTRANSPORT, jackDriver->isChecked() && useJackTransport->isChecked()); //this
+            preferences.setPreference(PREF_IO_JACK_TIMEBASEMASTER, becomeTimebaseMaster->isChecked());
+            preferences.setPreference(PREF_IO_JACK_REMEMBERLASTCONNECTIONS, rememberLastMidiConnections->isChecked());
+            preferences.setPreference(PREF_IO_JACK_USEJACKTRANSPORT, jackDriver->isChecked() && useJackTransport->isChecked());
 
             if (jackParametersChanged) {
                   // Change parameters of JACK driver without unload
@@ -1409,35 +1499,43 @@ void PreferenceDialog::apply()
                   }
             else if (
                (wasJack != nowJack)
+               || (preferences.getBool(PREF_IO_ALSA_USEALSAAUDIO) != alsaDriver->isChecked())
+#ifdef USE_PORTAUDIO
                || (preferences.getBool(PREF_IO_PORTAUDIO_USEPORTAUDIO) != portaudioDriver->isChecked())
+#endif
                || (preferences.getBool(PREF_IO_PULSEAUDIO_USEPULSEAUDIO) != pulseaudioDriver->isChecked())
-      #ifdef USE_ALSA
+#ifdef USE_ALSA
                || (preferences.getString(PREF_IO_ALSA_DEVICE) != alsaDevice->text())
                || (preferences.getInt(PREF_IO_ALSA_SAMPLERATE) != alsaSampleRate->currentData().toInt())
                || (preferences.getInt(PREF_IO_ALSA_PERIODSIZE) != alsaPeriodSize->currentData().toInt())
                || (preferences.getInt(PREF_IO_ALSA_FRAGMENTS) != alsaFragments->value())
-      #endif
+#endif
                   ) {
                   preferences.setPreference(PREF_IO_ALSA_USEALSAAUDIO, alsaDriver->isChecked());
+#ifdef USE_PORTAUDIO
                   preferences.setPreference(PREF_IO_PORTAUDIO_USEPORTAUDIO, portaudioDriver->isChecked());
+#endif
                   preferences.setPreference(PREF_IO_PULSEAUDIO_USEPULSEAUDIO, pulseaudioDriver->isChecked());
+#ifdef USE_ALSA
                   preferences.setPreference(PREF_IO_ALSA_DEVICE, alsaDevice->text());
                   preferences.setPreference(PREF_IO_ALSA_SAMPLERATE, alsaSampleRate->currentData().toInt());
                   preferences.setPreference(PREF_IO_ALSA_PERIODSIZE, alsaPeriodSize->currentData().toInt());
                   preferences.setPreference(PREF_IO_ALSA_FRAGMENTS, alsaFragments->value());
+#endif
 
                   restartAudioEngine();
                   }
-      #ifdef USE_PORTAUDIO
+#ifdef USE_PORTAUDIO
             if (portAudioIsUsed && !noSeq) {
                   Portaudio* audio = static_cast<Portaudio*>(seq->driver());
                   preferences.setPreference(PREF_IO_PORTAUDIO_DEVICE, audio->deviceIndex(portaudioApi->currentIndex(), portaudioDevice->currentIndex()));
                   }
-      #endif
+#endif
 
-      #ifdef USE_PORTMIDI
+#ifdef USE_PORTMIDI
             preferences.setPreference(PREF_IO_PORTMIDI_INPUTDEVICE, portMidiInput->currentText());
             preferences.setPreference(PREF_IO_PORTMIDI_OUTPUTDEVICE, portMidiOutput->currentText());
+            preferences.setPreference(PREF_IO_PORTMIDI_OUTPUTLATENCYMILLISECONDS, portMidiOutputLatencyMilliseconds->value());
             if (seq->driver() && static_cast<PortMidiDriver*>(static_cast<Portaudio*>(seq->driver())->mididriver())->isSameCoreMidiIacBus(preferences.getString(PREF_IO_PORTMIDI_INPUTDEVICE), preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE))) {
                   QMessageBox msgBox;
                   msgBox.setWindowTitle(tr("Possible MIDI Loopback"));
@@ -1445,12 +1543,12 @@ void PreferenceDialog::apply()
                   msgBox.setText(tr("Warning: You used the same CoreMIDI IAC bus for input and output. This will cause problematic loopback, whereby MuseScore's output MIDI messages will be sent back to MuseScore as input, causing confusion. To avoid this problem, access Audio MIDI Setup via Spotlight to create a dedicated virtual port for MuseScore's MIDI output, restart MuseScore, return to Preferences, and select your new virtual port for MuseScore's MIDI output. Other programs may then use that dedicated virtual port to receive MuseScore's MIDI output."));
                   msgBox.exec();
                   }
-      #endif
+#endif
             }
 
       if (shortcutsChanged) {
             shortcutsChanged = false;
-            for(const Shortcut* s : localShortcuts) {
+            for(Shortcut*& s : localShortcuts) {
                   Shortcut* os = Shortcut::getShortcut(s->key());
                   if (os) {
                         if (!os->compareKeys(*s))
@@ -1468,7 +1566,7 @@ void PreferenceDialog::apply()
             }
 
       emit preferencesChanged(false, uiStyleThemeChanged);
-      uiStyleThemeChanged = false;
+      //uiStyleThemeChanged = false;
       preferences.save();
       mscore->startAutoSave();
 
@@ -1621,6 +1719,22 @@ void PreferenceDialog::selectStylesDirectory()
       }
 
 //---------------------------------------------------------
+//   selectScoreFontsDirectory
+//---------------------------------------------------------
+
+void PreferenceDialog::selectScoreFontsDirectory()
+      {
+      QString s = QFileDialog::getExistingDirectory(
+         this,
+         tr("Choose Score Fonts Folder"),
+         myScoreFonts->text(),
+         QFileDialog::ShowDirsOnly | (preferences.getBool(PREF_UI_APP_USENATIVEDIALOGS) ? QFileDialog::Options() : QFileDialog::DontUseNativeDialog)
+         );
+      if (!s.isNull())
+            myScoreFonts->setText(s);
+      }
+
+//---------------------------------------------------------
 //   selectTemplatesDirectory
 //---------------------------------------------------------
 
@@ -1745,11 +1859,10 @@ void PreferenceDialog::printShortcutsClicked()
       const MStyle& s = MScore::defaultStyle();
       qreal pageW = s.value(Sid::pageWidth).toReal();
       qreal pageH = s.value(Sid::pageHeight).toReal();
-      printer.setPaperSize(QSizeF(pageW, pageH), QPrinter::Inch);
+      printer.setPageSize(QPageSize(QSizeF(pageW, pageH), QPageSize::Inch));
 
       printer.setCreator("MuseScore Version: " VERSION);
       printer.setFullPage(true);
-      printer.setColorMode(QPrinter::Color);
       printer.setDocName(tr("MuseScore Shortcuts"));
       printer.setOutputFormat(QPrinter::NativeFormat);
 
@@ -1823,23 +1936,23 @@ void PreferenceDialog::updateShortestNote()
       {
       int shortestNoteIndex;
       int nn = preferences.getInt(PREF_IO_MIDI_SHORTESTNOTE);
-      if (nn == MScore::division)
+      if (nn == DIVISION)
             shortestNoteIndex = 0;           // Quarter
-      else if (nn == MScore::division / 2)
+      else if (nn == DIVISION / 2)
             shortestNoteIndex = 1;  // Eighth
-      else if (nn == MScore::division / 4)
+      else if (nn == DIVISION / 4)
             shortestNoteIndex = 2;  // etc.
-      else if (nn == MScore::division / 8)
+      else if (nn == DIVISION / 8)
             shortestNoteIndex = 3;
-      else if (nn == MScore::division / 16)
+      else if (nn == DIVISION / 16)
             shortestNoteIndex = 4;
-      else if (nn == MScore::division / 32)
+      else if (nn == DIVISION / 32)
             shortestNoteIndex = 5;
-      else if (nn == MScore::division / 64)
+      else if (nn == DIVISION / 64)
             shortestNoteIndex = 6;
-      else if (nn == MScore::division / 128)
+      else if (nn == DIVISION / 128)
             shortestNoteIndex = 7;
-      else if (nn == MScore::division / 256)
+      else if (nn == DIVISION / 256)
             shortestNoteIndex = 8;
       else {
             qDebug("Unknown shortestNote value of %d, defaulting to 16th", nn);
@@ -1854,21 +1967,21 @@ void PreferenceDialog::updateShortestNote()
 
 void PreferenceDialog::applyShortestNote()
       {
-      int ticks = MScore::division / 4;
+      int ticks;
       switch (shortestNote->currentIndex()) {
-            case 0: ticks = MScore::division;       break;
-            case 1: ticks = MScore::division / 2;   break;
-            case 2: ticks = MScore::division / 4;   break;
-            case 3: ticks = MScore::division / 8;   break;
-            case 4: ticks = MScore::division / 16;  break;
-            case 5: ticks = MScore::division / 32;  break;
-            case 6: ticks = MScore::division / 64;  break;
-            case 7: ticks = MScore::division / 128; break;
-            case 8: ticks = MScore::division / 256; break;
+            case 0: ticks = DIVISION;       break;
+            case 1: ticks = DIVISION / 2;   break;
+            case 2: ticks = DIVISION / 4;   break;
+            case 3: ticks = DIVISION / 8;   break;
+            case 4: ticks = DIVISION / 16;  break;
+            case 5: ticks = DIVISION / 32;  break;
+            case 6: ticks = DIVISION / 64;  break;
+            case 7: ticks = DIVISION / 128; break;
+            case 8: ticks = DIVISION / 256; break;
             default: {
                   qDebug("Unknown index for shortestNote: %d, defaulting to 16th",
                          shortestNote->currentIndex());
-                  ticks = MScore::division / 4;
+                  ticks = DIVISION / 4;
                   }
             }
       preferences.setPreference(PREF_IO_MIDI_SHORTESTNOTE, ticks);

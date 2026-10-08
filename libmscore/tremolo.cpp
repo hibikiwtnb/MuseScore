@@ -10,16 +10,15 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "tremolo.h"
+#include "chord.h"
+#include "measure.h"
+#include "note.h"
 #include "score.h"
 #include "staff.h"
-#include "style.h"
-#include "chord.h"
-#include "note.h"
-#include "measure.h"
-#include "segment.h"
 #include "stem.h"
+#include "style.h"
 #include "sym.h"
+#include "tremolo.h"
 #include "xml.h"
 
 namespace Ms {
@@ -41,11 +40,15 @@ static const char* tremoloName[] = {
       QT_TRANSLATE_NOOP("Tremolo", "16th through stem"),
       QT_TRANSLATE_NOOP("Tremolo", "32nd through stem"),
       QT_TRANSLATE_NOOP("Tremolo", "64th through stem"),
+      QT_TRANSLATE_NOOP("Tremolo", "128th through stem"),
+      QT_TRANSLATE_NOOP("Tremolo", "256th through stem"),
       QT_TRANSLATE_NOOP("Tremolo", "Buzz roll"),
       QT_TRANSLATE_NOOP("Tremolo", "Eighth between notes"),
       QT_TRANSLATE_NOOP("Tremolo", "16th between notes"),
       QT_TRANSLATE_NOOP("Tremolo", "32nd between notes"),
-      QT_TRANSLATE_NOOP("Tremolo", "64th between notes")
+      QT_TRANSLATE_NOOP("Tremolo", "64th between notes"),
+      QT_TRANSLATE_NOOP("Tremolo", "128th between notes"),
+      QT_TRANSLATE_NOOP("Tremolo", "256th between notes")
       };
 
 Tremolo::Tremolo(Score* score)
@@ -87,7 +90,7 @@ qreal Tremolo::mag() const
 
 qreal Tremolo::minHeight() const
       {
-      const qreal sw = score()->styleS(Sid::tremoloStrokeWidth).val() * chordMag();
+      const qreal sw = score()->styleS(Sid::tremoloLineWidth).val() * chordMag();
       const qreal td = score()->styleS(Sid::tremoloDistance).val() * chordMag();
       return (lines() - 1) * td + sw;
       }
@@ -139,6 +142,14 @@ void Tremolo::setTremoloType(TremoloType t)
             case TremoloType::R64:
             case TremoloType::C64:
                   _lines = 4;
+                  break;
+            case TremoloType::R128:
+            case TremoloType::C128:
+                  _lines = 5;
+                  break;
+            case TremoloType::R256:
+            case TremoloType::C256:
+                  _lines = 6;
                   break;
             default:
                   _lines = 1;
@@ -193,7 +204,7 @@ QPainterPath Tremolo::basePath() const
       // overall width of two-note tremolos should not be changed if chordMag() isn't 1.0
       qreal w2  = sp * score()->styleS(Sid::tremoloWidth).val() * .5 / (twoNotes() ? chordMag() : 1.0);
       qreal nw2 = w2 * score()->styleD(Sid::tremoloStrokeLengthMultiplier);
-      qreal lw  = sp * score()->styleS(Sid::tremoloStrokeWidth).val();
+      qreal lw  = sp * score()->styleS(Sid::tremoloLineWidth).val();
       qreal td  = sp * score()->styleS(Sid::tremoloDistance).val();
 
       QPainterPath ppath;
@@ -259,7 +270,7 @@ void Tremolo::layoutOneNoteTremolo(qreal x, qreal y, qreal spatium)
             t = up ? -3.0 * chordMag() - 2.0 * minHeight() : 3.0 * chordMag();
             }
       else {
-            const qreal offset = 2.0 * score()->styleS(Sid::tremoloStrokeWidth).val();
+            const qreal offset = 2.0 * score()->styleS(Sid::tremoloLineWidth).val();
 
             if (!up && !(line & 1)) // stem is down; even line
                   t = qMax((4.0 + offset) * chordMag() - 2.0 * minHeight(), 3.0 * chordMag());
@@ -342,7 +353,7 @@ void Tremolo::layoutTwoNotesTremolo(qreal x, qreal y, qreal h, qreal spatium)
             y2 = _chord2->stemPos().y() - firstChordStaffY + extendedLen.second;
             }
 
-      qreal lw = spatium * score()->styleS(Sid::tremoloStrokeWidth).val();
+      qreal lw = spatium * score()->styleS(Sid::tremoloLineWidth).val();
       if (_chord1->beams() == 0 && _chord2->beams() == 0) {
             // improve the case when one stem is up and another is down
             if (defaultStyle && _chord1->up() != _chord2->up() && !crossStaffBeamBetween()) {
@@ -594,15 +605,19 @@ void Tremolo::setTremoloType(const QString& s)
 QString Tremolo::type2name(TremoloType t)
       {
       switch(t) {
-            case TremoloType::R8:  return QString("r8");
-            case TremoloType::R16: return QString("r16");
-            case TremoloType::R32: return QString("r32");
-            case TremoloType::R64: return QString("r64");
-            case TremoloType::C8:  return QString("c8");
-            case TremoloType::C16: return QString("c16");
-            case TremoloType::C32: return QString("c32");
-            case TremoloType::C64: return QString("c64");
+            case TremoloType::R8:        return QString("r8");
+            case TremoloType::R16:       return QString("r16");
+            case TremoloType::R32:       return QString("r32");
+            case TremoloType::R64:       return QString("r64");
+            case TremoloType::R128:      return QString("r128");
+            case TremoloType::R256:      return QString("r256");
             case TremoloType::BUZZ_ROLL: return QString("buzzroll");
+            case TremoloType::C8:        return QString("c8");
+            case TremoloType::C16:       return QString("c16");
+            case TremoloType::C32:       return QString("c32");
+            case TremoloType::C64:       return QString("c64");
+            case TremoloType::C128:      return QString("c128");
+            case TremoloType::C256:      return QString("c256");
             default:
                   break;
             }
@@ -625,6 +640,12 @@ TremoloType Tremolo::name2Type(const QString& s)
             t = TremoloType::R32;
       else if (s == "r64")
             t = TremoloType::R64;
+      else if (s == "r128")
+            t = TremoloType::R128;
+      else if (s == "r256")
+            t = TremoloType::R256;
+      else if (s == "buzzroll")
+            t = TremoloType::BUZZ_ROLL;
       else if (s == "c8")
             t = TremoloType::C8;
       else if (s == "c16")
@@ -633,8 +654,10 @@ TremoloType Tremolo::name2Type(const QString& s)
             t = TremoloType::C32;
       else if (s == "c64")
             t = TremoloType::C64;
-      else if (s == "buzzroll")
-            t = TremoloType::BUZZ_ROLL;
+      else if (s == "c128")
+            t = TremoloType::C128;
+      else if (s == "c256")
+            t = TremoloType::C256;
       return t;
       }
 
@@ -650,6 +673,8 @@ Fraction Tremolo::tremoloLen() const
             case 2: f.set(1,16); break;
             case 3: f.set(1,32); break;
             case 4: f.set(1,64); break;
+            case 5: f.set(1,128); break;
+            case 6: f.set(1,256); break;
             }
       return f;
       }

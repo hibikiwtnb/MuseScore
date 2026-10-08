@@ -13,54 +13,51 @@
 
 #include "importgtp.h"
 
-#include <libmscore/score.h>
-#include <libmscore/measurebase.h>
-#include <libmscore/text.h>
-#include <libmscore/stafftext.h>
-#include <libmscore/box.h>
-#include <libmscore/staff.h>
-#include <libmscore/part.h>
-#include <libmscore/measure.h>
-#include <libmscore/timesig.h>
-#include <libmscore/tremolo.h>
-#include <libmscore/rest.h>
-#include <libmscore/chord.h>
-#include <libmscore/note.h>
-#include <libmscore/stringdata.h>
-#include <libmscore/clef.h>
-#include <libmscore/lyrics.h>
-#include <libmscore/tempotext.h>
-#include <libmscore/slur.h>
-#include <libmscore/tie.h>
-#include <libmscore/tuplet.h>
-#include <libmscore/barline.h>
-#include <libmscore/excerpt.h>
-#include <libmscore/stafftype.h>
-#include <libmscore/bracket.h>
+#include <libmscore/arpeggio.h>
 #include <libmscore/articulation.h>
-#include <libmscore/keysig.h>
-#include <libmscore/harmony.h>
+#include <libmscore/barline.h>
 #include <libmscore/bend.h>
-#include <libmscore/tremolobar.h>
-#include <libmscore/segment.h>
+#include <libmscore/bracket.h>
+#include "libmscore/bracketItem.h"
+#include <libmscore/box.h>
+#include <libmscore/chord.h>
+#include <libmscore/clef.h>
+#include <libmscore/dynamic.h>
+#include <libmscore/excerpt.h>
+#include <libmscore/fingering.h>
+#include <libmscore/glissando.h>
+#include <libmscore/hairpin.h>
+#include <libmscore/harmony.h>
+#include <libmscore/instrtemplate.h>
+#include <libmscore/keysig.h>
+#include <libmscore/lyrics.h>
+#include <libmscore/marker.h>
+#include <libmscore/measure.h>
+#include <libmscore/measurebase.h>
+#include <libmscore/note.h>
+#include <libmscore/notedot.h>
+#include <libmscore/ottava.h>
+#include <libmscore/part.h>
 #include <libmscore/rehearsalmark.h>
 #include <libmscore/repeat.h>
-#include <libmscore/glissando.h>
-#include <libmscore/dynamic.h>
-#include <libmscore/arpeggio.h>
-#include <libmscore/volta.h>
-#include <libmscore/instrtemplate.h>
-#include <libmscore/hairpin.h>
-#include <libmscore/fingering.h>
+#include <libmscore/rest.h>
+#include <libmscore/score.h>
+#include <libmscore/segment.h>
+#include <libmscore/slur.h>
+#include <libmscore/staff.h>
+#include <libmscore/stafftext.h>
+#include <libmscore/stafftype.h>
+#include <libmscore/stringdata.h>
 #include <libmscore/sym.h>
-#include <libmscore/ottava.h>
-#include <libmscore/marker.h>
-#include <libmscore/notedot.h>
-#include "libmscore/sym.h"
-#include "libmscore/bracketItem.h"
+#include <libmscore/tempotext.h>
+#include <libmscore/text.h>
 #include "libmscore/textline.h"
-#include <libmscore/repeat.h>
-// #include <symtext.h>
+#include <libmscore/tie.h>
+#include <libmscore/timesig.h>
+#include <libmscore/tremolobar.h>
+#include <libmscore/tremolo.h>
+#include <libmscore/tuplet.h>
+#include <libmscore/volta.h>
 
 namespace Ms {
 
@@ -944,8 +941,6 @@ Fraction GuitarPro6::readBeats(QString beats, GPPartInfo* partInfo, Measure* mea
                                           QString variation;
 
                                           Note* note = new Note(score);
-                                          if (graceNote)
-                                                lyrNote = note;
                                           if (id != -1) {
                                                 auto iter1 = lyrics.find(id);
                                                 if (iter1 != lyrics.end()) {
@@ -1584,7 +1579,7 @@ Fraction GuitarPro6::readBeats(QString beats, GPPartInfo* partInfo, Measure* mea
                                           auto chord = lyrNote->chord();
                                           // before beat grace notes have to be handled after the Tpc is set from pitch
                                           if (!graceNode.toElement().text().compare("OnBeat")) {
-                                                auto gNote = score->setGraceNote(chord, lyrNote->pitch(), NoteType::GRACE4, MScore::division / 2);
+                                                auto gNote = score->setGraceNote(chord, lyrNote->pitch(), NoteType::GRACE4, DIVISION / 2);
                                                 auto iter1  = slideMap.end();
                                                 for (auto beg = slideMap.begin(); beg != slideMap.end(); ++beg) {
                                                       if (beg->second == lyrNote) {
@@ -1603,7 +1598,7 @@ Fraction GuitarPro6::readBeats(QString beats, GPPartInfo* partInfo, Measure* mea
                                                       }
                                                 }
                                           else if (!graceNode.toElement().text().compare("BeforeBeat") && chord->type() == ElementType::CHORD) {
-                                                auto gNote = score->setGraceNote(chord, lyrNote->pitch(), NoteType::ACCIACCATURA, MScore::division / 2);
+                                                auto gNote = score->setGraceNote(chord, lyrNote->pitch(), NoteType::ACCIACCATURA, DIVISION / 2);
                                                 auto iter1  = slideMap.end();
                                                 for (auto beg = slideMap.begin(); beg != slideMap.end(); ++beg) {
                                                       if (beg->second == lyrNote) {
@@ -1766,7 +1761,6 @@ Fraction GuitarPro6::readBeats(QString beats, GPPartInfo* partInfo, Measure* mea
                         }
                   currentNode = currentNode.nextSibling();
                   }
-            dotted = 0;
             if (graceNote)
                   continue;
             // we have handled the beat - was there a note?
@@ -1885,8 +1879,11 @@ void GuitarPro6::readBars(QDomNode* barList, Measure* measure, ClefType oldClefI
                               }
                         else if (!clefString.compare("C3"))
                               clefId = ClefType::C3;
-                        else if (!clefString.compare("C4"))
+                        else if (!clefString.compare("C4")) {
                               clefId = ClefType::C4;
+                              if (!clefString.compare("C4") && clefOctave == "8vb")
+                                  clefId = ClefType::C4_8VB;
+                              }
                         else if (!clefString.compare("Neutral"))
                               clefId = ClefType::PERC;
                         else
@@ -2314,7 +2311,11 @@ void GuitarPro6::readMasterBars(GPPartInfo* partInfo)
                                     currentFermata = currentFermata.nextSibling();
 
                                     // get the fermata information and construct a gpFermata from them
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+                                    QStringList fermataComponents = fermata.split("/", Qt::SkipEmptyParts);
+#else
                                     QStringList fermataComponents = fermata.split("/", QString::SkipEmptyParts);
+#endif
                                     GPFermata gpFermata;
                                     gpFermata.index        = fermataComponents.at(0).toInt();
                                     gpFermata.timeDivision = fermataComponents.at(1).toInt();
@@ -2410,7 +2411,7 @@ void GuitarPro6::readMasterBars(GPPartInfo* partInfo)
                   Segment* s = measure->getSegment(SegmentType::ChordRest, measure->tick());
                   if (bars[measureCounter].section[0].length()) {
                         RehearsalMark* t = new RehearsalMark(score);
-                        t->setFrameType(FrameType::SQUARE);
+                        t->setFrameType(FrameType::RECTANGLE);
                         t->setPlainText(bars[measureCounter].section[0]);
                         t->setTrack(0);
                         s->add(t);
@@ -2441,7 +2442,7 @@ void GuitarPro6::readGpif(QByteArray* data)
       qdomDoc.setContent(*data);
       QDomElement qdomElem = qdomDoc.documentElement();
       // GPRevision node
-      QDomNode revision = qdomElem.firstChildElement("GPRevision");
+      //QDomNode revision = qdomElem.firstChildElement("GPRevision");
       // Score node
       QDomNode scoreNode = qdomElem.firstChildElement("Score");
       readScore(&scoreNode);
@@ -2502,30 +2503,24 @@ void GuitarPro6::readGpif(QByteArray* data)
                   if (c) {
                         slur->setTick2(c->tick());
                         score->addElement(slur);
-                        legatos[slur->track()] = 0;
+                        legatos[slur->track()] = nullptr;
                         }
                   else {
+                        legatos[slur->track()] = nullptr;
                         delete slur;
-                        legatos[slur->track()] = 0;
                         }
                   }
             }
       // change the tuning to deal with transposition
       // It's needed to create correct tabs
-      for (Part * p : score->parts()) {
+      for (Part*& p : score->parts()) {
             Instrument* instr = p->instrument();
             if (instr->transpose().chromatic == 0)
                   continue;
             const StringData* sd = instr->stringData();
             if (sd) {
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-               int tuning[sd->strings()];
-#else
-               // MSVC does not support VLA. Replace with std::vector. If profiling determines that the
-               //    heap allocation is slow, an optimization might be used.
-               std::vector<int> vTuning(sd->strings());
-               int* tuning = vTuning.data();
-#endif
+                  std::vector<int> vTuning(sd->strings());
+                  int* tuning = vTuning.data();
                   int frets   = sd->frets();
                   int strings;
                   for (strings = 0; strings < sd->strings(); strings++) {

@@ -10,61 +10,61 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#include "xml.h"
-#include "score.h"
-#include "staff.h"
-#include "revisions.h"
-#include "part.h"
-#include "page.h"
-#include "style.h"
-#include "sym.h"
-#include "arpeggio.h"
-#include "audio.h"
-#include "sig.h"
-#include "barline.h"
-#include "measure.h"
 #include "ambitus.h"
-#include "bend.h"
-#include "chordline.h"
-#include "hook.h"
-#include "tuplet.h"
-#include "systemdivider.h"
-#include "spacer.h"
-#include "keysig.h"
-#include "stafftext.h"
-#include "dynamic.h"
-#include "drumset.h"
-#include "timesig.h"
-#include "slur.h"
-#include "tie.h"
-#include "chord.h"
-#include "rest.h"
-#include "breath.h"
-#include "repeat.h"
-#include "utils.h"
-#include "read206.h"
-#include "excerpt.h"
+#include "arpeggio.h"
 #include "articulation.h"
-#include "volta.h"
-#include "pedal.h"
-#include "hairpin.h"
-#include "glissando.h"
-#include "ottava.h"
-#include "trill.h"
-#include "rehearsalmark.h"
+#include "audio.h"
+#include "barline.h"
+#include "bend.h"
+#include "breath.h"
 #include "box.h"
-#include "textframe.h"
-#include "textline.h"
-#include "fingering.h"
+#include "chord.h"
+#include "chordline.h"
+#include "drumset.h"
+#include "dynamic.h"
+#include "excerpt.h"
 #include "fermata.h"
+#include "fingering.h"
+#include "glissando.h"
+#include "hairpin.h"
+#include "hook.h"
 #include "image.h"
+#include "keysig.h"
+#include "lyrics.h"
+#include "marker.h"
+#include "measure.h"
+#include "measurenumber.h"
+#include "ottava.h"
+#include "page.h"
+#include "part.h"
+#include "pedal.h"
+#include "read206.h"
+#include "rehearsalmark.h"
+#include "repeat.h"
+#include "rest.h"
+#include "revisions.h"
+#include "score.h"
+#include "sig.h"
+#include "slur.h"
+#include "spacer.h"
+#include "staff.h"
+#include "stafftext.h"
 #include "stem.h"
 #include "stemslash.h"
-#include "undo.h"
-#include "lyrics.h"
+#include "style.h"
+#include "sym.h"
+#include "systemdivider.h"
 #include "tempotext.h"
-#include "measurenumber.h"
-#include "marker.h"
+#include "textframe.h"
+#include "textline.h"
+#include "tie.h"
+#include "timesig.h"
+#include "trill.h"
+#include "tuplet.h"
+#include "undo.h"
+#include "utils.h"
+#include "volta.h"
+#include "xml.h"
 
 #ifdef OMR
 #include "omr/omr.h"
@@ -187,6 +187,12 @@ void readTextStyle206(MStyle* style, XmlReader& e, std::map<QString, std::map<Si
                   if (e.readInt())
                         fontStyle = fontStyle + FontStyle::Underline;
                   }
+#if 0 // should not happen, but won't harm either
+            else if (tag == "strike") {
+                  if (e.readInt())
+                        fontStyle = fontStyle + FontStyle::Strike;
+                  }
+#endif
             else if (tag == "align")
                   align = Align(e.readInt());
             else if (tag == "anchor")     // obsolete
@@ -246,15 +252,15 @@ void readTextStyle206(MStyle* style, XmlReader& e, std::map<QString, std::map<Si
             else if (tag == "sizeIsSpatiumDependent" || tag == "spatiumSizeDependent")
                   sizeIsSpatiumDependent = e.readInt();
             else if (tag == "frameWidth") { // obsolete
-                  frameType = FrameType::SQUARE;
+                  frameType = FrameType::RECTANGLE;
                   /*frameWidthMM =*/ e.readDouble();
                   }
             else if (tag == "frameWidthS") {
-                  frameType = FrameType::SQUARE;
+                  frameType = FrameType::RECTANGLE;
                   frameWidth = Spatium(e.readDouble());
                   }
             else if (tag == "frame")
-                  frameType = e.readInt() ? FrameType::SQUARE : FrameType::NO_FRAME;
+                  frameType = e.readInt() ? FrameType::RECTANGLE : FrameType::NO_FRAME;
             else if (tag == "paddingWidth")          // obsolete
                   /*paddingWidthMM =*/ e.readDouble();
             else if (tag == "paddingWidthS")
@@ -1315,7 +1321,7 @@ static bool readTextProperties206(XmlReader& e, TextBase* t)
       else if (tag == "foregroundColor")  // same as "color" ?
             e.skipCurrentElement();
       else if (tag == "frame") {
-            t->setFrameType(e.readBool() ? FrameType::SQUARE : FrameType::NO_FRAME);
+            t->setFrameType(e.readBool() ? FrameType::RECTANGLE : FrameType::NO_FRAME);
             t->setPropertyFlags(Pid::FRAME_TYPE, PropertyFlags::UNSTYLED);
             }
       else if (tag == "frameRound")
@@ -1325,7 +1331,7 @@ static bool readTextProperties206(XmlReader& e, TextBase* t)
                   t->setFrameType(FrameType::CIRCLE);
             else {
                   if (t->circle())
-                        t->setFrameType(FrameType::SQUARE);
+                        t->setFrameType(FrameType::RECTANGLE);
                   }
             t->setPropertyFlags(Pid::FRAME_TYPE, PropertyFlags::UNSTYLED);
             }
@@ -1562,6 +1568,7 @@ static void readTuplet(Tuplet* tuplet, XmlReader& e)
                   tuplet->resetNumberProperty();
                   readText206(e, _number, tuplet);
                   _number->setVisible(tuplet->visible());     //?? override saved property
+                  _number->setColor(tuplet->color());
                   _number->setTrack(tuplet->track());
                   // move property flags from _number
                   for (auto p : { Pid::FONT_FACE, Pid::FONT_SIZE, Pid::FONT_STYLE, Pid::ALIGN, Pid::SIZE_SPATIUM_DEPENDENT })
@@ -1720,12 +1727,6 @@ bool readChordRestProperties206(XmlReader& e, ChordRest* ch)
                   else  // not from old score: set duration fraction from duration type
                         ch->setTicks(ch->actualDurationType().fraction());
                   }
-            else {
-                  if (ch->score()->mscVersion() <= 114) {
-                        SigEvent event = ch->score()->sigmap()->timesig(e.tick());
-                        ch->setTicks(event.timesig());
-                        }
-                  }
             }
       else if (tag == "BeamMode") {
             QString val(e.readElementText());
@@ -1756,7 +1757,7 @@ bool readChordRestProperties206(XmlReader& e, ChordRest* ch)
                   ch->add(el);
             }
       else if (tag == "leadingSpace" || tag == "trailingSpace") {
-            qDebug("ChordRest: %s obsolete", tag.toLocal8Bit().data());
+            qDebug("ChordRest: %s obsolete", tag.toLocal8Bit().constData());
             e.skipCurrentElement();
             }
       else if (tag == "Beam") {
@@ -1817,12 +1818,12 @@ bool readChordRestProperties206(XmlReader& e, ChordRest* ch)
                         if (spanner->type() == ElementType::SLUR)
                               spanner->setStartElement(ch);
                         if (e.pasteMode()) {
-                              for (ScoreElement* el : spanner->linkList()) {
+                              for (ScoreElement*& el : spanner->linkList()) {
                                     if (el == spanner)
                                           continue;
                                     Spanner* ls = static_cast<Spanner*>(el);
                                     ls->setTick(spanner->tick());
-                                    for (ScoreElement* ee : ch->linkList()) {
+                                    for (ScoreElement*& ee : ch->linkList()) {
                                           ChordRest* cr = toChordRest(ee);
                                           if (cr->score() == ee->score() && cr->staffIdx() == ls->staffIdx()) {
                                                 ls->setTrack(cr->track());
@@ -1843,12 +1844,12 @@ bool readChordRestProperties206(XmlReader& e, ChordRest* ch)
                         if (start)
                               spanner->setTrack(start->track());
                         if (e.pasteMode()) {
-                              for (ScoreElement* el : spanner->linkList()) {
+                              for (ScoreElement*& el : spanner->linkList()) {
                                     if (el == spanner)
                                           continue;
                                     Spanner* ls = static_cast<Spanner*>(el);
                                     ls->setTick2(spanner->tick2());
-                                    for (ScoreElement* ee : ch->linkList()) {
+                                    for (ScoreElement*& ee : ch->linkList()) {
                                           ChordRest* cr = toChordRest(ee);
                                           if (cr->score() == ee->score() && cr->staffIdx() == ls->staffIdx()) {
                                                 ls->setTrack2(cr->track());
@@ -2019,7 +2020,7 @@ bool readChordProperties206(XmlReader& e, Chord* ch)
 static void convertDoubleArticulations(Chord* chord, XmlReader& e)
       {
       std::vector<Articulation*> pairableArticulations;
-      for (Articulation* a : chord->articulations()) {
+      for (Articulation*& a : chord->articulations()) {
             if (a->isStaccato() || a->isTenuto()
                || a->isAccent() || a->isMarcato()) {
                   pairableArticulations.push_back(a);
@@ -2179,8 +2180,8 @@ static bool readTextLineProperties(XmlReader& e, TextLineBase* tl)
             tl->setBeginHookType(e.readInt() == 0 ? HookType::HOOK_90 : HookType::HOOK_45);
       else if (tag == "endHookType")
             tl->setEndHookType(e.readInt() == 0 ? HookType::HOOK_90 : HookType::HOOK_45);
-      else if (tl->readProperties(e))
-            return true;
+      else if (!tl->readProperties(e))
+            return false;
       return true;
       }
 
@@ -2194,7 +2195,11 @@ static void readVolta206(XmlReader& e, Volta* volta)
             const QStringRef& tag(e.name());
             if (tag == "endings") {
                   QString s = e.readElementText();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+                  QStringList sl = s.split(",", Qt::SkipEmptyParts);
+#else
                   QStringList sl = s.split(",", QString::SkipEmptyParts);
+#endif
                   volta->endings().clear();
                   for (const QString& l : qAsConst(sl)) {
                         int i = l.simplified().toInt();
@@ -2207,6 +2212,11 @@ static void readVolta206(XmlReader& e, Volta* volta)
                   }
             else if (!readTextLineProperties(e, volta))
                   e.unknown();
+            }
+      if (volta->anchor() != Volta::VOLTA_ANCHOR) {
+            // Volta strictly assumes that its anchor is measure, so don't let old scores override this.
+            qWarning("Correcting volta anchor type from %d to %d", int(volta->anchor()), int(Volta::VOLTA_ANCHOR));
+            volta->setAnchor(Volta::VOLTA_ANCHOR);
             }
       adjustPlacement(volta);
       }
@@ -2500,7 +2510,7 @@ Element* readArticulation(Element* parent, XmlReader& e)
       if (!el)
             el = new Fermata(sym, score);
       if (el->isFermata()) {
-            if (timeStretch != 0.0)
+            if (!qFuzzyIsNull(timeStretch))
                   el->setProperty(Pid::TIME_STRETCH, timeStretch);
             if (useDefaultPlacement)
                   el->setPlacement(track & 1 ? Placement::BELOW : Placement::ABOVE);
@@ -3204,19 +3214,10 @@ static void readMeasure(Measure* m, int staffIdx, XmlReader& e)
 
 static void readBox(Box* b, XmlReader& e)
       {
-      b->setLeftMargin(0.0);
-      b->setRightMargin(0.0);
-      b->setTopMargin(0.0);
-      b->setBottomMargin(0.0);
-      b->setTopGap(0.0);
-      b->setBottomGap(0.0);
-      b->setAutoSizeEnabled(false);
-      b->setPropertyFlags(Pid::TOP_GAP, PropertyFlags::UNSTYLED);
-      b->setPropertyFlags(Pid::BOTTOM_GAP, PropertyFlags::UNSTYLED);
+      b->setAutoSizeEnabled(false);    // didn't exist in Mu2
 
       b->setBoxHeight(Spatium(0));     // override default set in constructor
       b->setBoxWidth(Spatium(0));
-      bool keepMargins = false;        // whether original margins have to be kept when reading old file
 
       while (e.readNextStartElement()) {
             const QStringRef& tag(e.name());
@@ -3224,13 +3225,11 @@ static void readBox(Box* b, XmlReader& e)
                   HBox* hb = new HBox(b->score());
                   hb->read(e);
                   b->add(hb);
-                  keepMargins = true;     // in old file, box nesting used outer box margins
                   }
             else if (tag == "VBox") {
                   VBox* vb = new VBox(b->score());
                   vb->read(e);
                   b->add(vb);
-                  keepMargins = true;     // in old file, box nesting used outer box margins
                   }
             else if (tag == "Text") {
                   Text* t;
@@ -3250,16 +3249,6 @@ static void readBox(Box* b, XmlReader& e)
                   }
             else if (!b->readProperties(e))
                   e.unknown();
-            }
-
-      // with .msc versions prior to 1.17, box margins were only used when nesting another box inside this box:
-      // for backward compatibility set them to 0 in all other cases
-
-      if (b->score()->mscVersion() <= 114 && (b->isHBox() || b->isVBox()) && !keepMargins)  {
-            b->setLeftMargin(0.0);
-            b->setRightMargin(0.0);
-            b->setTopMargin(0.0);
-            b->setBottomMargin(0.0);
             }
       }
 
@@ -3419,7 +3408,7 @@ static void readStyle(MStyle* style, XmlReader& e)
                   style->chordList()->clear();
                   style->chordList()->read(e);
                   style->setCustomChordList(true);
-                  for (ChordFont f : style->chordList()->fonts) {
+                  for (ChordFont& f : style->chordList()->fonts) {
                         if (f.family == "MuseJazz") {
                               f.family = "MuseJazz Text";
                               }
@@ -3538,15 +3527,15 @@ static bool readScore(Score* score, XmlReader& e)
             else if (tag == "Style") {
                   qreal sp = score->style().value(Sid::spatium).toDouble();
                   readStyle(&score->style(), e);
-                  if (score->style().value(Sid::MusicalTextFont).toString() == "MuseJazz")
-                        score->style().set(Sid::MusicalTextFont, "MuseJazz Text");
+                  if (score->style().value(Sid::musicalTextFont).toString() == "MuseJazz")
+                        score->style().set(Sid::musicalTextFont, "MuseJazz Text");
                   // if (_layoutMode == LayoutMode::FLOAT || _layoutMode == LayoutMode::SYSTEM) {
                   if (score->layoutMode() == LayoutMode::FLOAT) {
                         // style should not change spatium in
                         // float mode
                         score->style().set(Sid::spatium, sp);
                         }
-                  score->setScoreFont(ScoreFont::fontFactory(score->style().value(Sid::MusicalSymbolFont).toString()));
+                  score->setScoreFont(ScoreFont::fontFactory(score->style().value(Sid::musicalSymbolFont).toString()));
                   }
             else if (tag == "copyright" || tag == "rights") {
                   Text* text = new Text(score);
@@ -3599,41 +3588,22 @@ static bool readScore(Score* score, XmlReader& e)
                         }
                   score->addSpanner(s);
                   }
-            else if (tag == "Excerpt") {
-                  if (MScore::noExcerpts)
-                        e.skipCurrentElement();
-                  else {
-                        if (score->isMaster()) {
-                              Excerpt* ex = new Excerpt(static_cast<MasterScore*>(score));
-                              ex->read(e);
-                              score->excerpts().append(ex);
-                              }
-                        else {
-                              qDebug("read206: readScore(): part cannot have parts");
-                              e.skipCurrentElement();
-                              }
-                        }
-                  }
             else if (tag == "Score") {          // recursion
-                  if (MScore::noExcerpts)
-                        e.skipCurrentElement();
-                  else {
-                        e.tracks().clear();
-                        e.clearUserTextStyles();
-                        MasterScore* m = score->masterScore();
-                        Score* s       = new Score(m, MScore::baseStyle());
-                        int defaultsVersion = m->style().defaultStyleVersion();
-                        s->setStyle(*MStyle::resolveStyleDefaults(defaultsVersion));
-                        s->style().setDefaultStyleVersion(defaultsVersion);
-                        s->setEnableVerticalSpread(false);
-                        Excerpt* ex = new Excerpt(m);
+                  e.tracks().clear();
+                  e.clearUserTextStyles();
+                  MasterScore* m = score->masterScore();
+                  Score* s       = new Score(m, MScore::baseStyle());
+                  int defaultsVersion = m->style().defaultStyleVersion();
+                  s->setStyle(*MStyle::resolveStyleDefaults(defaultsVersion));
+                  s->style().setDefaultStyleVersion(defaultsVersion);
+                  s->setEnableVerticalSpread(false);
+                  Excerpt* ex = new Excerpt(m);
 
-                        ex->setPartScore(s);
-                        e.setLastMeasure(nullptr);
-                        readScore(s, e);
-                        ex->setTracks(e.tracks());
-                        m->addExcerpt(ex);
-                        }
+                  ex->setPartScore(s);
+                  e.setLastMeasure(nullptr);
+                  readScore(s, e);
+                  ex->setTracks(e.tracks());
+                  m->addExcerpt(ex);
                   }
             else if (tag == "PageList")
                   e.skipCurrentElement();
@@ -3664,7 +3634,7 @@ static bool readScore(Score* score, XmlReader& e)
 
       score->connectTies();
 
-      score->setFileDivision(MScore::division);
+      score->setFileDivision(DIVISION);
 
       //
       //    sanity check for barLineSpan
@@ -3720,7 +3690,7 @@ static bool readScore(Score* score, XmlReader& e)
 #endif
       score->fixTicks();
 
-      for (Part* p : score->parts()) {
+      for (Part*& p : score->parts()) {
             p->updateHarmonyChannels(false);
             }
 
@@ -3831,10 +3801,10 @@ Score::FileError MasterScore::read206(XmlReader& e)
       setEnableVerticalSpread(false);
 
       int id = 1;
-      for (LinkedElements* le : e.linkIds())
+      for (LinkedElements*& le : e.linkIds())
             le->setLid(this, id++);
 
-      for (Staff* s : staves())
+      for (Staff*& s : staves())
             s->updateOttava();
 
       // fix segment span
@@ -3874,7 +3844,7 @@ Score::FileError MasterScore::read206(XmlReader& e)
       // fix positions
       //    offset = saved offset - layout position
       doLayout();
-      for (auto i : e.fixOffsets()) {
+      for (auto& i : e.fixOffsets()) {
             i.first->setOffset(i.second - i.first->pos());
             }
 
@@ -3906,4 +3876,3 @@ MStyle* styleDefaults206()
       }
 
 }
-

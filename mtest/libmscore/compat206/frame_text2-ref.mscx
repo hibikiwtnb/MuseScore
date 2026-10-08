@@ -41,8 +41,6 @@
       <chordSymbolAFrameWidth>0</chordSymbolAFrameWidth>
       <headerFirstPage>1</headerFirstPage>
       <footerOddEven>0</footerOddEven>
-      <evenFooterC>$C</evenFooterC>
-      <oddFooterC>$C</oddFooterC>
       <voltaFontFace>FreeSerif</voltaFontFace>
       <voltaFontSize>10</voltaFontSize>
       <voltaFramePadding>0</voltaFramePadding>
@@ -235,7 +233,6 @@
     <Staff id="1">
       <VBox>
         <height>25.5926</height>
-        <bottomGap>0</bottomGap>
         <topMargin>3</topMargin>
         <boxAutoSize>0</boxAutoSize>
         <Text>
@@ -251,7 +248,6 @@
       <VBox>
         <height>47.762</height>
         <topGap>10</topGap>
-        <bottomGap>0</bottomGap>
         <boxAutoSize>0</boxAutoSize>
         <Text>
           <style>Frame</style>

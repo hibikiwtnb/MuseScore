@@ -61,7 +61,10 @@ SelectDialog::SelectDialog(const Element* _e, QWidget* parent)
             case ElementType::ARTICULATION: // comes translated, but from a different method
                   subtype->setText(toArticulation(e)->userName());
                   break;
-            // other come translated or don't need any or are too difficult to implement
+            case ElementType::CLEF:
+                  subtype->setText(qApp->translate("clefTable", e->subtypeName().toUtf8()));
+                  break;
+            // others come translated or don't need any or are too difficult to implement
             default: subtype->setText(e->subtypeName());
             }
       sameSubtype->setEnabled(e->subtype() != -1);
@@ -108,8 +111,18 @@ void SelectDialog::setPattern(ElementPattern* p)
       else
             p->beat = Fraction(0,0);
 
-      if (sameMeasure->isChecked())
-            p->measure = e->findMeasure();
+      if (sameMeasure->isChecked()) {
+            auto m = e->findMeasure();
+            if (!m && e->isSpannerSegment()) {
+                  if (auto ss  = toSpannerSegment(e)) {
+                  if (auto s   = ss->spanner())       {
+                  if (auto se  = s->startElement())   {
+                  if (auto mse = se->findMeasure())   {
+                        m = mse;
+                        }}}}
+                  }
+            p->measure = m;
+            }
       else
             p->measure = nullptr;
 

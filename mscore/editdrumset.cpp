@@ -59,6 +59,8 @@ NoteHead::Group noteHeadNames[] = {
       NoteHead::Group::HEAD_FA,
       NoteHead::Group::HEAD_LA,
       NoteHead::Group::HEAD_TI,
+      NoteHead::Group::HEAD_SWISS_RUDIMENTS_FLAM,
+      NoteHead::Group::HEAD_SWISS_RUDIMENTS_DOUBLE,
       NoteHead::Group::HEAD_CUSTOM
       };
 
@@ -137,7 +139,7 @@ EditDrumset::EditDrumset(const Drumset* ds, QWidget* parent)
       pitchList->setColumnWidth(1, 60);
       pitchList->setColumnWidth(2, 30);
 
-      QStringList validNoteheadRanges = { "Noteheads", "Round and square noteheads", "Slash noteheads", "Shape note noteheads", "Shape note noteheads supplement" };
+      QStringList validNoteheadRanges = { "Noteheads", "Round and square noteheads", "Slash noteheads", "Shape note noteheads", "Shape note noteheads supplement", "Techniques noteheads" };
       QSet<QString> excludeSym = {"noteheadParenthesisLeft", "noteheadParenthesisRight", "noteheadParenthesis", "noteheadNull"};
       QStringList primaryNoteheads = {
             "noteheadXOrnate",
@@ -181,13 +183,13 @@ EditDrumset::EditDrumset(const Drumset* ds, QWidget* parent)
       const qreal defaultScale = 0.3 * qApp->devicePixelRatio();
 
       QList<SymbolIcon> resNoteheads;
-      for (auto symName : primaryNoteheads) {
+      for (const auto& symName : primaryNoteheads) {
              SymId id = Sym::name2id(symName);
              resNoteheads.append(SymbolIcon::generateIcon(id, w, h, defaultScale));
              }
 
-      for (QString range : validNoteheadRanges) {
-            for (auto symName : (*smuflRanges())[range]) {
+      for (const QString& range : validNoteheadRanges) {
+            for (const auto& symName : (*smuflRanges())[range]) {
                    SymId id = Sym::name2id(symName);
                    if (!excludeSym.contains(symName) && !primaryNoteheads.contains(symName))
                          resNoteheads.append(SymbolIcon::generateIcon(id, w, h, defaultScale));
@@ -196,7 +198,7 @@ EditDrumset::EditDrumset(const Drumset* ds, QWidget* parent)
 
       QComboBox* combos[] = { wholeCmb, halfCmb, quarterCmb, doubleWholeCmb };
       for (QComboBox* combo : combos) {
-            for (auto si : resNoteheads) {
+            for (const auto& si : resNoteheads) {
                   SymId id = si.id;
                   QIcon icon = si.icon;
                   combo->view()->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -598,7 +600,7 @@ void EditDrumset::save()
 
       QFile f(fname);
       if (!f.open(QIODevice::WriteOnly)) {
-            QString s = tr("Open File\n%1\nfailed: %2").arg(f.fileName()).arg(strerror(errno));
+            QString s = tr("Open File\n%1\nfailed: %2").arg(f.fileName(), strerror(errno));
             QMessageBox::critical(mscore, tr("Open File"), s);
             return;
             }

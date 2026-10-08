@@ -76,7 +76,7 @@
               <number>1</number>
              </property>
              <property name="maximum">
-              <number>999999</number>
+              <number>999</number>
              </property>
              <property name="value">
               <number>4</number>
@@ -134,6 +134,11 @@
              <item>
               <property name="text">
                <string>64</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>128</string>
               </property>
              </item>
             </widget>

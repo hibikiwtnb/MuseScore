@@ -25,12 +25,8 @@
  Definition of class MusicXML
 */
 
-#include "libmscore/fraction.h"
-#include "libmscore/mscore.h"
-#include "libmscore/pitchspelling.h"
 #include "libmscore/line.h"
-#include "importxmlfirstpass.h"
-#include "musicxmlsupport.h"
+#include "libmscore/mscore.h"
 
 namespace Ms {
 
@@ -48,7 +44,7 @@ struct MusicXmlPartGroup {
 
 const int MAX_LYRICS       = 16;
 const int MAX_PART_GROUPS  = 8;
-const int MAX_NUMBER_LEVEL = 6; // maximum number of overlapping MusicXML objects
+const int MAX_NUMBER_LEVEL = 16; // maximum number of overlapping MusicXML objects
 
 //---------------------------------------------------------
 //   CreditWords
@@ -124,6 +120,9 @@ private:
       Slur* _slur;
       State _state;
       };
+
+// Ties are identified by the pitch and track of their first note
+typedef std::pair<int, int> TieLocation;
 
 //---------------------------------------------------------
 //   MusicXml

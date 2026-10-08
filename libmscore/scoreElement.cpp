@@ -10,22 +10,21 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "scoreElement.h"
-#include "score.h"
-#include "undo.h"
-#include "xml.h"
-#include "bracket.h"
 #include "bracketItem.h"
 #include "measure.h"
-#include "spanner.h"
 #include "musescoreCore.h"
+#include "rest.h"
+#include "score.h"
+#include "scoreElement.h"
+#include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
 ElementStyle const ScoreElement::emptyStyle;
 
 //
-// list has to be synchronized with ElementType enum
+// list has to be synchronized with ElementType enum in types.h
 //
 static const ElementName elementNames[] = {
       { ElementType::INVALID,              "invalid",              QT_TRANSLATE_NOOP("elementName", "Invalid") },
@@ -33,27 +32,29 @@ static const ElementName elementNames[] = {
       { ElementType::PART,                 "Part",                 QT_TRANSLATE_NOOP("elementName", "Part") },
       { ElementType::STAFF,                "Staff",                QT_TRANSLATE_NOOP("elementName", "Staff") },
       { ElementType::SCORE,                "Score",                QT_TRANSLATE_NOOP("elementName", "Score") },
-      { ElementType::SYMBOL,               "Symbol",               QT_TRANSLATE_NOOP("elementName", "Symbol") },
       { ElementType::TEXT,                 "Text",                 QT_TRANSLATE_NOOP("elementName", "Text") },
+      { ElementType::LAYOUT_BREAK,         "LayoutBreak",          QT_TRANSLATE_NOOP("elementName", "Layout Break") },
       { ElementType::MEASURE_NUMBER,       "MeasureNumber",        QT_TRANSLATE_NOOP("elementName", "Measure Number") },
       { ElementType::MMREST_RANGE,         "MMRestRange",          QT_TRANSLATE_NOOP("elementName", "Multimeasure Rest Range") },
       { ElementType::INSTRUMENT_NAME,      "InstrumentName",       QT_TRANSLATE_NOOP("elementName", "Instrument Name") },
-      { ElementType::SLUR_SEGMENT,         "SlurSegment",          QT_TRANSLATE_NOOP("elementName", "Slur Segment") },
-      { ElementType::TIE_SEGMENT,          "TieSegment",           QT_TRANSLATE_NOOP("elementName", "Tie Segment") },
       { ElementType::BAR_LINE,             "BarLine",              QT_TRANSLATE_NOOP("elementName", "Barline") },
       { ElementType::STAFF_LINES,          "StaffLines",           QT_TRANSLATE_NOOP("elementName", "Staff Lines") },
       { ElementType::SYSTEM_DIVIDER,       "SystemDivider",        QT_TRANSLATE_NOOP("elementName", "System Divider") },
+      { ElementType::SLUR_SEGMENT,         "SlurSegment",          QT_TRANSLATE_NOOP("elementName", "Slur Segment") },
+      { ElementType::TIE_SEGMENT,          "TieSegment",           QT_TRANSLATE_NOOP("elementName", "Tie Segment") },
       { ElementType::STEM_SLASH,           "StemSlash",            QT_TRANSLATE_NOOP("elementName", "Stem Slash") },
       { ElementType::ARPEGGIO,             "Arpeggio",             QT_TRANSLATE_NOOP("elementName", "Arpeggio") },
       { ElementType::ACCIDENTAL,           "Accidental",           QT_TRANSLATE_NOOP("elementName", "Accidental") },
       { ElementType::LEDGER_LINE,          "LedgerLine",           QT_TRANSLATE_NOOP("elementName", "Ledger Line") },
       { ElementType::STEM,                 "Stem",                 QT_TRANSLATE_NOOP("elementName", "Stem") },
+      { ElementType::HOOK,                 "Hook",                 QT_TRANSLATE_NOOP("elementName", "Flag") }, // internally called "Hook", but "Flag" in SMuFL, so here externally too
       { ElementType::NOTE,                 "Note",                 QT_TRANSLATE_NOOP("elementName", "Note") },
       { ElementType::CLEF,                 "Clef",                 QT_TRANSLATE_NOOP("elementName", "Clef") },
       { ElementType::KEYSIG,               "KeySig",               QT_TRANSLATE_NOOP("elementName", "Key Signature") },
       { ElementType::AMBITUS,              "Ambitus",              QT_TRANSLATE_NOOP("elementName", "Ambitus") },
       { ElementType::TIMESIG,              "TimeSig",              QT_TRANSLATE_NOOP("elementName", "Time Signature") },
       { ElementType::REST,                 "Rest",                 QT_TRANSLATE_NOOP("elementName", "Rest") },
+      { ElementType::SYMBOL,               "Symbol",               QT_TRANSLATE_NOOP("elementName", "Symbol") },
       { ElementType::BREATH,               "Breath",               QT_TRANSLATE_NOOP("elementName", "Breath") },
       { ElementType::REPEAT_MEASURE,       "RepeatMeasure",        QT_TRANSLATE_NOOP("elementName", "Repeat Measure") },
       { ElementType::TIE,                  "Tie",                  QT_TRANSLATE_NOOP("elementName", "Tie") },
@@ -62,7 +63,6 @@ static const ElementName elementNames[] = {
       { ElementType::CHORDLINE,            "ChordLine",            QT_TRANSLATE_NOOP("elementName", "Chord Line") },
       { ElementType::DYNAMIC,              "Dynamic",              QT_TRANSLATE_NOOP("elementName", "Dynamic") },
       { ElementType::BEAM,                 "Beam",                 QT_TRANSLATE_NOOP("elementName", "Beam") },
-      { ElementType::HOOK,                 "Hook",                 QT_TRANSLATE_NOOP("elementName", "Flag") }, // internally called "Hook", but "Flag" in SMuFL, so here externally too
       { ElementType::LYRICS,               "Lyrics",               QT_TRANSLATE_NOOP("elementName", "Lyrics") },
       { ElementType::FIGURED_BASS,         "FiguredBass",          QT_TRANSLATE_NOOP("elementName", "Figured Bass") },
       { ElementType::MARKER,               "Marker",               QT_TRANSLATE_NOOP("elementName", "Marker") },
@@ -91,7 +91,6 @@ static const ElementName elementNames[] = {
       { ElementType::PEDAL_SEGMENT,        "PedalSegment",         QT_TRANSLATE_NOOP("elementName", "Pedal Segment") },
       { ElementType::LYRICSLINE_SEGMENT,   "LyricsLineSegment",    QT_TRANSLATE_NOOP("elementName", "Melisma Line Segment") },
       { ElementType::GLISSANDO_SEGMENT,    "GlissandoSegment",     QT_TRANSLATE_NOOP("elementName", "Glissando Segment") },
-      { ElementType::LAYOUT_BREAK,         "LayoutBreak",          QT_TRANSLATE_NOOP("elementName", "Layout Break") },
       { ElementType::SPACER,               "Spacer",               QT_TRANSLATE_NOOP("elementName", "Spacer") },
       { ElementType::STAFF_STATE,          "StaffState",           QT_TRANSLATE_NOOP("elementName", "Staff State") },
       { ElementType::NOTEHEAD,             "NoteHead",             QT_TRANSLATE_NOOP("elementName", "Notehead") },
@@ -114,7 +113,6 @@ static const ElementName elementNames[] = {
       { ElementType::PALM_MUTE,            "PalmMute",             QT_TRANSLATE_NOOP("elementName", "Palm Mute") },
       { ElementType::TEXTLINE,             "TextLine",             QT_TRANSLATE_NOOP("elementName", "Text Line") },
       { ElementType::TEXTLINE_BASE,        "TextLineBase",         QT_TRANSLATE_NOOP("elementName", "Text Line Base") },  // remove
-      { ElementType::NOTELINE,             "NoteLine",             QT_TRANSLATE_NOOP("elementName", "Note Line") },
       { ElementType::LYRICSLINE,           "LyricsLine",           QT_TRANSLATE_NOOP("elementName", "Melisma Line") },
       { ElementType::GLISSANDO,            "Glissando",            QT_TRANSLATE_NOOP("elementName", "Glissando") },
       { ElementType::BRACKET,              "Bracket",              QT_TRANSLATE_NOOP("elementName", "Bracket") },
@@ -210,7 +208,7 @@ void ScoreElement::initElementStyle(const ElementStyle* ss)
             _propertyFlagsList[i] = PropertyFlags::STYLED;
       for (const StyledProperty& spp : *_elementStyle)
 //            setProperty(spp.pid, styleValue(spp.pid, spp.sid));
-            setProperty(spp.pid, styleValue(spp.pid, getPropertyStyle(spp.pid)));
+            setProperty(spp.pid, safePropertyStyleValue(spp.pid));
       }
 
 //---------------------------------------------------------
@@ -273,7 +271,7 @@ static void changeProperty(ScoreElement* e, Pid t, const QVariant& st, PropertyF
 static void changeProperties(ScoreElement* e, Pid t, const QVariant& st, PropertyFlags ps)
       {
       if (propertyLink(t)) {
-            for (ScoreElement* ee : e->linkList())
+            for (ScoreElement*& ee : e->linkList())
                   changeProperty(ee, t, st, ps);
             }
       else
@@ -396,11 +394,10 @@ bool ScoreElement::readProperty(const QStringRef& s, XmlReader& e, Pid id)
 //   writeProperty
 //
 //    - styled properties are never written
-//    - unstyled properties are always written regardless of value,
-//    - properties without style are written if different from default value
+//    - other properties are written if forced or if different from default value
 //-----------------------------------------------------------------------------
 
-void ScoreElement::writeProperty(XmlWriter& xml, Pid pid) const
+void ScoreElement::writeProperty(XmlWriter& xml, Pid pid, bool force) const
       {
       if (isStyled(pid))
             return;
@@ -409,8 +406,7 @@ void ScoreElement::writeProperty(XmlWriter& xml, Pid pid) const
             qDebug("%s invalid property %d <%s>", name(), int(pid), propertyName(pid));
             return;
             }
-      PropertyFlags f = propertyFlags(pid);
-      QVariant d = (f != PropertyFlags::STYLED) ? propertyDefault(pid) : QVariant();
+      QVariant d = force ? QVariant() : propertyDefault(pid);
 
       if (pid == Pid::FONT_STYLE) {
             FontStyle ds = FontStyle(d.isValid() ? d.toInt() : 0);
@@ -421,6 +417,8 @@ void ScoreElement::writeProperty(XmlWriter& xml, Pid pid) const
                   xml.tag("italic", fs & FontStyle::Italic);
             if ((fs & FontStyle::Underline) != (ds & FontStyle::Underline))
                   xml.tag("underline", fs & FontStyle::Underline);
+            if ((fs & FontStyle::Strike) != (ds & FontStyle::Strike))
+                  xml.tag("strike", fs & FontStyle::Strike);
             return;
             }
 
@@ -581,10 +579,17 @@ void ScoreElement::unlink()
 ///  linked to this element
 //---------------------------------------------------------
 
-bool ScoreElement::isLinked(ScoreElement* se)
+bool ScoreElement::isLinked(ScoreElement* se) const
       {
-      return se != this && _links && _links->contains(se);
+      if (se == this || !_links) {
+          return false;
       }
+
+      if (se == nullptr) {
+          return !_links->empty() && _links->mainElement() != this;
+      }
+
+      return _links->contains(se);      }
 
 //---------------------------------------------------------
 //   undoUnlink
@@ -780,7 +785,7 @@ void ScoreElement::styleChanged()
       for (const StyledProperty& spp : *_elementStyle) {
             PropertyFlags f = propertyFlags(spp.pid);
             if (f == PropertyFlags::STYLED)
-                  setProperty(spp.pid, styleValue(spp.pid, getPropertyStyle(spp.pid)));
+                  setProperty(spp.pid, safePropertyStyleValue(spp.pid));
             }
       }
 
@@ -900,4 +905,17 @@ QVariant ScoreElement::styleValue(Pid pid, Sid sid) const
                   return score()->styleV(sid);
             }
       }
+
+//---------------------------------------------------------
+//   styleValueSafe
+//---------------------------------------------------------
+
+QVariant ScoreElement::safePropertyStyleValue(Pid pid) const
+      {
+      Sid sid = getPropertyStyle(pid);
+      if (sid != Sid::NOSTYLE)
+            return styleValue(pid, sid);
+      return propertyDefault(pid);
+      }
+
 }

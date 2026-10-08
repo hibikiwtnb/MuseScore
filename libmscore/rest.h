@@ -66,8 +66,6 @@ class Rest : public ChordRest {
       bool isGap() const               { return _gap;     }
       virtual void setGap(bool v)      { _gap = v;        }
 
-      void reset() override;
-
       virtual void add(Element*);
       virtual void remove(Element*);
 
@@ -95,6 +93,7 @@ class Rest : public ChordRest {
       virtual qreal stemPosX() const;
       virtual QPointF stemPosBeam() const;
       virtual qreal rightEdge() const override;
+      qreal centerX() const;
 
       void localSpatiumChanged(qreal oldValue, qreal newValue) override;
       QVariant propertyDefault(Pid) const override;

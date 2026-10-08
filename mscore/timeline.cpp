@@ -10,33 +10,32 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "timeline.h"
-#include "navigator.h"
 #include "musescore.h"
-#include "libmscore/score.h"
-#include "libmscore/page.h"
+#include "navigator.h"
 #include "preferences.h"
-#include "libmscore/mscore.h"
-#include "libmscore/system.h"
-#include "libmscore/measurebase.h"
-#include "libmscore/measure.h"
-#include "libmscore/chord.h"
-#include "libmscore/staff.h"
-#include "libmscore/rest.h"
-#include "libmscore/part.h"
-#include "libmscore/tempo.h"
-#include "libmscore/keysig.h"
-#include "libmscore/timesig.h"
-#include "libmscore/key.h"
-#include "libmscore/tempotext.h"
-#include "libmscore/text.h"
-#include "libmscore/rehearsalmark.h"
-#include "libmscore/barline.h"
-#include "libmscore/jump.h"
-#include "libmscore/marker.h"
 #include "texttools.h"
-#include "mixer/mixer.h"
+#include "timeline.h"
 #include "tourhandler.h"
+
+#include "libmscore/barline.h"
+#include "libmscore/chordrest.h"
+#include "libmscore/jump.h"
+#include "libmscore/key.h"
+#include "libmscore/keysig.h"
+#include "libmscore/marker.h"
+#include "libmscore/measure.h"
+#include "libmscore/measurebase.h"
+#include "libmscore/mscore.h"
+#include "libmscore/page.h"
+#include "libmscore/part.h"
+#include "libmscore/rehearsalmark.h"
+#include "libmscore/score.h"
+#include "libmscore/staff.h"
+#include "libmscore/system.h"
+#include "libmscore/tempotext.h"
+#include "libmscore/timesig.h"
+
+#include "mixer/mixer.h"
 
 namespace Ms {
 
@@ -57,6 +56,17 @@ void MuseScore::showTimeline(bool visible)
             }
       connect(_timeline, SIGNAL(visibilityChanged(bool)), act, SLOT(setChecked(bool)));
       connect(_timeline, SIGNAL(closed(bool)), act, SLOT(setChecked(bool)));
+
+      const bool visibleDockedPianoroll = pianorollDock && pianorollDock->isVisible() && !pianorollDock->isFloating();
+      if (visible
+          && visibleDockedPianoroll
+          && dockWidgetArea(pianorollDock) == Qt::BottomDockWidgetArea) {
+            splitDockWidget(
+                  pianorollDock,
+                  _timeline,
+                  Qt::Vertical);
+            }
+
       reDisplayDockWidget(_timeline, visible);
 
       getAction("toggle-timeline")->setChecked(visible);
@@ -1093,16 +1103,7 @@ void Timeline::drawGrid(int globalRows, int globalCols, int startMeasure, int en
       int xPos = 0;
 
       // Create stagger array if _collapsedMeta is false
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-      int staggerArr[numMetas];
-      for (unsigned row = 0; row < numMetas; row++)
-         staggerArr[row] = 0;
-#else
-      // MSVC does not support VLA. Replace with std::vector. If profiling determines that the
-      // heap allocation is slow, an optimization might be used.
       std::vector<int> staggerArr(numMetas, 0);  // Default initialized, loop not required
-#endif
-
       bool noKey = true;
       std::get<4>(_repeatInfo) = false;
 
@@ -1446,7 +1447,7 @@ void Timeline::jumpMarkerMeta(Segment* seg, int* stagger, int pos)
       else {
             Marker* marker = toMarker(std::get<3>(_repeatInfo));
             QList<TextFragment> tf_list = marker->fragmentList();
-            for (TextFragment tf : tf_list)
+            for (TextFragment& tf : tf_list)
                   text.push_back(tf.text);
             measure = marker->measure();
             if (marker->markerType() == Marker::Type::FINE ||
@@ -2104,7 +2105,7 @@ void Timeline::mousePressEvent(QMouseEvent* event)
       // Find highest z value for rect
       int maxZValue = -4;
       QGraphicsItem* currGraphicsItem = nullptr;
-      for (QGraphicsItem* graphicsItem : graphicsItemList) {
+      for (QGraphicsItem*& graphicsItem : graphicsItemList) {
             QGraphicsRectItem* graphicsRectItem = qgraphicsitem_cast<QGraphicsRectItem*>(graphicsItem);
             if (graphicsRectItem && graphicsItem->zValue() > maxZValue) {
                   currGraphicsItem = graphicsItem;
@@ -2129,7 +2130,7 @@ void Timeline::mousePressEvent(QMouseEvent* event)
                         QList<QGraphicsItem*> gl = scene()->items(tmp);
                         Measure* measure = nullptr;
 
-                        for (QGraphicsItem* graphicsItem : gl) {
+                        for (QGraphicsItem*& graphicsItem : gl) {
                               measure = static_cast<Measure*>(graphicsItem->data(2).value<void*>());
                               //-3 z value is the grid square values
                               if (graphicsItem->zValue() == -3 && measure)
@@ -2142,7 +2143,7 @@ void Timeline::mousePressEvent(QMouseEvent* event)
                         return;
 
                   QList<QGraphicsItem*> gl = items(event->pos());
-                  for (QGraphicsItem* graphicsItem : gl) {
+                  for (QGraphicsItem*& graphicsItem : gl) {
                         currMeasure = static_cast<Measure*>(graphicsItem->data(2).value<void*>());
                         stave = graphicsItem->data(0).value<int>();
                         if (currMeasure)
@@ -2190,7 +2191,7 @@ void Timeline::mousePressEvent(QMouseEvent* event)
                               if (currSeg) {
                                     _score->deselectAll();
                                     for (int j = 0; j < _score->nstaves(); j++) {
-                                          Element* element = currSeg->firstElement(j);
+                                          Element* element = currSeg->firstElementForNavigation(j);
                                           if (element)
                                                 _score->select(element, SelectType::ADD);
                                           }
@@ -2329,7 +2330,7 @@ void Timeline::mouseReleaseEvent(QMouseEvent*)
             // Find top left and bottom right to create selection
             QGraphicsItem* tlGraphicsItem = nullptr;
             QGraphicsItem* brGraphicsItem = nullptr;
-            for (QGraphicsItem* graphicsItem : graphicsItemList) {
+            for (QGraphicsItem*& graphicsItem : graphicsItemList) {
                   Measure* currMeasure = static_cast<Measure*>(graphicsItem->data(2).value<void*>());
                   if (!currMeasure) continue;
                   int stave = graphicsItem->data(0).value<int>();
@@ -2514,10 +2515,13 @@ void Timeline::updateGridFromCmdState()
 
       const bool layoutAll = layoutChanged && (cState.startTick() < Fraction(0, 1) || cState.endTick() < Fraction(0, 1));
 
-      const int startMeasure = layoutAll ? 0 : _score->tick2measure(cState.startTick())->measureIndex();
-      const int endMeasure = layoutAll ? _score->nmeasures() : (_score->tick2measure(cState.endTick())->measureIndex() + 1);
+      const Measure* startMeasure = layoutAll ? nullptr : _score->tick2measure(cState.startTick());
+      const int startMeasureIndex = startMeasure ? startMeasure->measureIndex() : 0;
 
-      updateGrid(startMeasure, endMeasure);
+      const Measure* endMeasure = layoutAll ? nullptr : _score->tick2measure(cState.endTick());
+      const int endMeasureIndex = endMeasure ? (endMeasure->measureIndex() + 1) : _score->nmeasures();
+
+      updateGrid(startMeasureIndex, endMeasureIndex);
       }
 
 //---------------------------------------------------------
@@ -2831,7 +2835,7 @@ void Timeline::mouseOver(QPointF pos)
       QList<QGraphicsItem*> graphicsList = scene()->items(pos);
       QGraphicsItem* hoveredGraphicsItem = 0;
       int maxZValue = -1;
-      for (QGraphicsItem* currGraphicsItem : graphicsList) {
+      for (QGraphicsItem*& currGraphicsItem : graphicsList) {
             if (qgraphicsitem_cast<QGraphicsTextItem*>(currGraphicsItem))
                   continue;
             if (currGraphicsItem->zValue() >= maxZValue && currGraphicsItem->zValue() < _globalZValue) {
@@ -3099,7 +3103,7 @@ QString Timeline::cursorIsOn()
                   return "meta";
             else {
                   QList<QGraphicsItem*> graphicsItemList = scene()->items(scenePos);
-                  for (QGraphicsItem* currGraphicsItem : graphicsItemList) {
+                  for (QGraphicsItem*& currGraphicsItem : graphicsItemList) {
                         Measure* currMeasure = static_cast<Measure*>(currGraphicsItem->data(2).value<void*>());
                         int stave = currGraphicsItem->data(0).value<int>();
                         const Staff* st = numToStaff(stave);

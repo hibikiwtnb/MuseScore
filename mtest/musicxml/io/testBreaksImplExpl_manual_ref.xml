@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <identification>
     <encoding>
       <software>MuseScore 0.7.0</software>
@@ -132,7 +132,7 @@
       </measure>
     <measure number="12">
       <print new-system="yes"/>
-      <direction>
+      <direction placement="above" system="only-top">
         <direction-type>
           <words>After system break</words>
           </direction-type>

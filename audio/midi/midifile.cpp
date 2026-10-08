@@ -11,11 +11,6 @@
 //=============================================================================
 
 #include "midifile.h"
-#include "libmscore/xml.h"
-#include "libmscore/part.h"
-#include "libmscore/note.h"
-#include "libmscore/drumset.h"
-#include "libmscore/utils.h"
 
 namespace Ms {
 
@@ -135,8 +130,15 @@ void MidiFile::writeEvent(const MidiEvent& event)
             case ME_META:
                   put(ME_META);
                   put(event.metaType());
-                  putvl(event.len());
-                  write(event.edata(), event.len());
+                  // Don't null terminate text meta events
+                  if (event.metaType() >= 0x1 && event.metaType() <= 0x14) {
+                        putvl(event.len() - 1);
+                        write(event.edata(), event.len() - 1);
+                        }
+                  else {
+                        putvl(event.len());
+                        write(event.edata(), event.len());
+                        }
                   resetRunningStatus();     // really ?!
                   break;
 
@@ -162,7 +164,7 @@ bool MidiFile::writeTrack(const MidiTrack &t)
 
       status   = -1;
       int tick = 0;
-      for (auto i : t.events()) {
+      for (auto& i : t.events()) {
             int ntick = i.first;
             putvl(ntick - tick);    // write tick delta
             //
@@ -394,7 +396,7 @@ int MidiFile::readShort()
 //   writeShort
 //---------------------------------------------------------
 
-void MidiFile::writeShort(int i)
+void MidiFile::writeShort(short i)
       {
       fp->putChar(i >> 8);
       fp->putChar(i);
@@ -421,7 +423,7 @@ int MidiFile::readLong()
 //   writeLong
 //---------------------------------------------------------
 
-void MidiFile::writeLong(int i)
+void MidiFile::writeLong(long i)
       {
       fp->putChar(i >> 24);
       fp->putChar(i >> 16);
@@ -441,19 +443,9 @@ void MidiFile::skip(qint64 len)
       //       as bytes do not need to be moved around.
       if (len <= 0)
             return;
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-      char tmp[len];
+      std::vector<char> buffer(len);
+      char *tmp = buffer.data();
       read(tmp, len);
-#else
-      const int tmp_size = 256;  // Size of fixed-length temporary buffer. MSVC does not support VLA.
-      char tmp[tmp_size];
-      while(len > tmp_size) {
-            read(tmp, len);
-            len -= tmp_size;
-            }
-      // Now len is <= tmp_size, last read fits in the buffer.
-      read(tmp, tmp_size);
-#endif
       }
 
 /*---------------------------------------------------------
@@ -546,7 +538,6 @@ bool MidiFile::readEvent(MidiEvent* event)
                   break;
             }
 
-      unsigned char* data;
       int dataLen;
 
       if (me == 0xf0 || me == 0xf7) {
@@ -556,23 +547,21 @@ bool MidiFile::readEvent(MidiEvent* event)
                   qDebug("readEvent: error 3");
                   return false;
                   }
-            data    = new unsigned char[len+1];
             dataLen = len;
-            read(data, len);
-            data[dataLen] = 0;    // always terminate with zero
-            if (data[len-1] != 0xf7) {
+            std::vector<unsigned char> data(len + 1);
+            read(data.data(), len);
+            if (data[len - 1] != 0xf7) {
                   qDebug("SYSEX does not end with 0xf7!");
                   // more to come?
                   }
             else
                   dataLen--;      // don't count 0xf7
             event->setType(ME_SYSEX);
-            event->setEData(data);
+            event->setEData(std::move(data));
             event->setLen(dataLen);
             return true;
             }
-
-      if (me == ME_META) {
+      else if (me == ME_META) {
             status = -1;                  // no running status
             uchar type;
             read(&type, 1);
@@ -581,15 +570,14 @@ bool MidiFile::readEvent(MidiEvent* event)
                   qDebug("readEvent: error 6");
                   return false;
                   }
-            data = new unsigned char[dataLen + 1];
+            std::vector<unsigned char> data(dataLen + 1);
             if (dataLen)
-                  read(data, dataLen);
-            data[dataLen] = 0;      // always terminate with zero so we get valid C++ strings
+                  read(data.data(), dataLen);
 
             event->setType(ME_META);
             event->setMetaType(type);
             event->setLen(dataLen);
-            event->setEData(data);
+            event->setEData(std::move(data));
             return true;
             }
 

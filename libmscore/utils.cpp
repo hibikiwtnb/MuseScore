@@ -10,24 +10,25 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "config.h"
-#include "score.h"
-#include "page.h"
-#include "segment.h"
-#include "clef.h"
-#include "utils.h"
-#include "system.h"
-#include "measure.h"
-#include "pitchspelling.h"
-#include "chordrest.h"
-#include "part.h"
-#include "staff.h"
-#include "note.h"
 #include "chord.h"
+#include "chordrest.h"
+#include "clef.h"
+#include "config.h"
 #include "key.h"
+#include "keysig.h"
+#include "measure.h"
+#include "note.h"
+#include "page.h"
+#include "part.h"
+#include "pitchspelling.h"
+#include "score.h"
+#include "segment.h"
 #include "sig.h"
-#include "tuplet.h"
+#include "staff.h"
 #include "sym.h"
+#include "system.h"
+#include "tuplet.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -403,7 +404,7 @@ int pitchKeyAdjust(int step, Key key)
 
 int y2pitch(qreal y, ClefType clef, qreal _spatium)
       {
-      int l = lrint(y / _spatium * 2.0);
+      int l = (int)lrint(y / _spatium * 2.0);
       return line2pitch(l, clef, Key::C);
       }
 
@@ -1005,32 +1006,46 @@ std::vector<SymId> toTimeSigString(const QString& s)
             SymId id;
             };
       static const std::vector<Dict> dict = {
-            { 43,    SymId::timeSigPlusSmall        },  // '+'
-            { 48,    SymId::timeSig0                },  // '0'
-            { 49,    SymId::timeSig1                },  // '1'
-            { 50,    SymId::timeSig2                },  // '2'
-            { 51,    SymId::timeSig3                },  // '3'
-            { 52,    SymId::timeSig4                },  // '4'
-            { 53,    SymId::timeSig5                },  // '5'
-            { 54,    SymId::timeSig6                },  // '6'
-            { 55,    SymId::timeSig7                },  // '7'
-            { 56,    SymId::timeSig8                },  // '8'
-            { 57,    SymId::timeSig9                },  // '9'
-            { 67,    SymId::timeSigCommon           },  // 'C'
-            { 40,    SymId::timeSigParensLeftSmall  },  // '('
-            { 41,    SymId::timeSigParensRightSmall },  // ')'
-            { 162,   SymId::timeSigCutCommon        },  // '¢'
-            { 189,   SymId::timeSigFractionHalf     },
-            { 188,   SymId::timeSigFractionQuarter  },
+            { '+',   SymId::timeSigPlus             },
+            { '-',   SymId::timeSigMinus            },
+            { '0',   SymId::timeSig0                },
+            { '1',   SymId::timeSig1                },
+            { '2',   SymId::timeSig2                },
+            { '3',   SymId::timeSig3                },
+            { '4',   SymId::timeSig4                },
+            { '5',   SymId::timeSig5                },
+            { '6',   SymId::timeSig6                },
+            { '7',   SymId::timeSig7                },
+            { '8',   SymId::timeSig8                },
+            { '9',   SymId::timeSig9                },
+            { 'c',   SymId::timeSigCommon           },
+            { 'C',   SymId::timeSigCommon           },
+            { '(',   SymId::timeSigParensLeftSmall  },
+            { ')',   SymId::timeSigParensRightSmall },
+            { '[',   SymId::timeSigBracketLeftSmall },
+            { ']',   SymId::timeSigBracketRightSmall},
+            { u'¢',  SymId::timeSigCutCommon        },
+            { u'½',  SymId::timeSigFractionHalf     },
+            { u'¼',  SymId::timeSigFractionQuarter  },
+            { '=',   SymId::timeSigEquals           },
+            { '/',   SymId::timeSigFractionalSlash  },
+            { u'÷',  SymId::timeSigSlash            },
+            { '*',   SymId::timeSigMultiply         },
+            { 'X',   SymId::timeSigMultiply         },
+            { 'x',   SymId::timeSigMultiply         },
+            { u'×',  SymId::timeSigMultiply         },
             { 59664, SymId::mensuralProlation1      },
-            { 79,    SymId::mensuralProlation2      },  // 'O'
+            { 'o',   SymId::mensuralProlation2      },
+            { 'O',   SymId::mensuralProlation2      },
             { 59665, SymId::mensuralProlation2      },
-            { 216,   SymId::mensuralProlation3      },  // 'Ø'
+            { u'Ø',  SymId::mensuralProlation3      },
             { 59666, SymId::mensuralProlation3      },
             { 59667, SymId::mensuralProlation4      },
             { 59668, SymId::mensuralProlation5      },
+            { 59669, SymId::mensuralProlation6      },
             { 59670, SymId::mensuralProlation7      },
             { 59671, SymId::mensuralProlation8      },
+            { 59672, SymId::mensuralProlation9      },
             { 59673, SymId::mensuralProlation10     },
             { 59674, SymId::mensuralProlation11     },
             };
@@ -1059,5 +1074,26 @@ Fraction actualTicks(Fraction duration, Tuplet* tuplet, Fraction timeStretch)
       return f;
       }
 
+
+double yStaffDifference(const System* system1, int staffIdx1, const System* system2, int staffIdx2)
+      {
+       if (!system1 || !system2)
+            return 0.0;
+      const SysStaff* staff1 = system1->staff(staffIdx1);
+      const SysStaff* staff2 = system2->staff(staffIdx2);
+      if (!staff1 || !staff2)
+            return 0.0;
+      return staff1->y() - staff2->y();
+      }
+
+bool isFirstSystemKeySig(const KeySig* ks)
+      {
+      if (!ks)
+            return false;
+      const System* sys = ks->measure()->system();
+      if (!sys)
+            return false;
+      return ks->tick() == sys->firstMeasure()->tick();
+      }
 }
 

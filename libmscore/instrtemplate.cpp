@@ -525,6 +525,8 @@ void InstrumentTemplate::read(XmlReader& e)
                   }
             else if (tag == "singleNoteDynamics")
                   singleNoteDynamics = e.readBool();
+            else if (tag == "glissandoStyle") // Mu4 compatibility
+                  e.skipCurrentElement();
             else
                   e.unknown();
             }
@@ -756,6 +758,9 @@ InstrumentTemplate* searchTemplateForInstrNameList(const QList<QString>& nameLis
       for (InstrumentGroup* g : qAsConst(instrumentGroups)) {
             for (InstrumentTemplate* it : qAsConst(g->instrumentTemplates)) {
                   for (const QString& name : nameList) {
+                        if (name.isEmpty())
+                              continue;
+
                         if (it->trackName == name ||
                             it->longNames.contains(StaffName(name)) ||
                             it->shortNames.contains(StaffName(name)))
@@ -832,8 +837,8 @@ InstrumentIndex searchTemplateIndexForId(const QString& id)
       {
       int instIndex = 0;
       int grpIndex = 0;
-      for (InstrumentGroup* g : instrumentGroups) {
-            for (InstrumentTemplate* it : g->instrumentTemplates) {
+      for (InstrumentGroup*& g : instrumentGroups) {
+            for (InstrumentTemplate*& it : g->instrumentTemplates) {
                   if (it->id == id)
                         return InstrumentIndex(grpIndex, instIndex, it);
                   ++instIndex;

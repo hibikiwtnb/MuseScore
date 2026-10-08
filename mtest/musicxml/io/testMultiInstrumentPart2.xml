@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Multi Instrument Part 2</work-title>
@@ -107,6 +107,19 @@
         </note>
       </measure>
     <measure number="3">
+      <print>
+        <part-name-display>
+          <display-text>Piano</display-text>
+          </part-name-display>
+        <part-abbreviation-display>
+          <display-text>Pno.</display-text>
+          </part-abbreviation-display>
+        </print>
+      <sound>
+        <instrument-change id="P1-I2">
+          <instrument-sound>wind.flutes.flute</instrument-sound>
+          </instrument-change>
+        </sound>
       <direction placement="above">
         <direction-type>
           <words font-weight="bold" font-size="12">Flute</words>
@@ -246,6 +259,19 @@
         </note>
       </measure>
     <measure number="7">
+      <print>
+        <part-name-display>
+          <display-text>Voice</display-text>
+          </part-name-display>
+        <part-abbreviation-display>
+          <display-text>Vo.</display-text>
+          </part-abbreviation-display>
+        </print>
+      <sound>
+        <instrument-change id="P2-I2">
+          <instrument-sound>brass.trumpet.c</instrument-sound>
+          </instrument-change>
+        </sound>
       <direction placement="above">
         <direction-type>
           <words font-weight="bold" font-size="12">Trumpet</words>

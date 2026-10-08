@@ -490,6 +490,7 @@ class BracketObj : public LineObj {
 
    public:
       BracketObj(Capella* c) : LineObj(CapellaType::BRACKET, c) {}
+      void readCapx(XmlReader& e);
       void read();
 
       char orientation, number;
@@ -525,7 +526,11 @@ class BasicDurationalObj : public CapellaObj {
       QColor color;
       TIMESTEP t;
       int horizontalShift;
-      int count;              // tuplet
+      int tupletDenominator;           // tuplet type  --  will be used as a count if no separate count is determined
+      bool tupletStart = false;        // To correctly read Tuplets with mixed durations
+      bool tupletEnd   = false;        // we infer from the Capella file start/stop from the brackets.
+      int tupletCount  = 0;            // Real count of the tuplet notes ...
+      Fraction tupletTicks;            // ... and the ticks of the tuplet, used to calculate the end of the tuplet
       bool tripartite;
       bool isProlonging;
 
@@ -557,6 +562,7 @@ struct CNote {
       signed char pitch;
       int explAlteration;     // 1 force, 2 suppress
       int headType;
+      int headGroup;
       int alteration;
       int silent;
       };
@@ -629,7 +635,7 @@ struct CapBracket {
 
 class Capella {
       static const char* errmsg[];
-      int curPos;
+      qint64 curPos;
 
       QFile* f;
       char* author;
@@ -650,7 +656,7 @@ class Capella {
       unsigned char barNumberFrame; // 0=kein, 1=Rechteck, 2=Ellipse
       unsigned char nBarDistX;
       unsigned char nBarDistY;
-      // LogFont       barNumFont;
+      QFont barNumFont;
 
       unsigned nFirstPage;          // Versatz fuer Seitenzaehlung
 
@@ -681,7 +687,7 @@ class Capella {
 
    public:
       enum class Error : char { CAP_NO_ERROR, BAD_SIG, CAP_EOF, BAD_VOICE_SIG,
-            BAD_STAFF_SIG, BAD_SYSTEM_SIG
+            BAD_STAFF_SIG, BAD_SYSTEM_SIG, BAD_FORMAT,
             };
 
       Capella();

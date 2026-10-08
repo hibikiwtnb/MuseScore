@@ -84,7 +84,6 @@ class Chord final : public ChordRest {
 
       void layoutPitched();
       void layoutTablature();
-      qreal noteHeadWidth() const;
 
    public:
       Chord(Score* s = 0);
@@ -100,13 +99,14 @@ class Chord final : public ChordRest {
       ElementType type() const override   { return ElementType::CHORD; }
       qreal chordMag() const;
       qreal mag() const override;
+      qreal noteHeadWidth() const;
 
       void write(XmlWriter& xml) const override;
       void read(XmlReader&) override;
       bool readProperties(XmlReader&) override;
       Element* drop(EditData&) override;
 
-      void setStemDirection(Direction d) { _stemDirection = d; }
+      void setStemDirection(Direction d, Direction beamDir = Direction::AUTO);
       Direction stemDirection() const    { return _stemDirection; }
 
       LedgerLine* ledgerLines()                  { return _ledgerLines; }
@@ -173,7 +173,7 @@ class Chord final : public ChordRest {
       void layout() override;
       QPointF pagePos() const override;      ///< position in page coordinates
       void layout2();
-      void cmdUpdateNotes(AccidentalState*);
+      void cmdUpdateNotes(AccidentalState*, int);
 
       NoteType noteType() const       { return _noteType; }
       void setNoteType(NoteType t)    { _noteType = t; }
@@ -228,6 +228,8 @@ class Chord final : public ChordRest {
       Element* lastElementBeforeSegment();
       Element* prevSegmentElement() override;
       QString accessibleExtraInfo() const override;
+
+      Note* firstGraceOrNote();
 
       Shape shape() const override;
       };

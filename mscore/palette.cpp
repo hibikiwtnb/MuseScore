@@ -10,43 +10,43 @@
 //  the file LICENSE.GPL
 //=============================================================================
 
-#include "palette.h"
-#include "musescore.h"
-#include "libmscore/element.h"
-#include "libmscore/style.h"
 #include "globals.h"
-#include "libmscore/sym.h"
-#include "libmscore/symbol.h"
-#include "libmscore/score.h"
-#include "libmscore/image.h"
-#include "libmscore/xml.h"
-#include "scoreview.h"
-#include "libmscore/note.h"
-#include "libmscore/chord.h"
-#include "libmscore/clef.h"
-#include "libmscore/segment.h"
-#include "libmscore/measure.h"
-#include "libmscore/staff.h"
-#include "libmscore/system.h"
-#include "libmscore/page.h"
-#include "libmscore/keysig.h"
-#include "libmscore/timesig.h"
+#include "musescore.h"
+#include "palette.h"
 #include "preferences.h"
+#include "scoreaccessibility.h"
+#include "scoreview.h"
 #include "seq.h"
-#include "libmscore/part.h"
-#include "libmscore/textline.h"
-#include "libmscore/measure.h"
-#include "libmscore/icon.h"
-#include "libmscore/mscore.h"
-#include "libmscore/imageStore.h"
-#include "thirdparty/qzip/qzipreader_p.h"
-#include "thirdparty/qzip/qzipwriter_p.h"
-#include "libmscore/slur.h"
 #include "shortcut.h"
 #include "tourhandler.h"
-#include "script/recorderwidget.h"
+
+#include "libmscore/chord.h"
+#include "libmscore/clef.h"
+#include "libmscore/element.h"
 #include "libmscore/fret.h"
-#include "scoreaccessibility.h"
+#include "libmscore/icon.h"
+#include "libmscore/image.h"
+#include "libmscore/imageStore.h"
+#include "libmscore/keysig.h"
+#include "libmscore/measure.h"
+#include "libmscore/mscore.h"
+#include "libmscore/note.h"
+#include "libmscore/page.h"
+#include "libmscore/part.h"
+#include "libmscore/score.h"
+#include "libmscore/segment.h"
+#include "libmscore/staff.h"
+#include "libmscore/system.h"
+#include "libmscore/style.h"
+#include "libmscore/symbol.h"
+#include "libmscore/textline.h"
+#include "libmscore/timesig.h"
+#include "libmscore/xml.h"
+
+#include "script/recorderwidget.h"
+
+#include "thirdparty/qzip/qzipreader_p.h"
+#include "thirdparty/qzip/qzipwriter_p.h"
 
 namespace Ms {
 
@@ -109,7 +109,7 @@ Palette::Palette(std::unique_ptr<PalettePanel> pp, QWidget* parent)
 
       const auto allCells = pp->takeCells(0, pp->ncells());
       for (const PaletteCellPtr& cell : allCells) {
-            Element* e = cell.unique() ? cell->element.release() : (cell->element ? cell->element->clone() : nullptr);
+            Element* e = cell.use_count() == 1 ? cell->element.release() : (cell->element ? cell->element->clone() : nullptr);
             if (e) {
                   PaletteCell* newCell = append(e, cell->name, cell->tag, cell->mag);
                   newCell->drawStaff = cell->drawStaff;
@@ -120,12 +120,12 @@ Palette::Palette(std::unique_ptr<PalettePanel> pp, QWidget* parent)
             }
 
       if (moreElements())
-            connect(this, SIGNAL(displayMore(const QString&)), mscore, SLOT(showMasterPalette(const QString&)));
+            connect(this, SIGNAL(displayMore(QString&)), mscore, SLOT(showMasterPalette(QString&)));
       }
 
 Palette::~Palette()
       {
-      for (PaletteCell* cell : cells)
+      for (PaletteCell*& cell : cells)
             delete cell;
       }
 
@@ -153,7 +153,7 @@ bool Palette::filter(const QString& text)
       // if palette name is searched for, display all elements in the palette
       if (_name.startsWith(t, Qt::CaseInsensitive)) {
             PaletteCell* c  = cells.first();
-            for (PaletteCell* cell : cells)
+            for (PaletteCell*& cell : cells)
                   dragCells.append(cell);
 
             bool contains = t.isEmpty() || c;
@@ -163,12 +163,12 @@ bool Palette::filter(const QString& text)
                   res = false;
             }
 
-      for (PaletteCell* cell : cells) {
+      for (PaletteCell*& cell : cells) {
             QStringList h = cell->name.toLower().split(" ");
             bool c        = false;
             QStringList n = t.split(" ");
-            for (QString hs : h) {
-                  for (QString ns : n) {
+            for (QString& hs : h) {
+                  for (QString& ns : n) {
                         if (!ns.trimmed().isEmpty())
                               c = hs.trimmed().startsWith(ns.trimmed());
                         }
@@ -219,6 +219,22 @@ void Palette::setSystemPalette(bool val)
       }
 
 //---------------------------------------------------------
+//   setContentZoom
+//---------------------------------------------------------
+
+void Palette::setContentZoom(qreal zoom)
+      {
+      zoom = qBound(0.50, zoom, 4.00);
+
+      if (qFuzzyCompare(_contentZoom, zoom))
+            return;
+
+      _contentZoom = zoom;
+      update();
+      emit contentZoomChanged(_contentZoom);
+      }
+
+//---------------------------------------------------------
 //   setReadOnly
 //---------------------------------------------------------
 
@@ -253,6 +269,19 @@ qreal Palette::guiMag()
       }
 
 //---------------------------------------------------------
+//   paletteZoomLabelText
+//---------------------------------------------------------
+
+QString paletteZoomLabelText(const Palette* palette)
+      {
+      const QString zoom = palette
+            ? QString("%1%").arg(qRound(palette->contentZoom() * 100.0))
+            : QStringLiteral("—");
+
+      return qApp->translate("Palette", "Zoom: %1").arg(zoom);
+      }
+
+//---------------------------------------------------------
 //   contextMenuEvent
 //---------------------------------------------------------
 
@@ -280,7 +309,7 @@ void Palette::contextMenuEvent(QContextMenuEvent* event)
             if (menu.exec(mapToGlobal(event->pos())) == copyNameMenuItem) {
                   PaletteCell* cell = cellAt(i);
                   if (cell) {
-                        QRegularExpression regex("<sym>(.+?)</sym>");
+                        static QRegularExpression regex("<sym>(.+?)</sym>");
                         QString symSmuflName = QString("<sym>%1</sym>").arg(regex.match(cell->name).captured(1));
                         QApplication::clipboard()->setText(symSmuflName);
                         }
@@ -446,11 +475,39 @@ void Palette::mouseMoveEvent(QMouseEvent* ev)
                   }
             }
       else {
-            currentIdx = idx(ev->pos());
-            if (currentIdx != -1 && cellAt(currentIdx) == 0)
-                  currentIdx = -1;
-            update();
+            int newIdx = idx(ev->pos());
+            if (newIdx != -1 && cellAt(newIdx) == 0)
+                  newIdx = -1;
+
+            if (newIdx != currentIdx) {
+                  const int oldIdx = currentIdx;
+                  currentIdx = newIdx;
+                  update(idxRect(oldIdx) | idxRect(currentIdx));
+                  }
             }
+      }
+
+//---------------------------------------------------------
+//   wheelEvent
+//---------------------------------------------------------
+
+void Palette::wheelEvent(QWheelEvent* ev)
+      {
+      if (!_contentZoomEnabled || !(ev->modifiers() & Qt::ControlModifier)) {
+            ev->ignore();
+            return;
+            }
+
+      const int delta = ev->angleDelta().y();
+      if (!delta) {
+            ev->ignore();
+            return;
+            }
+
+      const qreal factor = delta > 0 ? 1.10 : 1.0 / 1.10;
+      setContentZoom(_contentZoom * factor);
+
+      ev->accept();
       }
 
 //---------------------------------------------------------
@@ -526,7 +583,7 @@ bool Palette::applyPaletteElement(Element* element, Qt::KeyboardModifiers modifi
       if (viewer && viewer->editMode() && !(viewer->mscoreState() & STATE_ALLTEXTUAL_EDIT))
             viewer->changeState(ViewState::NORMAL);
 
-      if (viewer->mscoreState() != STATE_EDIT
+      if (viewer && viewer->mscoreState() != STATE_EDIT
          && viewer->mscoreState() != STATE_LYRICS_EDIT
          && viewer->mscoreState() != STATE_HARMONY_FIGBASS_EDIT) { // Already in startCmd in this case
             score->startCmd();
@@ -589,16 +646,18 @@ bool Palette::applyPaletteElement(Element* element, Qt::KeyboardModifiers modifi
                   LayoutBreak* breakElement = toLayoutBreak(element);
                   score->cmdToggleLayoutBreak(breakElement->layoutBreakType());
                   }
-            else if (element->isSlur() && addSingle) {
+            else if (element->isSlur()) {
                   viewer->cmdAddSlur(toSlur(element));
+                  }
+            else if (element->isMeasureNumber()) {
+                  if (auto m = sel.findMeasure())
+                        m->undoChangeProperty(Pid::MEASURE_NUMBER_MODE, static_cast<int>(MeasureNumberMode::SHOW));
                   }
             else if (element->isSLine() && !element->isGlissando() && addSingle) {
                   Segment* startSegment = cr1->segment();
                   Segment* endSegment = cr2->segment();
                   if (element->type() == ElementType::PEDAL && cr2 != cr1)
                         endSegment = endSegment->nextCR(cr2->track());
-                  // TODO - handle cross-voice selections
-                  int idx = cr1->staffIdx();
 
                   QByteArray a = element->mimeData(QPointF());
 //printf("<<%s>>\n", a.data());
@@ -609,7 +668,8 @@ bool Palette::applyPaletteElement(Element* element, Qt::KeyboardModifiers modifi
                   Spanner* spanner = static_cast<Spanner*>(Element::create(type, score));
                   spanner->read(e);
                   spanner->styleChanged();
-                  score->cmdAddSpanner(spanner, idx, startSegment, endSegment);
+                  score->cmdAddSpanner(spanner, cr1->staffIdx(), startSegment, endSegment);
+                  spanner->isVoiceSpecific();
                   }
             else {
                   for (Element* e : sel.elements())
@@ -756,6 +816,23 @@ bool Palette::applyPaletteElement(Element* element, Qt::KeyboardModifiers modifi
                         spanner->styleChanged();
                         score->cmdAddSpanner(spanner, i, startSegment, endSegment);
                         }
+                  }
+            else if (element->isMeasureNumber()) {
+                  if (auto m = sel.startSegment()->measure())
+                        m->undoChangeProperty(Pid::MEASURE_NUMBER_MODE, static_cast<int>(MeasureNumberMode::SHOW));
+                  }
+            else if (element->isTextBase()) {
+                  Ms::Segment* firstSegment = sel.startSegment();
+                  int firstStaffIndex = sel.staffStart();
+                  int lastStaffIndex = sel.staffEnd();
+
+                  // A text should only be added at the start of the selection
+                  // There shouldn't be a text at each element
+                  if (element->systemFlag())
+                        applyDrop(score, viewer, firstSegment->firstElementForNavigation(0), element, modifiers);
+                  else
+                        for (int staff = firstStaffIndex; staff < lastStaffIndex; staff++)
+                              applyDrop(score, viewer, firstSegment->firstElementForNavigation(staff), element, modifiers);
                   }
             else {
                   int track1 = sel.staffStart() * VOICES;
@@ -1133,10 +1210,10 @@ static void paintPaletteElement(void* data, Element* e)
 //   paintEvent
 //---------------------------------------------------------
 
-void Palette::paintEvent(QPaintEvent* /*event*/)
+void Palette::paintEvent(QPaintEvent* event)
       {
       qreal _spatium = gscore->spatium();
-      qreal magS     = PALETTE_SPATIUM * extraMag * guiMag();
+      qreal magS     = PALETTE_SPATIUM * extraMag * _contentZoom * guiMag();
       qreal mag      = magS / _spatium;
 //      qreal mag      = PALETTE_SPATIUM * extraMag / _spatium;
       gscore->setSpatium(SPATIUM20);
@@ -1177,7 +1254,7 @@ void Palette::paintEvent(QPaintEvent* /*event*/)
                   }
             }
 
-      qreal dy = lrint(2 * magS);
+      qreal dy = (int)lrint(2 * magS);
 
       //
       // draw symbols
@@ -1187,7 +1264,13 @@ void Palette::paintEvent(QPaintEvent* /*event*/)
       QPen pen(Qt::black);
       pen.setWidthF(MScore::defaultStyle().value(Sid::staffLineWidth).toDouble() * magS);
 
-      for (int idx = 0; idx < ccp()->size(); ++idx) {
+      const QRect dirtyRect = event->rect();
+      const int firstRow = qMax(0, dirtyRect.top() / vgridM);
+      const int lastRow  = qMin(rows() - 1, dirtyRect.bottom() / vgridM);
+      const int firstIdx = firstRow * columns();
+      const int lastIdx  = qMin(ccp()->size() - 1, (lastRow + 1) * columns() - 1);
+
+      for (int idx = firstIdx; idx <= lastIdx; ++idx) {
             int yoffset  = gscore->spatium() * _yOffset;
             QRect r      = idxRect(idx);
             QRect rShift = r.translated(0, yoffset);
@@ -1239,6 +1322,11 @@ void Palette::paintEvent(QPaintEvent* /*event*/)
                   }
             el->layout();
 
+            p.save();
+
+            // Keep enlarged palette contents within their cell
+            p.setClipRect(r.adjusted(1, 1, -1, -1));
+
             if (drawStaff) {
                   qreal y = r.y() + vgridM * .5 - dy + _yOffset * _spatium * cellMag;
                   qreal x = r.x() + 3;
@@ -1248,7 +1336,7 @@ void Palette::paintEvent(QPaintEvent* /*event*/)
                         p.drawLine(QLineF(x, yy, x + w, yy));
                         }
                   }
-            p.save();
+
             p.scale(cellMag, cellMag);
 
             double gw = hhgrid / cellMag;
@@ -1298,8 +1386,6 @@ QPixmap Palette::pixmap(int paletteIdx) const
       qreal _spatium = gscore->spatium();
       qreal magS     = PALETTE_SPATIUM * extraMag * guiMag();
       qreal mag      = magS / _spatium;
-//      qreal guiMag = guiScaling * preferences.getDouble(PREF_APP_PALETTESCALE);
-//      qreal mag      = PALETTE_SPATIUM * extraMag * guiMag / _spatium;
       PaletteCell* c = cellAt(paletteIdx);
       if (!c || !c->element)
             return QPixmap();
@@ -1307,8 +1393,8 @@ QPixmap Palette::pixmap(int paletteIdx) const
       Element* e = c->element.get();
       e->layout();
       QRectF r = e->bbox();
-      int w    = lrint(r.width()  * cellMag);
-      int h    = lrint(r.height() * cellMag);
+      int w    = (int)lrint(r.width()  * cellMag);
+      int h    = (int)lrint(r.height() * cellMag);
 
       if (w * h == 0) {
             qDebug("zero pixmap %d %d %s", w, h, e->name());
@@ -1398,7 +1484,7 @@ void Palette::write(XmlWriter& xml) const
             xml.tag("grid", _drawGrid);
 
       xml.tag("moreElements", _moreElements);
-      if (_yOffset != 0.0)
+      if (!qFuzzyIsNull(_yOffset))
             xml.tag("yoffset", _yOffset);
 
       int n = cells.size();
@@ -1421,7 +1507,7 @@ void Palette::write(XmlWriter& xml) const
                   xml.tag("yoffset", cells[i]->yoffset);
             if (!cells[i]->tag.isEmpty())
                   xml.tag("tag", cells[i]->tag);
-            if (cells[i]->mag != 1.0)
+            if (!qFuzzyCompare(cells[i]->mag, 1.0))
                   xml.tag("mag", cells[i]->mag);
             cells[i]->element->write(xml);
             xml.etag();
@@ -1722,7 +1808,7 @@ int Palette::heightForWidth(int w) const
       if (rows <= 0)
             rows = 1;
       qreal magS = PALETTE_SPATIUM * extraMag * guiMag();
-      int h = lrint(_yOffset * 2 * magS);
+      int h = (int)lrint(_yOffset * 2 * magS);
       return rows * vgridM + h;
       }
 
@@ -1855,9 +1941,13 @@ void Palette::dragEnterEvent(QDragEnterEvent* event)
                   QFileInfo fi(u.path());
                   QString suffix(fi.suffix().toLower());
                   if (suffix == "svg"
+                     || suffix == "svgz"
                      || suffix == "jpg"
                      || suffix == "jpeg"
                      || suffix == "png"
+                     || suffix == "bpm"
+                     || suffix == "tif"
+                     || suffix == "tiff"
                      ) {
                         event->acceptProposedAction();
                         }
@@ -1871,7 +1961,7 @@ void Palette::dragEnterEvent(QDragEnterEvent* event)
             event->ignore();
 #ifndef NDEBUG
             qDebug("dragEnterEvent: formats:");
-            for (const QString& s : event->mimeData()->formats())
+            for (QString& s : event->mimeData()->formats())
                   qDebug("   %s", qPrintable(s));
 #endif
             }
@@ -1917,7 +2007,6 @@ void Palette::dropEvent(QDropEvent* event)
             QList<QUrl>ul = event->mimeData()->urls();
             QUrl u = ul.front();
             if (u.scheme() == "file") {
-                  QFileInfo fi(u.path());
                   Image* s = new Image(gscore);
                   QString filePath(u.toLocalFile());
                   s->load(filePath);

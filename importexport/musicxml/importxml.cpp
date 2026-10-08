@@ -23,6 +23,7 @@
 
 #include "thirdparty/qzip/qzipreader_p.h"
 #include "importmxml.h"
+#include "musicxmlsupport.h"
 
 namespace Ms {
 
@@ -140,14 +141,14 @@ static bool extractRootfile(QFile* qf, QByteArray& data)
             }
 
       // extract first rootfile
-      QString rootfile = "";
+      QString rootfile;
       for (QDomElement e = container.documentElement(); !e.isNull(); e = e.nextSiblingElement()) {
             if (e.tagName() == "container") {
                   for (QDomElement ee = e.firstChildElement(); !ee.isNull(); ee = ee.nextSiblingElement()) {
                         if (ee.tagName() == "rootfiles") {
                               for (QDomElement eee = ee.firstChildElement(); !eee.isNull(); eee = eee.nextSiblingElement()) {
                                     if (eee.tagName() == "rootfile") {
-                                          if (rootfile == "")
+                                          if (rootfile.isEmpty())
                                                 rootfile = eee.attribute(QString("full-path"));
                                           }
                                     else
@@ -162,7 +163,7 @@ static bool extractRootfile(QFile* qf, QByteArray& data)
                   domError(e);
             }
 
-      if (rootfile == "") {
+      if (rootfile.isEmpty()) {
             qDebug("can't find rootfile in: %s", qPrintable(qf->fileName()));
             MScore::lastError = QObject::tr("Can't find rootfile\n%1").arg(qf->fileName());
             return false;
@@ -233,7 +234,7 @@ static Score::FileError doValidateAndImport(Score* score, const QString& name, Q
 
       // actually do the import
       importMusicXMLfromBuffer(score, name, dev);
-      //qDebug("importMusicXml() return %d", int(res));
+      //qDebug("res %d", static_cast<int>(res));
       return res;
       }
 
@@ -323,7 +324,7 @@ Score::FileError importCompressedMusicXml(MasterScore* score, const QString& nam
 
 VoiceDesc::VoiceDesc() : _staff(-1), _voice(-1), _overlaps(false)
       {
-      for (int i = 0; i < MAX_STAVES; ++i) {
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i) {
             _chordRests[i] =  0;
             _staffAlloc[i] = -1;
             _voices[i]     = -1;
@@ -332,14 +333,14 @@ VoiceDesc::VoiceDesc() : _staff(-1), _voice(-1), _overlaps(false)
 
 void VoiceDesc::incrChordRests(int s)
       {
-      if (0 <= s && s < MAX_STAVES)
+      if (0 <= s && s < MAX_VOICE_DESC_STAVES)
             _chordRests[s]++;
       }
 
 int VoiceDesc::numberChordRests() const
       {
       int res = 0;
-      for (int i = 0; i < MAX_STAVES; ++i)
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
             res += _chordRests[i];
       return res;
       }
@@ -348,7 +349,7 @@ int VoiceDesc::preferredStaff() const
       {
       int max = 0;
       int res = 0;
-      for (int i = 0; i < MAX_STAVES; ++i)
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
             if (_chordRests[i] > max) {
                   max = _chordRests[i];
                   res = i;
@@ -359,15 +360,15 @@ int VoiceDesc::preferredStaff() const
 QString VoiceDesc::toString() const
       {
       QString res = "[";
-      for (int i = 0; i < MAX_STAVES; ++i)
+      for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
             res += QString(" %1").arg(_chordRests[i]);
       res += QString(" ] overlaps %1").arg(_overlaps);
       if (_overlaps) {
             res += " staffAlloc [";
-            for (int i = 0; i < MAX_STAVES; ++i)
+            for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
                   res += QString(" %1").arg(_staffAlloc[i]);
             res += " ] voices [";
-            for (int i = 0; i < MAX_STAVES; ++i)
+            for (int i = 0; i < MAX_VOICE_DESC_STAVES; ++i)
                   res += QString(" %1").arg(_voices[i]);
             res += " ]";
             }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Unusual Durations</work-title>
@@ -80,12 +80,6 @@
         <voice>1</voice>
         <type>128th</type>
         <stem>up</stem>
-        </note>
-      <note print-object="no">
-        <rest/>
-        <duration>1</duration>
-        <voice>1</voice>
-        <type>128th</type>
         </note>
       </measure>
     <measure number="3">

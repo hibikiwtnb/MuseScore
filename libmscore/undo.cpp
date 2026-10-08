@@ -23,63 +23,53 @@
 */
 
 #include "global/log.h"
-#include "undo.h"
+
+#include "accidental.h"
+#include "articulation.h"
+#include "barline.h"
+#include "beam.h"
+#include "bend.h"
+#include "bracket.h"
+#include "chord.h"
+#include "chordline.h"
+#include "clef.h"
+#include "dynamic.h"
 #include "element.h"
+#include "excerpt.h"
+#include "fret.h"
+#include "glissando.h"
+#include "hairpin.h"
+#include "harmony.h"
+#include "input.h"
+#include "instrchange.h"
+#include "key.h"
+#include "keysig.h"
+#include "measure.h"
 #include "note.h"
+#include "noteevent.h"
+#include "page.h"
+#include "part.h"
+#include "pitchspelling.h"
 #include "score.h"
 #include "segment.h"
-#include "measure.h"
-#include "system.h"
 #include "select.h"
-#include "input.h"
-#include "slur.h"
-#include "tie.h"
-#include "clef.h"
-#include "staff.h"
-#include "chord.h"
-#include "sig.h"
-#include "key.h"
-#include "barline.h"
-#include "volta.h"
-#include "tuplet.h"
-#include "harmony.h"
-#include "pitchspelling.h"
-#include "part.h"
-#include "beam.h"
-#include "dynamic.h"
-#include "page.h"
-#include "keysig.h"
-#include "image.h"
-#include "hairpin.h"
-#include "rest.h"
-#include "bend.h"
-#include "tremolobar.h"
-#include "articulation.h"
-#include "noteevent.h"
-#include "slur.h"
-#include "tempotext.h"
-#include "instrchange.h"
-#include "box.h"
-#include "stafftype.h"
-#include "accidental.h"
-#include "layoutbreak.h"
-#include "spanner.h"
 #include "sequencer.h"
-#include "breath.h"
-#include "fingering.h"
-#include "rehearsalmark.h"
-#include "excerpt.h"
-#include "stafftext.h"
-#include "chordline.h"
-#include "tremolo.h"
-#include "sym.h"
-#include "utils.h"
-#include "glissando.h"
+#include "spanner.h"
+#include "staff.h"
 #include "stafflines.h"
-#include "bracket.h"
-#include "fret.h"
+#include "stafftype.h"
+#include "sym.h"
+#include "system.h"
+#include "tempotext.h"
 #include "textedit.h"
 #include "textline.h"
+#include "tie.h"
+#include "tremolo.h"
+#include "tremolobar.h"
+#include "tuplet.h"
+#include "undo.h"
+#include "utils.h"
+#include "volta.h"
 
 namespace Ms {
 
@@ -274,7 +264,7 @@ UndoStack::~UndoStack()
 void UndoStack::beginMacro(Score* score)
       {
       if (curCmd) {
-            qWarning("already active");
+            qDebug("already active");
             return;
             }
       curCmd = new UndoMacro(score);
@@ -316,7 +306,7 @@ void UndoStack::push1(UndoCommand* cmd)
       {
       if (!curCmd) {
             if (!ScoreLoad::loading())
-                  qWarning("no active command, UndoStack %p", this);
+                  qDebug("no active command, UndoStack %p", this);
             return;
             }
       curCmd->appendChild(cmd);
@@ -373,7 +363,7 @@ void UndoStack::pop()
       {
       if (!curCmd) {
             if (!ScoreLoad::loading())
-                  qWarning("no active command");
+                  qDebug("no active command");
             return;
             }
       UndoCommand* cmd = curCmd->removeChild();
@@ -401,7 +391,7 @@ void UndoStack::rollback()
 void UndoStack::endMacro(bool rollback)
       {
       if (curCmd == 0) {
-            qWarning("not active");
+            qDebug("not active");
             return;
             }
       if (rollback)
@@ -1510,7 +1500,7 @@ void ChangePatch::flip(EditData*)
       patch            = op;
 
       if (MScore::seq == 0) {
-            qWarning("no seq");
+            qDebug("no seq");
             return;
             }
 
@@ -1639,6 +1629,19 @@ ChangePart::ChangePart(Part* _part, Instrument* i, const QString& s)
       }
 
 //---------------------------------------------------------
+//   ChangePianoRollNoteShape::flip
+//---------------------------------------------------------
+
+void ChangePianoRollNoteShape::flip(EditData*)
+      {
+      const PianoRollNoteShape oldShape =
+            instrument->pianoRollNoteShape();
+
+      instrument->setPianoRollNoteShape(shape);
+      shape = oldShape;
+      }
+
+//---------------------------------------------------------
 //   flip
 //---------------------------------------------------------
 
@@ -1665,6 +1668,20 @@ void ChangePart::flip(EditData*)
       instrument = oi;
       }
 
+static void changeChordStyle(Score* score)
+      {
+      score->style().chordList()->unload();
+      qreal emag = score->styleD(Sid::chordExtensionMag);
+      qreal eadjust = score->styleD(Sid::chordExtensionAdjust);
+      qreal mmag = score->styleD(Sid::chordModifierMag);
+      qreal madjust = score->styleD(Sid::chordModifierAdjust);
+      score->style().chordList()->configureAutoAdjust(emag, eadjust, mmag, madjust);
+      if (score->styleB(Sid::chordsXmlFile))
+            score->style().chordList()->read("chords.xml");
+      score->style().chordList()->read(score->styleSt(Sid::chordDescriptionFile));
+      score->style().setCustomChordList(score->styleSt(Sid::chordStyle) == "custom");
+      }
+
 //---------------------------------------------------------
 //   ChangeStyle
 //---------------------------------------------------------
@@ -1684,11 +1701,12 @@ void ChangeStyle::flip(EditData*)
 
       if (score->styleV(Sid::concertPitch) != style.value(Sid::concertPitch))
             score->cmdConcertPitchChanged(style.value(Sid::concertPitch).toBool(), true);
-      if (score->styleV(Sid::MusicalSymbolFont) != style.value(Sid::MusicalSymbolFont)) {
-            score->setScoreFont(ScoreFont::fontFactory(style.value(Sid::MusicalSymbolFont).toString()));
+      if (score->styleV(Sid::musicalSymbolFont) != style.value(Sid::musicalSymbolFont)) {
+            score->setScoreFont(ScoreFont::fontFactory(style.value(Sid::musicalSymbolFont).toString()));
             }
 
       score->setStyle(style, overlap);
+      changeChordStyle(score);
       score->styleChanged();
       style = tmp;
       }
@@ -1713,18 +1731,8 @@ void ChangeStyleVal::flip(EditData*)
                   case Sid::chordExtensionAdjust:
                   case Sid::chordModifierMag:
                   case Sid::chordModifierAdjust:
-                  case Sid::chordDescriptionFile: {
-                        score->style().chordList()->unload();
-                        qreal emag = score->styleD(Sid::chordExtensionMag);
-                        qreal eadjust = score->styleD(Sid::chordExtensionAdjust);
-                        qreal mmag = score->styleD(Sid::chordModifierMag);
-                        qreal madjust = score->styleD(Sid::chordModifierAdjust);
-                        score->style().chordList()->configureAutoAdjust(emag, eadjust, mmag, madjust);
-                        if (score->styleB(Sid::chordsXmlFile))
-                            score->style().chordList()->read("chords.xml");
-                        score->style().chordList()->read(score->styleSt(Sid::chordDescriptionFile));
-                        score->style().setCustomChordList(score->styleSt(Sid::chordStyle) == "custom");
-                        }
+                  case Sid::chordDescriptionFile:
+                        changeChordStyle(score);
                         break;
                   case Sid::spatium:
                         score->spatiumChanged(v.toDouble(), value.toDouble());
@@ -1982,7 +1990,6 @@ void InsertRemoveMeasures::removeMeasures()
                   if ((sp->tick() >= tick1 && sp->tick() < tick2) || (sp->tick2() >= tick1 && sp->tick2() < tick2))
                         sp->removeUnmanaged();
                   }
-            score->connectTies(true);   // ??
             }
 
       // remove empty systems
@@ -2051,7 +2058,11 @@ void RemoveExcerpt::redo(EditData*)
 
 void SwapExcerpt::flip(EditData*)
       {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
+      score->excerpts().swapItemsAt(pos1, pos2);
+#else
       score->excerpts().swap(pos1, pos2);
+#endif
       score->setExcerptsChanged(true);
       }
 
@@ -2384,7 +2395,7 @@ void ChangeParent::flip(EditData*)
       int si = element->staffIdx();
       p->remove(element);
       element->setParent(parent);
-      element->setTrack(staffIdx * VOICES);
+      element->setTrack(staffIdx * VOICES + element->voice());
       parent->add(element);
       staffIdx = si;
       parent = p;

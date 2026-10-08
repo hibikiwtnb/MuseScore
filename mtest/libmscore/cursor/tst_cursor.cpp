@@ -69,9 +69,8 @@ void TestCursor::testAddNoteTickUpdate()
       c.addNote(60);
       c.addNote(60);
       c.addNote(60);
-      QCOMPARE(c.tick(), MScore::division * 2); //one division == 1 crotchet
+      QCOMPARE(c.tick(), DIVISION * 2); //one division == 1 crotchet
       }
 
 QTEST_MAIN(TestCursor)
 #include "tst_cursor.moc"
-

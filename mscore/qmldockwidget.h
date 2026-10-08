@@ -24,9 +24,7 @@
 
 namespace Ms {
 
-#ifndef NDEBUG
 extern bool useSourceQmlFiles;
-#endif
 
 //---------------------------------------------------------
 //   FocusChainBreak

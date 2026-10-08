@@ -455,7 +455,7 @@ void TestImportMidi::findChordInBar()
       chords.insert({ReducedFraction::fromTicks(3201), MidiChord()});
 
       ReducedFraction startBarTick;
-      ReducedFraction endBarTick = ReducedFraction::fromTicks(4 * MScore::division); // 4/4
+      ReducedFraction endBarTick = ReducedFraction::fromTicks(4 * DIVISION); // 4/4
 
       auto firstChordIt = MChord::findFirstChordInRange(startBarTick, endBarTick,
                                                         chords.begin(), chords.end());
@@ -501,7 +501,7 @@ void isSingleNoteInTupletAllowed(int tupletNumber,
                                  bool expectedResult)
       {
       MidiTuplet::TupletInfo tupletInfo;
-      tupletInfo.len = ReducedFraction::fromTicks(MScore::division);
+      tupletInfo.len = ReducedFraction::fromTicks(DIVISION);
 
       std::multimap<ReducedFraction, MidiChord> chords;
       MidiChord chord;
@@ -526,7 +526,7 @@ void isChordCountInTupletAllowed(int tupletNumber,
                                  bool expectedResult)
       {
       MidiTuplet::TupletInfo tupletInfo;
-      tupletInfo.len = ReducedFraction::fromTicks(MScore::division);
+      tupletInfo.len = ReducedFraction::fromTicks(DIVISION);
 
       std::multimap<ReducedFraction, MidiChord> chords;
       tupletInfo.firstChordIndex = 0;
@@ -552,7 +552,7 @@ void isTupletErrorAllowed(int tupletSumError,
       {
       MidiTuplet::TupletInfo tupletInfo;
       tupletInfo.tupletNumber = 3;
-      tupletInfo.len = ReducedFraction::fromTicks(MScore::division);
+      tupletInfo.len = ReducedFraction::fromTicks(DIVISION);
 
       std::multimap<ReducedFraction, MidiChord> chords;
       MidiChord chord;
@@ -672,7 +672,7 @@ void TestImportMidi::findTupletNumbers()
 
 void TestImportMidi::findOnTimeRegularError()
       {
-      ReducedFraction quantValue = ReducedFraction::fromTicks(MScore::division) / 4;  // 1/16
+      ReducedFraction quantValue = ReducedFraction::fromTicks(DIVISION) / 4;  // 1/16
       MidiChord chord;
       MidiNote note;
       note.offTime = quantValue * 4;
@@ -686,8 +686,8 @@ void TestImportMidi::findOnTimeRegularError()
 void TestImportMidi::findTupletApproximation()
       {
       const int tupletNumber = 3;
-      const ReducedFraction tupletLen = ReducedFraction::fromTicks(MScore::division);
-      const ReducedFraction quantValue = ReducedFraction::fromTicks(MScore::division) / 4;  // 1/16
+      const ReducedFraction tupletLen = ReducedFraction::fromTicks(DIVISION);
+      const ReducedFraction quantValue = ReducedFraction::fromTicks(DIVISION) / 4;  // 1/16
 
       std::multimap<ReducedFraction, MidiChord> chords;
       MidiChord chord;
@@ -760,7 +760,7 @@ void TestImportMidi::findLongestUncommonGroup()
       {
       std::vector<MidiTuplet::TupletInfo> tuplets;
       MidiTuplet::TupletInfo info;
-      const ReducedFraction basicQuant = ReducedFraction::fromTicks(MScore::division) / 4;  // 1/16
+      const ReducedFraction basicQuant = ReducedFraction::fromTicks(DIVISION) / 4;  // 1/16
                   // 0
       info.onTime = {5, 8};
       info.len = {1, 8};
@@ -841,7 +841,7 @@ MidiChord chordFactory(const ReducedFraction &offTime, const std::vector<int> &p
 
 void TestImportMidi::separateTupletVoices()
       {
-      const ReducedFraction tupletLen = ReducedFraction::fromTicks(MScore::division);
+      const ReducedFraction tupletLen = ReducedFraction::fromTicks(DIVISION);
       std::multimap<ReducedFraction, MidiChord> chords;
                   // let's create 3 tuplets with the same first chord
 
@@ -1203,4 +1203,3 @@ void TestImportMidi::testGuiTracksModel()
 QTEST_MAIN(TestImportMidi)
 
 #include "tst_importmidi.moc"
-

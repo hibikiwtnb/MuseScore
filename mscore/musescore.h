@@ -22,11 +22,13 @@
 
 #include "config.h"
 #include "globals.h"
-#include "singleapp/src/QtSingleApplication"
+#include "sessionstatusobserver.h"
 #include "updatechecker.h"
+
 #include "libmscore/musescoreCore.h"
 #include "libmscore/score.h"
-#include "sessionstatusobserver.h"
+
+#include "singleapp/src/QtSingleApplication"
 
 namespace Ms {
 
@@ -48,6 +50,7 @@ class PlayPanel;
 class IPlayPanel;
 class Mixer;
 class Debugger;
+class DebugLogDock;
 class MeasureListEditor;
 class MasterScore;
 class Score;
@@ -113,6 +116,7 @@ struct PaletteTree;
 class PaletteWidget;
 class PaletteWorkspace;
 class QmlDockWidget;
+class Selection;
 
 struct PluginDescription;
 enum class SelState : char;
@@ -162,7 +166,7 @@ struct LanguageItem {
 //   SaveReplacePolicy
 //---------------------------------------------------------
 
-enum class SaveReplacePolicy {
+enum class SaveReplacePolicy : char {
       NO_CHOICE,
       SKIP_ALL,
       REPLACE_ALL
@@ -173,6 +177,8 @@ enum class SaveReplacePolicy {
 //---------------------------------------------------------
 
 class MuseScoreApplication : public QtSingleApplication {
+      Q_OBJECT
+
    public:
       QStringList paths;
       MuseScoreApplication(const QString& id, int &argc, char **argv)
@@ -201,6 +207,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QSettings settings;
       ScoreView* cv                        { 0 };
       ScoreTab* ctab                       { 0 };
+      Score* copiedFromScore               { 0 };
+      Selection copiedSelection;
       QMap<MasterScore*, bool> scoreWasShown; // whether each score in scoreList has ever been shown
       ScoreState _sstate;
       UpdateChecker* ucheck;
@@ -211,6 +219,9 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
 
       static const std::list<const char*> _allFileOperationEntries;
       std::list<const char*> _fileOperationEntries { _allFileOperationEntries };
+
+      static const std::list<const char*> _allAlternativeEntries;
+      std::list<const char*> _alternativeEntries { _allAlternativeEntries };
 
       static const std::list<const char*> _allPlaybackControlEntries;
       std::list<const char*> _playbackControlEntries { _allPlaybackControlEntries };
@@ -252,7 +263,10 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QToolBar* fileTools;
       QToolBar* transportTools;
       QToolBar* entryTools;
+#if 0
       QToolBar* feedbackTools;
+#endif
+      QToolBar* alternativeTools;
       QToolBar* workspacesTools;
       TextTools* _textTools                { 0 };
       PianoTools* _pianoTools              { 0 };
@@ -296,9 +310,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QMenu* menuPlugins;
       QMenu* menuHelp;
       QMenu* menuTours;
-#ifndef NDEBUG
       QMenu* menuDebug;
-#endif
       AlbumManager* albumManager           { 0 };
       ExportDialog* exportDialog           { 0 };
 
@@ -309,6 +321,8 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       Mixer* mixer                         { 0 };
       SynthControl* synthControl           { 0 };
       Debugger* debugger                   { 0 };
+      DebugLogDock* _debugLogDock          { nullptr };
+      QAction* _debugLogAction             { nullptr };
       MeasureListEditor* measureListEdit   { 0 };
       PageSettings* pageSettings           { 0 };
 
@@ -344,6 +358,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QTimer* autoSaveTimer;
       QList<QAction*> pluginActions;
 
+      QDockWidget* pianorollDock { 0 };
       PianorollEditor* pianorollEditor   { 0 };
       DrumrollEditor* drumrollEditor     { 0 };
       bool _splitScreen                  { false };
@@ -354,6 +369,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       int _midiRecordId                  { -1 };
 
       bool _fullscreen                   { false };
+      bool _startMaximized               { false };
       QList<LanguageItem> _languages;
 
       Startcenter* startcenter             { 0 };
@@ -402,6 +418,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
 
       QAction* countInAction;
       QAction* metronomeAction;
+      QAction* playbackHighlightAction;
       QAction* loopAction;
       QAction* loopInAction;
       QAction* loopOutAction;
@@ -425,11 +442,13 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
 
       //---------------------
 
-      virtual void closeEvent(QCloseEvent*);
-      virtual void dragEnterEvent(QDragEnterEvent*);
-      virtual void dropEvent(QDropEvent*);
-      virtual void changeEvent(QEvent *e);
-      virtual void showEvent(QShowEvent *event);
+      void stackDockAboveDebugLog(QDockWidget*);
+
+      virtual void closeEvent(QCloseEvent*) override;
+      virtual void dragEnterEvent(QDragEnterEvent*) override;
+      virtual void dropEvent(QDropEvent*) override;
+      virtual void changeEvent(QEvent *e) override;
+      virtual void showEvent(QShowEvent *event) override;
 
       void retranslate();
       void setMenuTitles();
@@ -467,12 +486,14 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void initOsc();
       void editRaster();
       void showPianoKeyboard(bool);
+      void createPianoroll();
+      void showPianoroll(bool);
       void showMediaDialog();
       void showAlbumManager();
       void showLayerManager();
       void updateUndoRedo();
       void changeScore(int);
-      virtual void resizeEvent(QResizeEvent*);
+      virtual void resizeEvent(QResizeEvent*) override;
       void showModeText(const QString& s, bool informScreenReader = true);
       void addRecentScore(const QString& scorePath);
 
@@ -519,7 +540,6 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void leaveFeedback(QString medium);
       void openRecentMenu();
       void selectScore(QAction*);
-      void startPreferenceDialog();
       void preferencesChanged(bool fromWorkspace = false, bool changeUI = true);
       void seqStarted();
       void seqStopped();
@@ -527,6 +547,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void cmdInsertMeasures();
       void zoomBoxChanged(const ZoomIndex, const qreal);
       void showPageSettings();
+      void showDebugLog(bool visible);
       void removeTab(int);
       void removeTab();
       void clipboardChanged();
@@ -551,7 +572,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void oscMuteChannel(double val);
       void oscOpen(QString path);
       void oscCloseAll();
-      void oscTriggerPlugin(QString list);
+      void oscTriggerPlugin(QString path, QVariant args);
       void oscColorNote(QVariantList list);
       void oscAction();
 #endif
@@ -574,11 +595,16 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QByteArray exportPdfAsJSON(Score*);
 
    public slots:
-      virtual void cmd(QAction* a);
       void dirtyChanged(Score*);
       void setPos(const Fraction& tick);
+      virtual void cmd(QAction* a) override;
+      QString pluginPathFromIdx(int idx);
       void pluginTriggered(int);
       void pluginTriggered(QString path);
+#ifdef SCRIPT_INTERFACE
+      void oscControlPlugin(int idx, QStringList methodPath, QVariant arg);
+      void oscControlPlugin(QString pluginPath, QStringList methodPath, QVariant arg);
+#endif
       void handleMessage(const QString& message);
       void setCurrentScoreView(ScoreView*);
       void setCurrentScoreView(int);
@@ -598,6 +624,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void changeWorkspace(Workspace* p, bool first=false);
       void mixerPreferencesChanged(bool showMidiControls);
       void checkForUpdates();
+      void startPreferenceDialog();
       void restartAudioEngine();
 
    public:
@@ -608,7 +635,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       PlayPanel* getPlayPanel() const { return playPanel; }
       Mixer* getMixer() const { return mixer; }
       QMenu* genCreateMenu(QWidget* parent = 0);
-      virtual int appendScore(MasterScore*);
+      virtual int appendScore(MasterScore*) override;
       void midiCtrlReceived(int controller, int value);
       void showElementContext(Element* el);
       void cmdAppendMeasures(int);
@@ -660,7 +687,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       bool restoreSession(bool);
       bool splitScreen() const { return _splitScreen; }
       void setSplitScreen(bool val);
-      virtual void setCurrentView(int tabIdx, int idx);
+      virtual void setCurrentView(int tabIdx, int idx) override;
       void loadPlugins();
       void unloadPlugins();
 #ifdef SCRIPT_INTERFACE
@@ -671,6 +698,11 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void changeState(ScoreState);
       void updateInputState(Score*);
       void updateShadowNote();
+
+      Score* getLastScoreCopiedFrom(void)       { return copiedFromScore;}
+      void setLastScoreCopiedFrom(Score* s)     { copiedFromScore = s;   }
+      Selection& getLastScoreSelection(void)    { return copiedSelection;}
+      void setLastScoreSelection(Selection& s)  { copiedSelection = s;   }
 
       bool readLanguages(const QString& path);
       void setRevision(QString& r)  {rev = r;}
@@ -687,7 +719,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       bool hasToCheckForUpdate();
       bool hasToCheckForExtensionsUpdate();
       static bool unstable();
-      bool eventFilter(QObject *, QEvent *);
+      bool eventFilter(QObject *, QEvent *) override;
       void setMidiRecordId(int id) { _midiRecordId = id; }
       int midiRecordId() const { return _midiRecordId; }
       void setDefaultPalette();
@@ -733,7 +765,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void endCmd(bool undoRedo);
       void endCmd() override { endCmd(false); };
       void printFile();
-      virtual bool saveAs(Score*, bool saveCopy, const QString& path, const QString& ext, SaveReplacePolicy* replacePolicy = nullptr);
+      virtual bool saveAs(Score*, bool saveCopy, const QString& path, const QString& ext, SaveReplacePolicy* replacePolicy = nullptr) override;
       QString saveFilename(QString fn);
       bool savePdf(const QString& saveName);
       bool savePdf(Score* cs, const QString& saveName);
@@ -770,6 +802,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       bool exportScoreMetadata(const QString& inFilePath, const QString& outFilePath = "/dev/stdout");
       bool exportMp3AsJSON(const QString& inFilePath, const QString& outFilePath = "/dev/stdout");
       bool saveScoreParts(const QString& inFilePath, const QString& outFilePath = "/dev/stdout");
+      bool exportUnrolled(const QString& inFilePath);
       bool exportPartsPdfsToJSON(const QString& inFilePath, const QString& outFilePath = "/dev/stdout");
       bool exportTransposedScoreToJSON(const QString& inFilePath, const QString& transposeOptions, const QString& outFilePath = "/dev/stdout");
       bool updateSource(const QString& scorePath, const QString& newSource);
@@ -777,7 +810,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
 
       void scoreUnrolled(MasterScore* original);
       
-      virtual void closeScore(Score* score);
+      virtual void closeScore(Score* score) override;
 
       void addTempo();
       void addMetronome();
@@ -798,6 +831,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       void updatePlayMode();
       bool loop() const              { return loopAction->isChecked(); }
       bool metronome() const         { return metronomeAction->isChecked(); }
+      bool playbackHighlight() const { return playbackHighlightAction->isChecked(); }
       bool countIn() const           { return countInAction->isChecked(); }
       bool panDuringPlayback() const { return panAction->isChecked(); }
       void noteTooShortForTupletDialog();
@@ -916,6 +950,11 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       std::list<const char*>* fileOperationEntries()                 { return &_fileOperationEntries; }
       void setFileOperationEntries(std::list<const char*> l)         { _fileOperationEntries = l; }
       void populateFileOperations();
+
+      static const std::list<const char*>& allAlternativeEntries()   { return _allAlternativeEntries ; }
+      std::list<const char*>* alternativeEntries()                   { return &_alternativeEntries; }
+      void setAlternativeEntries(std::list<const char*> l)           { _alternativeEntries = l; }
+      void populateAlternativeOperations();
 
       static const std::list<const char*>& allPlaybackControlEntries() { return _allPlaybackControlEntries; }
       std::list<const char*>* playbackControlEntries()               { return &_playbackControlEntries; }

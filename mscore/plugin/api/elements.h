@@ -130,10 +130,23 @@ class Element : public Ms::PluginAPI::ScoreElement {
        */
       Q_PROPERTY(qreal posY READ posY)
       /**
+       * Reference position of this element relative to its parent element, in spatium units.
+       * Use `pos.x` or `pos.y` to access the X and Y components of this point.
+       * \see Element::posX
+       * \see Element::posY
+       * \since MuseScore 3.7
+       */
+      Q_PROPERTY(QPointF pos READ pos)
+      /**
        * Position of this element in page coordinates, in spatium units.
        * \since MuseScore 3.5
        */
       Q_PROPERTY(QPointF pagePos READ pagePos)
+      /**
+       * Position of this element relative to the canvas (user interface), in spatium units.
+       * \since MuseScore 3.7
+       */
+      Q_PROPERTY(QPointF canvasPos READ canvasPos)
 
       /**
        * Bounding box of this element.
@@ -143,7 +156,16 @@ class Element : public Ms::PluginAPI::ScoreElement {
        */
       Q_PROPERTY(QRectF bbox READ bbox)
 
-      API_PROPERTY( subtype,                 SUBTYPE                   )
+      /**
+       * Subtype of this element.
+       * \since MuseScore 3.7
+       */
+      Q_PROPERTY(int subtype READ subtype)
+      /**
+       * Unlike the name might suggest, this property no longer returns the subtype and is scarcely used.
+       * Named 'subtype' prior to MuseScore 3.7
+       */
+      API_PROPERTY( subType,                 SUBTYPE                   )
       API_PROPERTY_READ_ONLY_T( bool, selected, SELECTED               )
       API_PROPERTY_READ_ONLY_T( bool, generated, GENERATED             )
       /**
@@ -278,7 +300,6 @@ class Element : public Ms::PluginAPI::ScoreElement {
       API_PROPERTY( timeStretch,             TIME_STRETCH              )
       API_PROPERTY( ornamentStyle,           ORNAMENT_STYLE            )
       API_PROPERTY( timesig,                 TIMESIG                   )
-      API_PROPERTY( timesigGlobal,           TIMESIG_GLOBAL            )
       API_PROPERTY( timesigStretch,          TIMESIG_STRETCH           )
       API_PROPERTY( timesigType,             TIMESIG_TYPE              )
       API_PROPERTY( spannerTick,             SPANNER_TICK              )
@@ -394,12 +415,16 @@ class Element : public Ms::PluginAPI::ScoreElement {
       qreal posX() const { return element()->pos().x() / element()->spatium(); }
       qreal posY() const { return element()->pos().y() / element()->spatium(); }
 
+      QPointF pos() const { return element()->pos() / element()->spatium(); }
       QPointF pagePos() const { return element()->pagePos() / element()->spatium(); }
+      QPointF canvasPos() const { return element()->canvasPos() / element()->spatium(); }
 
       Ms::PluginAPI::Element* parent() const { return wrap(element()->parent()); }
       Staff* staff() { return wrap<Staff>(element()->staff()); }
 
       QRectF bbox() const;
+
+      int subtype() const { return element()->subtype(); }
 
    public:
       /// \cond MS_INTERNAL
@@ -450,7 +475,7 @@ class Note : public Element {
 //       Q_PROPERTY(int                            pitch             READ pitch              WRITE undoSetPitch)
 //       Q_PROPERTY(bool                           play              READ play               WRITE undoSetPlay)
 //       Q_PROPERTY(int                            ppitch            READ ppitch)
-//       Q_PROPERTY(bool                           small             READ small              WRITE undoSetSmall)
+//       Q_PROPERTY(bool                           small             READ isSmall            WRITE undoSetSmall)
 //       Q_PROPERTY(int                            string            READ string             WRITE undoSetString)
 //       Q_PROPERTY(int                            subchannel        READ subchannel)
       /// Backward tie for this Note.

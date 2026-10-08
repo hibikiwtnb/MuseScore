@@ -28,6 +28,7 @@ class Segment;
 class Note;
 class Measure;
 class Chord;
+class Tuplet;
 
 //---------------------------------------------------------
 //   ElementPattern
@@ -40,32 +41,25 @@ struct ElementPattern {
       int staffStart;
       int staffEnd; // exclusive
       int voice;
-      const System* system = nullptr;
       bool subtypeValid;
-      Fraction durationTicks;
-      Fraction beat {0,0};
+      Fraction durationTicks {-1, 1};
+      Fraction beat {0, 0};
       const Measure* measure = nullptr;
+      const System* system = nullptr;
       };
 
 //---------------------------------------------------------
 //   NotePattern
 //---------------------------------------------------------
 
-struct NotePattern {
+struct NotePattern : ElementPattern {
       QList<Note*> el;
       int pitch = -1;
-      int string = STRING_NONE;
+      int string = INVALID_STRING_INDEX;
       int tpc = Tpc::TPC_INVALID;
       NoteHead::Group notehead = NoteHead::Group::HEAD_INVALID;
       TDuration durationType = TDuration();
-      Fraction durationTicks;
       NoteType type = NoteType::INVALID;
-      int staffStart;
-      int staffEnd; // exclusive
-      int voice;
-      Fraction beat {0,0};
-      const Measure* measure = nullptr;
-      const System* system = nullptr;
       };
 
 //---------------------------------------------------------
@@ -77,6 +71,17 @@ enum class SelState : char {
       LIST,   // disjoint selection
       RANGE,  // adjacent selection, a range in one or more staves
                   // is selected
+      COMPARISON,
+      };
+
+//---------------------------------------------------------
+//   SelectionSource
+//---------------------------------------------------------
+
+enum class SelectionSource : char {
+      NONE,
+      SCORE,
+      PIANO_ROLL
       };
 
 //---------------------------------------------------------
@@ -142,6 +147,7 @@ public:
 class Selection {
       Score* _score;
       SelState _state;
+      SelectionSource _source { SelectionSource::NONE };
       QList<Element*> _el;          // valid in mode SelState::LIST
 
       int _staffStart;              // valid if selState is SelState::RANGE
@@ -157,6 +163,8 @@ class Selection {
       Segment* _activeSegment;
       int _activeTrack;
 
+      bool _temporaryFilter { false };
+
       Fraction _currentTick;  // tracks the most recent selection
       int _currentTrack;
 
@@ -169,6 +177,7 @@ class Selection {
       bool canSelectVoice(int track) const { return selectionFilter().canSelectVoice(track); }
       void appendFiltered(Element* e);
       void appendChord(Chord* chord);
+      void appendTupletHierarchy(Tuplet* innermostTuplet);
 
    public:
       Selection()                      { _score = 0; _state = SelState::NONE; }
@@ -178,7 +187,11 @@ class Selection {
       bool isNone() const              { return _state == SelState::NONE; }
       bool isRange() const             { return _state == SelState::RANGE; }
       bool isList() const              { return _state == SelState::LIST; }
+      bool isComparison() const        { return _state == SelState::COMPARISON; }
       void setState(SelState s);
+      SelectionSource source() const                   { return _source; }
+      void setSource(SelectionSource source)           { _source = source; }
+      bool fromPianoRoll() const                       { return _source == SelectionSource::PIANO_ROLL; }
 
       //! NOTE If locked, the selected items should not be changed.
       void lock(const QString& reason)    { _lockReason = reason; }
@@ -189,8 +202,8 @@ class Selection {
       const QList<Element*>& elements() const { return _el; }
       std::vector<Note*> noteList(int track = -1) const;
 
-      const QList<Element*> uniqueElements() const;
-      QList<Note*> uniqueNotes(int track = -1) const;
+      const std::list<Element*> uniqueElements() const;
+      std::list<Note*> uniqueNotes(int track = -1) const;
 
       bool isSingle() const                   { return (_state == SelState::LIST) && (_el.size() == 1); }
 
@@ -198,11 +211,16 @@ class Selection {
       void deselectAll();
       void remove(Element*);
       void clear();
+
+      bool hasTemporaryFilter() { return _temporaryFilter; }
+      void hasTemporaryFilter(bool v) { _temporaryFilter = v; }
+
       Element* element() const;
       ChordRest* cr() const;
       Segment* firstChordRestSegment() const;
       ChordRest* firstChordRest(int track = -1) const;
       ChordRest* lastChordRest(int track = -1) const;
+      ChordRest* longestChordRestAtTick(const Fraction& tick, int track = -1) const;
       Measure* findMeasure() const;
       void update();
       void updateState();

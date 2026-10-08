@@ -15,7 +15,6 @@
  Implementation of Element, ElementList
 */
 
-#include "element.h"
 #include "accidental.h"
 #include "ambitus.h"
 #include "arpeggio.h"
@@ -32,6 +31,8 @@
 #include "clef.h"
 #include "connector.h"
 #include "dynamic.h"
+#include "element.h"
+#include "fermata.h"
 #include "figuredbass.h"
 #include "fingering.h"
 #include "fret.h"
@@ -46,27 +47,33 @@
 #include "jump.h"
 #include "keysig.h"
 #include "layoutbreak.h"
+#include "letring.h"
 #include "lyrics.h"
 #include "marker.h"
 #include "measure.h"
+#include "measurenumber.h"
+#include "mmrestrange.h"
 #include "mscore.h"
 #include "notedot.h"
 #include "note.h"
-#include "noteline.h"
 #include "ossia.h"
 #include "ottava.h"
 #include "page.h"
+#include "palmmute.h"
 #include "pedal.h"
 #include "rehearsalmark.h"
 #include "repeat.h"
 #include "rest.h"
 #include "score.h"
 #include "segment.h"
+#include "shape.h"
 #include "slur.h"
 #include "spacer.h"
 #include "staff.h"
+#include "stafflines.h"
 #include "staffstate.h"
 #include "stafftext.h"
+#include "stafftypechange.h"
 #include "systemtext.h"
 #include "stafftype.h"
 #include "stem.h"
@@ -75,30 +82,23 @@
 #include "symbol.h"
 #include "sym.h"
 #include "system.h"
+#include "systemdivider.h"
 #include "tempotext.h"
-#include "textframe.h"
 #include "text.h"
-#include "measurenumber.h"
-#include "mmrestrange.h"
+#include "textframe.h"
 #include "textline.h"
 #include "tie.h"
 #include "timesig.h"
-#include "tremolobar.h"
 #include "tremolo.h"
+#include "tremolobar.h"
 #include "trill.h"
 #include "undo.h"
 #include "utils.h"
+#include "vibrato.h"
 #include "volta.h"
 #include "xml.h"
-#include "systemdivider.h"
-#include "stafftypechange.h"
-#include "stafflines.h"
-#include "letring.h"
-#include "vibrato.h"
-#include "palmmute.h"
-#include "fermata.h"
-#include "shape.h"
-//#include "musescoreCore.h"
+
+#include "mscore/preferences.h"
 
 namespace Ms {
 
@@ -255,6 +255,7 @@ void Element::reset()
       undoResetProperty(Pid::PLACEMENT);
       undoResetProperty(Pid::MIN_DISTANCE);
       undoResetProperty(Pid::OFFSET);
+      undoResetProperty(Pid::LEADING_SPACE);
       setOffsetChanged(false);
       ScoreElement::reset();
       }
@@ -409,14 +410,17 @@ QColor Element::curColor(bool isVisible, QColor normalColor) const
 
       if (flag(ElementFlag::DROP_TARGET))
             return MScore::dropColor;
+
       bool marked = false;
+      const bool visuallySelected = selected() && !(score() && score()->isPlaying());
       if (isNote()) {
-            //const Note* note = static_cast<const Note*>(this);
             marked = toNote(this)->mark();
             }
-      if (selected() || marked ) {
+      if (visuallySelected || marked ) {
             QColor originalColor;
-            if (track() == -1)
+            if (score()->selection().isComparison() && preferences.getBool(PREF_SCORE_COMPARISON_SELECTION_COLOR_ENABLED))
+                  originalColor = preferences.getColor(PREF_SCORE_COMPARISON_SELECTION_COLOR);
+            else if (track() == -1)
                   originalColor = MScore::selectColor[0];
             else
                   originalColor = MScore::selectColor[voice()];
@@ -595,7 +599,7 @@ void Element::writeProperties(XmlWriter& xml) const
             if (!s) {
                   s = score()->staff(xml.curTrack() / VOICES);
                   if (!s)
-                        qWarning("Element::writeProperties: linked element's staff not found (%s)", name());
+                        qDebug("Element::writeProperties: linked element's staff not found (%s)", name());
                   }
             Location loc = Location::positionForElement(this);
             if (me == this) {
@@ -603,7 +607,7 @@ void Element::writeProperties(XmlWriter& xml) const
                   xml.setLidLocalIndex(_links->lid(), xml.assignLocalIndex(loc));
                   }
             else {
-                  if (s->links()) {
+                  if (s && s->links()) {
                         Staff* linkedStaff = toStaff(s->links()->mainElement());
                         loc.setStaff(linkedStaff->idx());
                         }
@@ -613,7 +617,7 @@ void Element::writeProperties(XmlWriter& xml) const
                               xml.tag("score", "same");
                               }
                         else {
-                              qWarning("Element::writeProperties: linked elements belong to different scores but none of them is master score: (%s lid=%d)", name(), _links->lid());
+                              qDebug("Element::writeProperties: linked elements belong to different scores but none of them is master score: (%s lid=%d)", name(), _links->lid());
                               }
                         }
                   Location mainLoc = Location::positionForElement(me);
@@ -679,7 +683,7 @@ bool Element::readProperties(XmlReader& e)
             if (!s) {
                   s = score()->staff(e.track() / VOICES);
                   if (!s) {
-                        qWarning("Element::readProperties: linked element's staff not found (%s)", name());
+                        qDebug("Element::readProperties: linked element's staff not found (%s)", name());
                         e.skipCurrentElement();
                         return true;
                         }
@@ -725,12 +729,14 @@ bool Element::readProperties(XmlReader& e)
                         if (linked->type() == type())
                               linkTo(linked);
                         else
-                              qWarning("Element::readProperties: linked elements have different types: %s, %s. Input file corrupted?", name(), linked->name());
+                              qDebug("Element::readProperties: linked elements have different types: %s, %s. Input file corrupted?", name(), linked->name());
                         }
                   if (!_links)
-                        qWarning("Element::readProperties: could not link %s at staff %d", name(), mainLoc.staff() + 1);
+                        qDebug("Element::readProperties: could not link %s at staff %d", name(), mainLoc.staff() + 1);
                   }
             }
+      else if (tag == "eid")        // Mu4.2+ compatibility
+            e.skipCurrentElement(); // skip, don't log
       else if (tag == "lid") {
             if (score()->mscVersion() >= 301) {
                   e.skipCurrentElement();
@@ -746,8 +752,8 @@ bool Element::readProperties(XmlReader& e)
                   }
 #ifndef NDEBUG
             else {
-                  for (ScoreElement* eee : *_links) {
-                        Element* ee = static_cast<Element*>(eee);
+                  for (ScoreElement*& eee : *_links) {
+                        Element* ee = toElement(eee);
                         if (ee->type() != type()) {
                               qFatal("link %s(%d) type mismatch %s linked to %s",
                                  ee->name(), id, ee->name(), name());
@@ -1059,7 +1065,6 @@ Element* Element::create(ElementType type, Score* score)
             case ElementType::VOLTA:             return new Volta(score);
             case ElementType::OTTAVA:            return new Ottava(score);
             case ElementType::TEXTLINE:          return new TextLine(score);
-            case ElementType::NOTELINE:          return new NoteLine(score);
             case ElementType::TRILL:             return new Trill(score);
             case ElementType::LET_RING:          return new LetRing(score);
             case ElementType::VIBRATO:           return new Vibrato(score);
@@ -1369,7 +1374,7 @@ QVariant Element::propertyDefault(Pid pid) const
                   QVariant v = ScoreElement::propertyDefault(pid);
                   if (v.isValid())
                         return v;
-                  return 0.0;
+                  return Spatium(0.0);
                   }
             case Pid::AUTOPLACE:
                   return true;
@@ -1770,7 +1775,7 @@ Element* Element::nextSegmentElement()
                         break;
                   case ElementType::SEGMENT: {
                         Segment* s = toSegment(p);
-                        return s->firstElement(staffIdx());
+                        return s->firstElementForNavigation(staffIdx());
                         }
                   case ElementType::MEASURE: {
                         Measure* m = toMeasure(p);
@@ -1815,7 +1820,7 @@ Element* Element::prevSegmentElement()
                         break;
                   case ElementType::SEGMENT: {
                         Segment* s = toSegment(p);
-                        return s->lastElement(staffIdx());
+                        return s->lastElementForNavigation(staffIdx());
                         }
                   case ElementType::MEASURE: {
                         Measure* m = toMeasure(p);
@@ -1911,14 +1916,23 @@ void Element::triggerLayout() const
             score()->setLayout(tick(), staffIdx(), this);
       }
 
-//---------------------------------------------------------
+//----------------------------------------------------------------------
 //   triggerLayoutAll
-//---------------------------------------------------------
+//
+//   *************************** CAUTION *******************************
+//   This causes a layout of the entire score: extremely expensive and
+//   likely unnecessary! Consider overriding triggerLayout() instead.
+//----------------------------------------------------------------------
 
 void Element::triggerLayoutAll() const
       {
       if (parent())
             score()->setLayoutAll(staffIdx(), this);
+      }
+
+void Element::triggerLayoutToEnd() const
+      {
+      score()->setLayout(tick(), score()->endTick(), staffIdx(), staffIdx(), this);
       }
 
 //---------------------------------------------------------
@@ -2021,12 +2035,12 @@ QRectF Element::drag(EditData& ed)
       qreal _spatium = spatium();
       if (ed.hRaster) {
             qreal hRaster = _spatium / MScore::hRaster();
-            int n = lrint(x / hRaster);
+            int n = (int)lrint(x / hRaster);
             x = hRaster * n;
             }
       if (ed.vRaster) {
             qreal vRaster = _spatium / MScore::vRaster();
-            int n = lrint(y / vRaster);
+            int n = (int)lrint(y / vRaster);
             y = vRaster * n;
             }
 
@@ -2085,7 +2099,7 @@ void Element::endDrag(EditData& ed)
       ElementEditData* eed = ed.getData(this);
       if (!eed)
             return;
-      for (const PropertyData &pd : qAsConst(eed->propertyData)) {
+      for (const PropertyData& pd : qAsConst(eed->propertyData)) {
             setPropertyFlags(pd.id, pd.f); // reset initial property flags state
             PropertyFlags f = pd.f;
             if (f == PropertyFlags::STYLED)
@@ -2198,7 +2212,7 @@ void Element::endEditDrag(EditData& ed)
       ElementEditData* eed = ed.getData(this);
       bool changed = false;
       if (eed) {
-            for (const PropertyData &pd : qAsConst(eed->propertyData)) {
+            for (const PropertyData& pd : qAsConst(eed->propertyData)) {
                   setPropertyFlags(pd.id, pd.f); // reset initial property flags state
                   PropertyFlags f = pd.f;
                   if (f == PropertyFlags::STYLED)
@@ -2399,7 +2413,7 @@ qreal Element::rebaseOffset(bool nox)
                   PropertyFlags pf = e->propertyFlags(Pid::PLACEMENT);
                   if (pf == PropertyFlags::STYLED)
                         pf = PropertyFlags::UNSTYLED;
-                  Placement place = above ? Placement::BELOW : Placement::ABOVE;
+                  const Placement place = above ? Placement::BELOW : Placement::ABOVE;
                   e->undoChangeProperty(Pid::PLACEMENT, int(place), pf);
                   undoResetProperty(Pid::MIN_DISTANCE);
                   // TODO
@@ -2438,12 +2452,12 @@ bool Element::rebaseMinDistance(qreal& md, qreal& yd, qreal sp, qreal rebase, bo
       qreal adjustedY = pos().y() + yd;
       qreal diff = _changedPos.y() - adjustedY;
       if (fix) {
-            undoChangeProperty(Pid::MIN_DISTANCE, -999.0, pf);
+            undoChangeProperty(Pid::MIN_DISTANCE, Spatium(-999.0), pf);
             yd = 0.0;
             }
       else if (!isStyled(Pid::MIN_DISTANCE)) {
             md = (above ? md + yd : md - yd) / sp;
-            undoChangeProperty(Pid::MIN_DISTANCE, md, pf);
+            undoChangeProperty(Pid::MIN_DISTANCE, Spatium(md), pf);
             yd += diff;
             }
       else {
@@ -2458,7 +2472,7 @@ bool Element::rebaseMinDistance(qreal& md, qreal& yd, qreal sp, qreal rebase, bo
                         p.ry() += rebase;
                         undoChangeProperty(Pid::OFFSET, p);
                         md = (above ? md - diff : md + diff) / sp;
-                        undoChangeProperty(Pid::MIN_DISTANCE, md, pf);
+                        undoChangeProperty(Pid::MIN_DISTANCE, Spatium(md), pf);
                         rc = true;
                         yd = 0.0;
                         }
@@ -2466,7 +2480,7 @@ bool Element::rebaseMinDistance(qreal& md, qreal& yd, qreal sp, qreal rebase, bo
             else {
                   // absolute movement (drag): fix unconditionally
                   md = (above ? md + yd : md - yd) / sp;
-                  undoChangeProperty(Pid::MIN_DISTANCE, md, pf);
+                  undoChangeProperty(Pid::MIN_DISTANCE, Spatium(md), pf);
                   yd = 0.0;
                   }
             }
@@ -2595,4 +2609,53 @@ void Element::autoplaceMeasureElement(bool above, bool add)
       setOffsetChanged(false);
       }
 
+//---------------------------------------------------------
+//   barbeat
+//---------------------------------------------------------
+
+std::pair<int, float> Element::barbeat() const
+      {
+      int bar = 0;
+      int beat = 0;
+      int ticks = 0;
+      TimeSigMap* tsm = this->score()->sigmap();
+      const Element* p = this;
+      int ticksB = ticks_beat(tsm->timesig(0).timesig().denominator());
+      while(p && p->type() != ElementType::SEGMENT && p->type() != ElementType::MEASURE)
+            p = p->parent();
+
+      if (!p) {
+            return std::pair<int, float>(0, 0.0F);
+            }
+      else if (p->type() == ElementType::SEGMENT) {
+            const Segment* seg = static_cast<const Segment*>(p);
+            tsm->tickValues(seg->tick().ticks(), &bar, &beat, &ticks);
+            ticksB = ticks_beat(tsm->timesig(seg->tick().ticks()).timesig().denominator());
+            }
+      else if (p->type() == ElementType::MEASURE) {
+            const Measure* m = static_cast<const Measure*>(p);
+            bar = m->no();
+            beat = -1;
+            ticks = 0;
+            }
+      return std::pair<int,float>(bar + 1, beat + 1 + ticks / static_cast<float>(ticksB));
+      }
+
+//---------------------------------------------------------
+//   accessibleBarbeat
+//---------------------------------------------------------
+
+QString Element::accessibleBarbeat() const
+      {
+      QString barsAndBeats = "";
+      std::pair<int, float>bar_beat = barbeat();
+      if (bar_beat.first) {
+            barsAndBeats += "; " + QObject::tr("Measure: %1").arg(QString::number(bar_beat.first));
+            if (bar_beat.second)
+                  barsAndBeats += "; " + QObject::tr("Beat: %1").arg(QString::number(bar_beat.second));
+            }
+      if (staffIdx() + 1)
+            barsAndBeats += "; " + QObject::tr("Staff: %1").arg(QString::number(staffIdx() + 1));
+      return barsAndBeats;
+      }
 }

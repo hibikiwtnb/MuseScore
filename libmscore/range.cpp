@@ -10,22 +10,22 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "range.h"
-#include "measure.h"
-#include "segment.h"
-#include "rest.h"
-#include "chord.h"
-#include "score.h"
-#include "slur.h"
-#include "tie.h"
-#include "note.h"
-#include "tuplet.h"
 #include "barline.h"
-#include "utils.h"
-#include "staff.h"
+#include "chord.h"
 #include "excerpt.h"
+#include "measure.h"
+#include "note.h"
+#include "range.h"
 #include "repeat.h"
+#include "rest.h"
+#include "score.h"
+#include "segment.h"
+#include "slur.h"
+#include "staff.h"
+#include "tie.h"
 #include "tremolo.h"
+#include "tuplet.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -76,6 +76,13 @@ void TrackList::appendTuplet(Tuplet* srcTuplet, Tuplet* dstTuplet)
                   Tuplet* st = toTuplet(de);
                   Tuplet* dt = toTuplet(e);
                   appendTuplet(st, dt);
+                  }
+            else if (de->parent() && de->parent()->isSegment()) {
+                  Segment* seg = toSegment(de->parent());
+                  for (Element* ee : seg->annotations()) {
+                        if (ee->track() == e->track())
+                              _range->annotations.push_back({ e->tick(), ee->clone() });
+                        }
                   }
             }
       }
@@ -269,6 +276,9 @@ void TrackList::read(const Segment* fs, const Segment* es)
             Element* e = s->element(_track);
             if (!e || e->generated()) {
                   for (Element* ee : s->annotations()) {
+                        if (ee->systemFlag() && ee->track() != 0) // Only process the top system object
+                              continue;
+
                         if (ee->track() == _track)
                               _range->annotations.push_back({ s->tick(), ee->clone() });
                         }
@@ -356,7 +366,7 @@ static bool checkRest(Fraction& rest, Measure*& m, const Fraction& d)
                   rest = m->ticks();
                   }
             else {
-                  qWarning("premature end of measure list, rest %d/%d", d.numerator(), d.denominator());
+                  qDebug("premature end of measure list, rest %d/%d", d.numerator(), d.denominator());
                   return false;
                   }
             }
@@ -658,6 +668,9 @@ void ScoreRange::read(Segment* first, Segment* last, bool readSpanner)
             Fraction etick = last->tick();
             for (auto i : first->score()->spanner()) {
                   Spanner* s = i.second;
+                  if (s->systemFlag() && s->track() != 0) // Only process the top system object
+                        continue;
+
                   if (s->tick() >= stick && s->tick() < etick && s->track() >= startTrack && s->track() < endTrack) {
                         Spanner* ns = toSpanner(s->clone());
                         ns->setParent(0);
@@ -718,7 +731,7 @@ bool ScoreRange::write(Score* score, const Fraction& tick) const
                         }
                   else
                         s->setStartElement(0);
-                  if (slur->endCR()->isGrace()) {
+                  if (slur->endCR() && slur->endCR()->isGrace()) {
                         Chord* sc = slur->endChord();
                         int idx   = sc->graceIndex();
                         Chord* dc = toChord(score->findCR(s->tick2(), s->track2()));

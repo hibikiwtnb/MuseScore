@@ -14,7 +14,7 @@
 #define __TEMPOTEXT_H__
 
 #include "durationtype.h"
-#include "text.h"
+#include "textbase.h"
 
 namespace Ms {
 
@@ -63,6 +63,7 @@ class TempoText final : public TextBase  {
       void layout() override;
 
       static int findTempoDuration(const QString& s, int& len, TDuration& dur);
+      static double findTempoValue(const QString& s);
       static QString duration2tempoTextString(const TDuration dur);
       static QString duration2userName(const TDuration t);
 

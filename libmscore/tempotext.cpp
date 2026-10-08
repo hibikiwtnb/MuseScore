@@ -11,15 +11,16 @@
 //=============================================================================
 
 #include <limits>
-#include "score.h"
-#include "tempotext.h"
-#include "tempo.h"
-#include "system.h"
+
 #include "measure.h"
-#include "staff.h"
-#include "xml.h"
-#include "undo.h"
 #include "musescoreCore.h"
+#include "score.h"
+#include "staff.h"
+#include "system.h"
+#include "tempo.h"
+#include "tempotext.h"
+#include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -179,6 +180,23 @@ static const TempoPattern tpSym[] = {
       };
 
 //---------------------------------------------------------
+//   findTempoValue
+//    find the value (fraction of a minute) of the symbols
+//    in a string.
+//---------------------------------------------------------
+
+double TempoText::findTempoValue(const QString& s)
+      {
+      for (const auto& i : tpSym) {
+            QRegularExpression re(i.pattern);
+            if (s.contains(re)) {
+                  return i.f;
+                  }
+            }
+      return 0;
+      }
+
+//---------------------------------------------------------
 //   duration2tempoTextString
 //    find the tempoText string representation for duration
 //---------------------------------------------------------
@@ -272,6 +290,12 @@ void TempoText::updateTempo()
       QString s = plainText();
       s.replace(",", ".");
       s.replace("<sym>space</sym>"," ");
+      s.replace("≒", "=");
+      s.replace("≈", "=");
+      s.replace("~", "=");
+      s.replace("ca.", "");
+      s.replace("c.", "");
+      s.replace("approx.", "");
       for (const TempoPattern& pa : tp) {
             QRegExp re;
             if (!regexps.contains(pa.pattern)) {

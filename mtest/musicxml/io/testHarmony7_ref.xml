@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <identification>
     <encoding>
       <software>MuseScore 0.7.0</software>
@@ -17,8 +17,8 @@
       <group-symbol>none</group-symbol>
       </part-group>
     <score-part id="P1">
-      <part-name>Guitare acoustique</part-name>
-      <part-abbreviation>Guit.</part-abbreviation>
+      <part-name print-object="no">Guitare acoustique</part-name>
+      <part-abbreviation print-object="no">Guit.</part-abbreviation>
       <score-instrument id="P1-I1">
         <instrument-name>Guitare acoustique</instrument-name>
         </score-instrument>
@@ -39,7 +39,11 @@
         <key>
           <fifths>0</fifths>
           </key>
-        <time>
+        <time number="1">
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+          </time>
+        <time number="2" print-object="no">
           <beats>4</beats>
           <beat-type>4</beat-type>
           </time>
@@ -51,9 +55,9 @@
           </clef>
         <clef number="2">
           <sign>TAB</sign>
-          <line>5</line>
           </clef>
         <staff-details number="2">
+          <staff-type>alternate</staff-type>
           <staff-lines>6</staff-lines>
           <staff-tuning line="1">
             <tuning-step>E</tuning-step>
@@ -79,6 +83,7 @@
             <tuning-step>E</tuning-step>
             <tuning-octave>4</tuning-octave>
             </staff-tuning>
+          <staff-size>150</staff-size>
           </staff-details>
         </attributes>
       <harmony print-frame="no">
@@ -481,7 +486,7 @@
       <backup>
         <duration>4</duration>
         </backup>
-      <note>
+      <note print-object="no">
         <rest/>
         <duration>4</duration>
         <voice>5</voice>
@@ -692,14 +697,14 @@
             </technical>
           </notations>
         </note>
-      <note>
+      <note print-object="no">
         <rest/>
         <duration>1</duration>
         <voice>5</voice>
         <type>quarter</type>
         <staff>2</staff>
         </note>
-      <note>
+      <note print-object="no">
         <rest/>
         <duration>1</duration>
         <voice>5</voice>
@@ -743,14 +748,14 @@
             </technical>
           </notations>
         </note>
-      <note>
+      <note print-object="no">
         <rest/>
         <duration>1</duration>
         <voice>6</voice>
         <type>quarter</type>
         <staff>2</staff>
         </note>
-      <note>
+      <note print-object="no">
         <rest/>
         <duration>1</duration>
         <voice>6</voice>
@@ -768,7 +773,7 @@
       <backup>
         <duration>4</duration>
         </backup>
-      <note>
+      <note print-object="no">
         <rest measure="yes"/>
         <duration>4</duration>
         <voice>5</voice>

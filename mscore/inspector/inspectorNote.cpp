@@ -39,7 +39,9 @@ InspectorNote::InspectorNote(QWidget* parent)
             NoteHead::Scheme::HEAD_AUTO,
             NoteHead::Scheme::HEAD_NORMAL,
             NoteHead::Scheme::HEAD_PITCHNAME,
+            NoteHead::Scheme::HEAD_PITCHNAME_NO_ACCIDENTALS,
             NoteHead::Scheme::HEAD_PITCHNAME_GERMAN,
+            NoteHead::Scheme::HEAD_PITCHNAME_GERMAN_NO_ACCIDENTALS,
             NoteHead::Scheme::HEAD_SOLFEGE,
             NoteHead::Scheme::HEAD_SOLFEGE_FIXED,
             NoteHead::Scheme::HEAD_SHAPE_NOTE_4,
@@ -65,7 +67,11 @@ InspectorNote::InspectorNote(QWidget* parent)
             NoteHead::Group::HEAD_LARGE_ARROW,
 
             NoteHead::Group::HEAD_SLASH,
+            NoteHead::Group::HEAD_LARGE_DIAMOND,
             NoteHead::Group::HEAD_BREVIS_ALT,
+
+            NoteHead::Group::HEAD_HEAVY_CROSS,
+            NoteHead::Group::HEAD_HEAVY_CROSS_HAT,
 
             NoteHead::Group::HEAD_DO,
             NoteHead::Group::HEAD_RE,
@@ -91,8 +97,18 @@ InspectorNote::InspectorNote(QWidget* parent)
             n.noteHeadType->setItemData(i, i - 1);
             }
 
+      // Don't let largest combo-box item determine the minimum width of Note Inspector:
+      n.noteHeadScheme->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+      n.noteHeadScheme->setMinimumContentsLength(6);
+
+      n.noteHeadGroup->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+      n.noteHeadGroup->setMinimumContentsLength(6);
+
+      n.noteHeadType->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+      n.noteHeadType->setMinimumContentsLength(6);
+
       const std::vector<InspectorItem> iiList = {
-            { Pid::SMALL,          0, n.small,         n.resetSmall         },
+            { Pid::SMALL,          0, n.isSmall,       n.resetSmall         },
             { Pid::HEAD_SCHEME,    0, n.noteHeadScheme, n.resetNoteHeadScheme },
             { Pid::HEAD_GROUP,     0, n.noteHeadGroup, n.resetNoteHeadGroup },
             { Pid::HEAD_TYPE,      0, n.noteHeadType,  n.resetNoteHeadType  },
@@ -105,7 +121,7 @@ InspectorNote::InspectorNote(QWidget* parent)
             { Pid::FIXED_LINE,     0, n.fixedLine,     n.resetFixedLine     },
 
             { Pid::OFFSET,         1, c.offset,        c.resetOffset        },
-            { Pid::SMALL,          1, c.small,         c.resetSmall         },
+            { Pid::SMALL,          1, c.isSmall,       c.resetSmall         },
             { Pid::NO_STEM,        1, c.stemless,      c.resetStemless      },
             { Pid::STEM_DIRECTION, 1, c.stemDirection, c.resetStemDirection },
 
@@ -151,8 +167,10 @@ void InspectorNote::setElement()
       InspectorElementBase::setElement();
 
       //must be placed after InspectorBase::setElement() cause the last one sets resetButton enability
-      if (note->staffType()->group() == StaffGroup::STANDARD)
+      if (note->staffType()->group() == StaffGroup::STANDARD) {
+            n.noteHeadScheme->setEnabled(true);
             noteHeadSchemeChanged(n.noteHeadScheme->currentIndex());
+            }
       else {
             n.noteHeadScheme->setEnabled(false);
             n.resetNoteHeadScheme->setEnabled(false);
@@ -164,10 +182,8 @@ void InspectorNote::setElement()
       s.leadingSpace->setEnabled(nograce);
       s.resetLeadingSpace->setEnabled(nograce && s.leadingSpace->value());
 
-      if (!n.fixed->isChecked())
-            n.fixedLine->setEnabled(false);
-      if (!n.play->isChecked())
-            n.playWidget->setVisible(false);
+      n.fixedLine->setEnabled(n.fixed->isChecked());
+      n.playWidget->setVisible(n.play->isChecked());
       }
 
 //---------------------------------------------------------

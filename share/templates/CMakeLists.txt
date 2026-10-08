@@ -42,10 +42,11 @@ install(FILES
       02-Choral/05-SATB_Closed_Score_+_Organ.mscx
       02-Choral/06-SATB_Closed_Score_+_Piano.mscx
       02-Choral/07-Voice_+_Piano.mscx
-      02-Choral/08-Barbershop_Quartet_\(Men\).mscx
-      02-Choral/09-Barbershop_Quartet_\(Women\).mscx
-      02-Choral/10-Liturgical_Unmetrical.mscx
-      02-Choral/11-Liturgical_Unmetrical_+_Organ.mscx
+      02-Choral/08-Barbershop_Ensemble_\(TTBB\).mscx
+      02-Choral/09-Barbershop_Ensemble_\(SSAA\).mscx
+      02-Choral/10-Barbershop_Ensemble_\(SATB\).mscx
+      02-Choral/11-Liturgical_Unmetrical.mscx
+      02-Choral/12-Liturgical_Unmetrical_+_Organ.mscx
       DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}templates/02-Choral
       )
 

@@ -11,12 +11,9 @@
 //=============================================================================
 
 #include "skyline.h"
-#include "segment.h"
+#include "shape.h"
 
 namespace Ms {
-
-static const qreal MAXIMUM_Y = 1000000.0;
-static const qreal MINIMUM_Y = -1000000.0;
 
 // #define SKL_DEBUG
 
@@ -176,7 +173,7 @@ void SkylineLine::add(qreal x, qreal y, qreal w)
             }
       if (x >= cx) {
             if (x > cx) {
-                  qreal cy = north ? MAXIMUM_Y : MINIMUM_Y;
+                  qreal cy = north ? DBL_MAX : -DBL_MAX;
                   DP("    append1 %f %f\n", cy, x - cx);
                   append(cx, cy, x - cx);
                   }
@@ -210,7 +207,7 @@ qreal Skyline::minDistance(const Skyline& s) const
 
 qreal SkylineLine::minDistance(const SkylineLine& sl) const
       {
-      qreal dist = MINIMUM_Y;
+      qreal dist = -DBL_MAX;
 
       qreal x1 = 0.0;
       qreal x2 = 0.0;
@@ -250,10 +247,10 @@ void Skyline::paint(QPainter& p) const
       p.save();
 
       p.setBrush(Qt::NoBrush);
-      QMatrix matrix = p.worldTransform().toAffine();
-      p.setPen(QPen(QBrush(Qt::darkYellow), 2.0 / matrix.m11()));
+      QTransform transform = p.worldTransform();
+      p.setPen(QPen(QBrush(Qt::darkYellow), 2.0 / transform.m11()));
       _north.paint(p);
-      p.setPen(QPen(QBrush(Qt::green), 2.0 / matrix.m11()));
+      p.setPen(QPen(QBrush(Qt::green), 2.0 / transform.m11()));
       _south.paint(p);
       p.restore();
       }
@@ -280,9 +277,14 @@ void SkylineLine::paint(QPainter& p) const
             }
       }
 
+bool SkylineLine::valid() const
+      {
+      return !seg.empty();
+      }
+
 bool SkylineLine::valid(const SkylineSegment& s) const
       {
-      return north ? (s.y != MAXIMUM_Y) : (s.y != MINIMUM_Y);
+      return north ? (s.y != DBL_MAX) : (s.y != -DBL_MAX);
       }
 
 //---------------------------------------------------------
@@ -315,12 +317,12 @@ qreal SkylineLine::max() const
       {
       qreal val;
       if (north) {
-            val = MAXIMUM_Y;
+            val = DBL_MAX;
             for (const SkylineSegment& s : *this)
                   val = qMin(val, s.y);
             }
       else {
-            val = MINIMUM_Y;
+            val = -DBL_MAX;
             for (const SkylineSegment& s : *this)
                   val = qMax(val, s.y);
             }

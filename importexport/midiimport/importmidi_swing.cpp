@@ -49,7 +49,7 @@ void SwingDetector::add(ChordRest *cr)
             if (ReducedFraction(cr->globalTicks()) >= FULL_LEN)
                   return;
             const int tickInBar = (cr->tick() - cr->measure()->tick()).ticks();
-            if (tickInBar % MScore::division == 0)
+            if (tickInBar % DIVISION == 0)
                   append(cr);
             }
       else {
@@ -153,7 +153,7 @@ void SwingDetector::applySwing()
       const int startTick = first->segment()->tick().ticks();
       ChordRest *last = elements.back();
       last->segment()->remove(last);
-      Segment *s = last->measure()->getSegment(SegmentType::ChordRest, Fraction::fromTicks(startTick + MScore::division / 2));
+      Segment *s = last->measure()->getSegment(SegmentType::ChordRest, Fraction::fromTicks(startTick + DIVISION / 2));
       s->add(last);
 
       if (elements.size() == 3) {

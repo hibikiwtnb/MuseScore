@@ -27,7 +27,7 @@ enum class ClefType : signed char;
 //   Key
 //---------------------------------------------------------
 
-enum class Key {
+enum class Key : signed char {
       C_B = -7,
       G_B,
       D_B,
@@ -54,7 +54,7 @@ enum class Key {
 //   KeyMode
 //---------------------------------------------------------
 
-enum class KeyMode {
+enum class KeyMode : signed char {
       UNKNOWN = -1,
       NONE,
       MAJOR,
@@ -93,17 +93,16 @@ struct KeySym {
 //---------------------------------------------------------
 
 class KeySigEvent {
-      Key _key            { Key::INVALID     };          // -7 -> +7
-      KeyMode _mode       { KeyMode::UNKNOWN };
-      bool _custom        { false            };
-      bool _forInstrumentChange{ false          };
+      Key _key { Key::INVALID }; // -7 -> +7
+      KeyMode _mode { KeyMode::UNKNOWN };
+      bool _custom { false };
+      bool _forInstrumentChange { false };
       QList<KeySym> _keySymbols;
 
       void enforceLimits();
 
    public:
-      KeySigEvent() {}
-      KeySigEvent(const KeySigEvent&);
+      KeySigEvent() = default;
 
       bool operator==(const KeySigEvent& e) const;
       bool operator!=(const KeySigEvent& e) const { return !(*this == e); }

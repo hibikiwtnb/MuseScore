@@ -10,59 +10,42 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "config.h"
-#include "musescoreCore.h"
-#include "style.h"
-#include "mscore.h"
-#include "sequencer.h"
-#include "element.h"
-#include "dynamic.h"
 #include "accidental.h"
-#include "figuredbass.h"
-#include "stafftype.h"
-#include "note.h"
-#include "spanner.h"
-#include "volta.h"
-#include "ottava.h"
-#include "trill.h"
-#include "repeat.h"
-#include "jump.h"
-#include "marker.h"
-#include "layoutbreak.h"
-#include "hairpin.h"
-#include "glissando.h"
-#include "page.h"
-#include "slur.h"
-#include "lyrics.h"
-#include "accidental.h"
-#include "notedot.h"
-#include "tie.h"
-#include "staff.h"
 #include "beam.h"
-#include "timesig.h"
-#include "part.h"
-#include "measure.h"
-#include "score.h"
-#include "keysig.h"
-#include "harmony.h"
-#include "stafftext.h"
-#include "mscoreview.h"
 #include "chord.h"
-#include "hook.h"
-#include "stem.h"
-#include "stemslash.h"
+#include "config.h"
+#include "dynamic.h"
+#include "element.h"
+#include "figuredbass.h"
 #include "fraction.h"
-#include "excerpt.h"
+#include "glissando.h"
+#include "hairpin.h"
+#include "jump.h"
+#include "layoutbreak.h"
+#include "lyrics.h"
+#include "marker.h"
+#include "measure.h"
+#include "mscore.h"
+#include "mscoreview.h"
+#include "musescoreCore.h"
+#include "note.h"
+#include "notedot.h"
+#include "ottava.h"
+#include "score.h"
+#include "sequencer.h"
+#include "spanner.h"
 #include "spatium.h"
-#include "barline.h"
-#include "skyline.h"
+#include "staff.h"
+#include "stafftype.h"
+#include "style.h"
+#include "trill.h"
+#include "volta.h"
 
 namespace Ms {
 
 bool MScore::debugMode = false;
 bool MScore::testMode = false;
 
-// #ifndef NDEBUG
 bool MScore::showSegmentShapes   = false;
 bool MScore::showSkylines        = false;
 bool MScore::showMeasureShapes   = false;
@@ -72,7 +55,6 @@ bool MScore::showBoundingRect    = false;
 bool MScore::showSystemBoundingRect    = false;
 bool MScore::showCorruptedMeasures = true;
 bool MScore::useFallbackFont       = true;
-// #endif
 
 bool  MScore::saveTemplateMode = false;
 bool  MScore::noGui = false;
@@ -88,12 +70,18 @@ qreal   MScore::horizontalPageGapEven = 1.0;
 qreal   MScore::horizontalPageGapOdd = 50.0;
 
 QColor  MScore::selectColor[VOICES];
+QColor  MScore::cursorColor;
 QColor  MScore::defaultColor;
+
+QColor  MScore::pianoWhiteKeysColor;
+QColor  MScore::pianoBlackKeysColor;
+
 QColor  MScore::layoutBreakColor;
 QColor  MScore::frameMarginColor;
 QColor  MScore::bgColor;
 QColor  MScore::dropColor;
 bool    MScore::warnPitchRange;
+bool    MScore::disableMouseEntry;
 int     MScore::pedalEventsMinTicks;
 
 bool    MScore::harmonyPlayDisableCompatibility;
@@ -107,11 +95,9 @@ qreal   MScore::nudgeStep50;
 int     MScore::defaultPlayDuration;
 
 QString MScore::lastError;
-int     MScore::division    = 480; // 3840;   // pulses per quarter note (PPQ) // ticks per beat
 int     MScore::sampleRate  = 44100;
 int     MScore::mtcType;
 
-bool    MScore::noExcerpts = false;
 bool    MScore::noImages = false;
 bool    MScore::pdfPrinting = false;
 bool    MScore::svgPrinting = false;
@@ -124,7 +110,6 @@ Sequencer* MScore::seq = 0;
 MuseScoreCore* MuseScoreCore::mscoreCore;
 
 extern void initDrumset();
-extern void initScoreFonts();
 extern QString mscoreGlobalShare;
 
 std::vector<MScoreError> MScore::errorList {
@@ -142,6 +127,7 @@ std::vector<MScoreError> MScore::errorList {
       { CANNOT_SPLIT_TUPLET,             "t2", QT_TRANSLATE_NOOP("error", "Cannot split tuplet")                                                   },
       { CANNOT_SPLIT_MEASURE_FIRST_BEAT, "m1", QT_TRANSLATE_NOOP("error", "Cannot split measure here:\n" "First beat of measure")                  },
       { CANNOT_SPLIT_MEASURE_TUPLET,     "m2", QT_TRANSLATE_NOOP("error", "Cannot split measure here:\n" "Cannot split tuplet")                    },
+      { CANNOT_SPLIT_MEASURE_TOO_SHORT,  "m3", QT_TRANSLATE_NOOP("error", "Cannot split measure here:\n" "Measure would be too short")             },
 
       { NO_DEST,                         "p1", QT_TRANSLATE_NOOP("error", "No destination to paste")                                               },
       { DEST_TUPLET,                     "p2", QT_TRANSLATE_NOOP("error", "Cannot paste into tuplet")                                              },
@@ -150,7 +136,10 @@ std::vector<MScoreError> MScore::errorList {
       { DEST_TREMOLO,                    "p5", QT_TRANSLATE_NOOP("error", "Cannot paste in tremolo")                                               },
       { NO_MIME,                         "p6", QT_TRANSLATE_NOOP("error", "Nothing to paste")                                                      },
       { DEST_NO_CR,                      "p7", QT_TRANSLATE_NOOP("error", "Destination is not a chord or rest")                                    },
-      { CANNOT_CHANGE_LOCAL_TIMESIG,     "l1", QT_TRANSLATE_NOOP("error", "Cannot change local time signature:\nMeasure is not empty")             },
+      { CANNOT_CHANGE_LOCAL_TIMESIG_MEASURE_NOT_EMPTY, "l1", QT_TRANSLATE_NOOP("error", "Cannot change local time signature:\nMeasure is not empty") },
+      { CANNOT_CHANGE_LOCAL_TIMESIG_HAS_EXCERPTS,      "l1", QT_TRANSLATE_NOOP("error", "Cannot change local time signature:\n"
+                                                                                "This score already has part scores. Changing local time "
+                                                                                "signatures while part scores are present is not yet supported.")  },
       { CORRUPTED_MEASURE,               "c1", QT_TRANSLATE_NOOP("error", "Cannot change time signature in front of a corrupted measure")          },
       };
 
@@ -185,12 +174,7 @@ const char* toString(Direction val)
             case Direction::UP:   return "up";
             case Direction::DOWN: return "down";
             }
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-      __builtin_unreachable();
-#else
-      // The MSVC __assume() optimizer hint is similar, though not identical, to __builtin_unreachable()
-      __assume(0);
-#endif
+      Q_UNREACHABLE();
       }
 
 //---------------------------------------------------------
@@ -204,12 +188,7 @@ QString toUserString(Direction val)
             case Direction::UP:   return qApp->translate("Direction", "Up");
             case Direction::DOWN: return qApp->translate("Direction", "Down");
             }
-#if (!defined (_MSCVER) && !defined (_MSC_VER))
-      __builtin_unreachable();
-#else
-      // The MSVC __assume() optimizer hint is similar, though not identical, to __builtin_unreachable()
-      __assume(0);
-#endif
+      Q_UNREACHABLE();
       }
 
 //---------------------------------------------------------
@@ -302,13 +281,13 @@ void MScore::init()
             _globalShare = QString( INSTPREFIX "/share/" INSTALL_NAME);
 #endif
 
-      selectColor[0].setNamedColor("#0065BF");   //blue
-      selectColor[1].setNamedColor("#007F00");   //green
-      selectColor[2].setNamedColor("#C53F00");   //orange
-      selectColor[3].setNamedColor("#C31989");   //purple
+      selectColor[0] = QColor(0x0065BF);   //blue
+      selectColor[1] = QColor(0x007F00);   //green
+      selectColor[2] = QColor(0xC53F00);   //orange
+      selectColor[3] = QColor(0xC31989);   //purple
 
       defaultColor           = Qt::black;
-      dropColor              = QColor("#1778db");
+      dropColor              = QColor(0x1778db);
       defaultPlayDuration    = 300;      // ms
       warnPitchRange         = true;
       pedalEventsMinTicks    = 1;
@@ -318,9 +297,9 @@ void MScore::init()
 
       lastError           = "";
 
-      layoutBreakColor    = QColor("#A0A0A4");
-      frameMarginColor    = QColor("#A0A0A4");
-      bgColor.setNamedColor("#dddddd");
+      layoutBreakColor    = QColor(0xA0A0A4);
+      frameMarginColor    = QColor(0xA0A0A4);
+      bgColor             = QColor(0xdddddd);
 
       //
       //  initialize styles
@@ -370,14 +349,18 @@ void MScore::init()
             ":/fonts/FreeSerifBoldItalic.ttf",
             ":/fonts/mscoreTab.ttf",
             ":/fonts/mscore-BC.ttf",
+            ":/fonts/leland/Leland.otf",
             ":/fonts/leland/LelandText.otf",
             ":/fonts/bravura/BravuraText.otf",
             ":/fonts/gootville/GootvilleText.otf",
-            ":/fonts/mscore/MScoreText.ttf",
+            ":/fonts/mscore/MScoreText.otf",
             ":/fonts/petaluma/PetalumaText.otf",
             ":/fonts/petaluma/PetalumaScript.otf",
+            ":/fonts/finalemaestro/FinaleMaestroText.otf",
+            ":/fonts/finalebroadway/FinaleBroadwayText.otf",
             };
 
+      // Include the above internal text fonts into QFontDatabase
       for (unsigned i = 0; i < sizeof(fonts)/sizeof(*fonts); ++i) {
             QString str(fonts[i]);
             if (-1 == QFontDatabase::addApplicationFont(str)) {
@@ -401,7 +384,7 @@ if (QOperatingSystemVersion::current().majorVersion() >= 10) {
             }
       }
 #endif
-      initScoreFonts();
+      ScoreFont::initScoreFonts();
       StaffType::initStaffTypes();
       initDrumset();
       FiguredBass::readConfigFile(0);
@@ -506,4 +489,3 @@ QPaintEngine* MPaintDevice::paintEngine() const
       }
 
 }
-

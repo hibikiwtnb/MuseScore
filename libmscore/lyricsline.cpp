@@ -218,14 +218,14 @@ SpannerSegment* LyricsLine::layoutSystem(System* system)
                   System* s;
                   QPointF p1 = linePos(Grip::START, &s);
                   lineSegm->setPos(p1);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   lineSegm->setPos2(QPointF(x2 - p1.x(), 0.0));
                   }
                   break;
             case SpannerSegmentType::MIDDLE: {
                   bool leading = (anchor() == Anchor::SEGMENT || anchor() == Anchor::MEASURE);
                   qreal x1 = system->firstNoteRestSegmentX(leading);
-                  qreal x2 = system->bbox().right();
+                  qreal x2 = system->lastNoteRestSegmentX(true);
                   System* s;
                   QPointF p1 = linePos(Grip::START, &s);
                   lineSegm->setPos(QPointF(x1, p1.y()));
@@ -303,7 +303,7 @@ bool LyricsLine::setProperty(Pid propertyId, const QVariant& v)
                         return false;
                   break;
             }
-      triggerLayoutAll();
+      triggerLayout();
       return true;
       }
 
@@ -378,37 +378,43 @@ void LyricsLineSegment::layout()
 
       // VERTICAL POSITION: at the base line of the syllable text
       if (!isEndType()) {
-            rypos() = lyr->ipos().y();
-            ryoffset() = lyr->offset().y();
+            rypos() = lyr->ipos().y() + lyr->chordRest()->ipos().y();
+            ryoffset() = lyr->offset().y() + lyr->chordRest()->offset().y();
             }
       else {
             // use Y position of *next* syllable if there is one on same system
             Lyrics* nextLyr1 = searchNextLyrics(lyr->segment(), lyr->staffIdx(), lyr->no(), lyr->placement());
             if (nextLyr1 && nextLyr1->segment()->system() == system()) {
-                  rypos() = nextLyr1->ipos().y();
-                  ryoffset() = nextLyr1->offset().y();
+                  rypos() = nextLyr1->ipos().y() + nextLyr1->chordRest()->ipos().y();
+                  ryoffset() = nextLyr1->offset().y() + nextLyr1->chordRest()->offset().y();
                   }
             else {
-                  rypos() = lyr->ipos().y();
-                  ryoffset() = lyr->offset().y();
+                  rypos() = lyr->ipos().y() + lyr->chordRest()->ipos().y();
+                  ryoffset() = lyr->offset().y() + lyr->chordRest()->offset().y();
                   }
             }
 
       // MELISMA vs. DASHES
+      const double minMelismaLen = 1 * sp; // TODO: style setting
+      const double minDashLen  = score()->styleS(Sid::lyricsDashMinLength).val() * sp;
+      const double maxDashDist = score()->styleS(Sid::lyricsDashMaxDistance).val() * sp;
+      double len = pos2().rx();
       if (isEndMelisma) {                 // melisma
-            _numOfDashes = 1;
+            if (len < minMelismaLen) // Omit the extender line if too short
+                _numOfDashes = 0;
+            else
+                _numOfDashes = 1;
             rypos()      -= lyricsLine()->lineWidth() * .5; // let the line 'sit on' the base line
             // if not final segment, shorten it
+#if 0 // (why? -AS)
             if (isBeginType() || isMiddleType())
                   rxpos2() -= score()->styleP(Sid::minNoteDistance) * mag();
+#endif
             }
       else {                              // dash(es)
             // set conventional dash Y pos
             rypos() -= MScore::pixelRatio * lyr->fontMetrics().xHeight() * score()->styleD(Sid::lyricsDashYposRatio);
             _dashLength = score()->styleP(Sid::lyricsDashMaxLength) * mag();  // and dash length
-            qreal len         = pos2().x();
-            qreal minDashLen  = score()->styleS(Sid::lyricsDashMinLength).val() * sp;
-            qreal maxDashDist = score()->styleS(Sid::lyricsDashMaxDistance).val() * sp;
             if (len < minDashLen) {                                           // if no room for a dash
                   // if at end of system or dash is forced
                   if (endOfSystem || score()->styleB(Sid::lyricsDashForce)) {

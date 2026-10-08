@@ -36,8 +36,15 @@ extern MasterScore* gscore;
 
 void SymbolDialog::createSymbolPalette()
       {
+      constexpr qreal MASTER_PALETTE_GRID_SCALE = 1.30;
+
       sp = new Palette();
       sp->setIsSymbolsPaletteInMasterPalette(true);
+
+      sp->setGrid(qRound(sp->gridWidth() * MASTER_PALETTE_GRID_SCALE),
+                  qRound(sp->gridHeight() * MASTER_PALETTE_GRID_SCALE));
+
+      sp->setContentZoomEnabled(true);
       createSymbols();
       }
 
@@ -52,7 +59,7 @@ void SymbolDialog::createSymbols()
       // init the font if not done yet
       ScoreFont::fontFactory(f->name());
       sp->clear();
-      for (auto name : (*smuflRanges())[range]) {
+      for (const auto& name : (*smuflRanges())[range]) {
             SymId id     = Sym::name2id(name);
             if (search->text().isEmpty()
                || Sym::id2userName(id).contains(search->text(), Qt::CaseInsensitive)) {

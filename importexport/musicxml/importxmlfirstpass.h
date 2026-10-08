@@ -19,7 +19,7 @@
 
 namespace Ms {
 
-typedef QMap<QString, VoiceDesc> VoiceList;
+typedef QMap<int, VoiceDesc> VoiceList;
 //using Intervals = std::map<Fraction, Interval>;
 
 class MusicXmlIntervalList : public std::map<Fraction, Interval> {
@@ -56,7 +56,7 @@ private:
 
 class MusicXmlPart {
 public:
-      MusicXmlPart(QString id = "", QString name = "");
+      MusicXmlPart(QString id = QString(), QString name = QString());
       void addMeasureNumberAndDuration(QString measureNumber, Fraction measureDuration);
       QString getId() const { return id; }
       QString toString() const;
@@ -65,33 +65,45 @@ public:
       int nMeasures() const { return measureDurations.size(); }
       MusicXmlInstrList _instrList; // TODO: make private
       MusicXmlIntervalList _intervals;                     ///< Transpositions
+      Interval _inferredTranspose;
       Interval interval(const Fraction f) const;
       int octaveShift(const int staff, const Fraction f) const;
       void addOctaveShift(const int staff, const int shift, const Fraction f);
       void calcOctaveShifts();
       void setName(QString nm) { name = nm; }
       QString getName() const { return name; }
-      void setPrintName(bool b) { printName = b; }
-      bool getPrintName() const { return printName; }
+      void setPrintName(const bool b) { _printName = b; }
+      bool getPrintName() const { return _printName; }
       void setAbbr(QString ab) { abbr = ab; }
       QString getAbbr() const { return abbr; }
-      void setPrintAbbr(bool b) { printAbbr = b; }
-      bool getPrintAbbr() const { return printAbbr; }
+      void setPrintAbbr(const bool b) { _printAbbr = b; }
+      bool getPrintAbbr() const { return _printAbbr; }
+      bool hasTab() const { return _hasTab; }
+      void hasTab(const bool b) { _hasTab = b; }
+      QMap<int, int> staffNumberToIndex() const { return _staffNumberToIndex; }
+      int staffNumberToIndex(const int staffNumber) const;
+      void insertStaffNumberToIndex(const int staffNumber, const int staffIndex) { _staffNumberToIndex.insert(staffNumber, staffIndex); }
       LyricNumberHandler& lyricNumberHandler() { return _lyricNumberHandler; }
       const LyricNumberHandler& lyricNumberHandler() const { return _lyricNumberHandler; }
       void setMaxStaff(const int staff);
       int maxStaff() const { return _maxStaff; }
+      bool isVocalStaff() const;
+      void hasLyrics(bool b) { _hasLyrics = b; }
 private:
       QString id;
       QString name;
-      bool printName = true;
+      bool _printName = true;
       QString abbr;
-      bool printAbbr = true;
+      bool _printAbbr = true;
+      bool _hasTab = false;
       QStringList measureNumbers;             // MusicXML measure number attribute
       QList<Fraction> measureDurations;       // duration in fraction for every measure
       QVector<MusicXmlOctaveShiftList> octaveShifts; // octave shift list for every staff
       LyricNumberHandler _lyricNumberHandler;
-      int _maxStaff = 0;                      // maximum staff value found (1 based), 0 = none
+      int _maxStaff = -1;                      // maximum staff value found (0 based), -1 = none
+      bool _hasLyrics = false;
+      QMap<int, int> _staffNumberToIndex;       // Mapping from staff number to index in staff list.
+                                                // Only for when staves are discarded in MusicXMLParserPass1::attributes.
       };
 
 } // namespace Ms

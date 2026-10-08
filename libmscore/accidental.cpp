@@ -27,13 +27,14 @@ namespace Ms {
 //---------------------------------------------------------
 
 struct Acc {
-      AccidentalVal offset;   // semitone offset
-      int centOffset;
+      qreal centOffset;
       SymId sym;
-      Acc(AccidentalVal o, int o2, SymId s) : offset(o), centOffset(o2), sym(s) {}
+      AccidentalVal offset;   // semitone offset
+      Acc(AccidentalVal o, qreal o2, SymId s) : centOffset(o2), sym(s), offset(o) {}
       };
 
-// NOTE: keep this in sync with with AccidentalType enum in types.h, watch out for isMicrotonal()
+// NOTE: Keep this in sync with with AccidentalType enum in types.h, watch out for isMicrotonal().
+//       Also keep in sync with `static double accSymId2alter(SymId id)` in exportxml.cpp.
 static Acc accList[] = {
       Acc(AccidentalVal::NATURAL,    0, SymId::noSym),                  // NONE
       Acc(AccidentalVal::FLAT,       0, SymId::accidentalFlat),         // FLAT
@@ -56,8 +57,8 @@ static Acc accList[] = {
       Acc(AccidentalVal::NATURAL,    50, SymId::accidentalQuarterToneSharpArrowDown),     // SHARP_ARROW_DOWN
       Acc(AccidentalVal::NATURAL,   250, SymId::accidentalFiveQuarterTonesSharpArrowUp),    // SHARP2_ARROW_UP
       Acc(AccidentalVal::NATURAL,   150, SymId::accidentalThreeQuarterTonesSharpArrowDown), // SHARP2_ARROW_DOWN
-      Acc(AccidentalVal::NATURAL,  -250, SymId::accidentalThreeQuarterTonesFlatArrowUp),    // FLAT2_ARROW_UP
-      Acc(AccidentalVal::NATURAL,  -150, SymId::accidentalFiveQuarterTonesFlatArrowDown),   // FLAT2_ARROW_DOWN
+      Acc(AccidentalVal::NATURAL,  -150, SymId::accidentalThreeQuarterTonesFlatArrowUp),    // FLAT2_ARROW_UP
+      Acc(AccidentalVal::NATURAL,  -250, SymId::accidentalFiveQuarterTonesFlatArrowDown),   // FLAT2_ARROW_DOWN
       Acc(AccidentalVal::NATURAL,   -50, SymId::accidentalArrowDown), // ARROW_DOWN
       Acc(AccidentalVal::NATURAL,    50, SymId::accidentalArrowUp),   // ARROW_UP
 
@@ -68,10 +69,10 @@ static Acc accList[] = {
       Acc(AccidentalVal::NATURAL,   150, SymId::accidentalThreeQuarterTonesSharpStein), // SHARP_SLASH4
 
       // Arel-Ezgi-Uzdilek (AEU)
-      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalBuyukMucennebFlat),  // FLAT_SLASH2
-      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalBakiyeFlat),         // FLAT_SLASH
-      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalKucukMucennebSharp), // SHARP_SLASH3
-      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalBuyukMucennebSharp), // SHARP_SLASH2
+      Acc(AccidentalVal::NATURAL,   -89, SymId::accidentalBuyukMucennebFlat),  // FLAT_SLASH2
+      Acc(AccidentalVal::NATURAL,   -44, SymId::accidentalBakiyeFlat),         // FLAT_SLASH
+      Acc(AccidentalVal::NATURAL,    56, SymId::accidentalKucukMucennebSharp), // SHARP_SLASH3
+      Acc(AccidentalVal::NATURAL,    89, SymId::accidentalBuyukMucennebSharp), // SHARP_SLASH2
 
       // Extended Helmholtz-Ellis accidentals (just intonation)
       Acc(AccidentalVal::NATURAL,     0, SymId::accidentalDoubleFlatOneArrowDown),
@@ -137,9 +138,9 @@ static Acc accList[] = {
       Acc(AccidentalVal::NATURAL,   1.7, SymId::accidentalCombiningRaise31Schisma),
       Acc(AccidentalVal::NATURAL, -10.9, SymId::accidentalCombiningLower53LimitComma),
       Acc(AccidentalVal::NATURAL,  10.9, SymId::accidentalCombiningRaise53LimitComma),
-      //Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicAlmostEqualTo),
-      //Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicEquals),
-      //Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicTilde),
+      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicAlmostEqualTo),
+      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicEquals),
+      Acc(AccidentalVal::NATURAL,     0, SymId::accidentalEnharmonicTilde),
 
       // Persian
       Acc(AccidentalVal::NATURAL,    33, SymId::accidentalSori),                          // SORI
@@ -162,40 +163,51 @@ static Acc accList[] = {
       Acc(AccidentalVal::NATURAL,    83, SymId::accidentalWyschnegradsky5TwelfthsSharp),
       Acc(AccidentalVal::FLAT,        0, SymId::accidentalWyschnegradsky6TwelfthsFlat),
       Acc(AccidentalVal::SHARP,       0, SymId::accidentalWyschnegradsky6TwelfthsSharp),
-      Acc(AccidentalVal::NATURAL,  -116, SymId::accidentalWyschnegradsky7TwelfthsFlat),
-      Acc(AccidentalVal::NATURAL,   116, SymId::accidentalWyschnegradsky7TwelfthsSharp),
+      Acc(AccidentalVal::NATURAL,  -117, SymId::accidentalWyschnegradsky7TwelfthsFlat),
+      Acc(AccidentalVal::NATURAL,   117, SymId::accidentalWyschnegradsky7TwelfthsSharp),
       Acc(AccidentalVal::NATURAL,  -133, SymId::accidentalWyschnegradsky8TwelfthsFlat),
       Acc(AccidentalVal::NATURAL,   133, SymId::accidentalWyschnegradsky8TwelfthsSharp),
       Acc(AccidentalVal::NATURAL,  -150, SymId::accidentalWyschnegradsky9TwelfthsFlat),
       Acc(AccidentalVal::NATURAL,   150, SymId::accidentalWyschnegradsky9TwelfthsSharp),
 
       // the most important (Spartan) Sagittal accidentals
-      Acc(AccidentalVal::NATURAL,  -5.8, SymId::accSagittal5v7KleismaDown),
-      Acc(AccidentalVal::NATURAL,   5.8, SymId::accSagittal5v7KleismaUp),
-      Acc(AccidentalVal::NATURAL, -21.5, SymId::accSagittal5CommaDown),
-      Acc(AccidentalVal::NATURAL,  21.5, SymId::accSagittal5CommaUp),
-      Acc(AccidentalVal::NATURAL, -27.3, SymId::accSagittal7CommaDown),
-      Acc(AccidentalVal::NATURAL,  27.3, SymId::accSagittal7CommaUp),
-      Acc(AccidentalVal::NATURAL, -43.0, SymId::accSagittal25SmallDiesisDown),
-      Acc(AccidentalVal::NATURAL,  43.0, SymId::accSagittal25SmallDiesisUp),
-      Acc(AccidentalVal::NATURAL, -48.8, SymId::accSagittal35MediumDiesisDown),
-      Acc(AccidentalVal::NATURAL,  48.8, SymId::accSagittal35MediumDiesisUp),
-      Acc(AccidentalVal::NATURAL, -53.3, SymId::accSagittal11MediumDiesisDown),
-      Acc(AccidentalVal::NATURAL,  53.3, SymId::accSagittal11MediumDiesisUp),
-      Acc(AccidentalVal::NATURAL, -60.4, SymId::accSagittal11LargeDiesisDown),
-      Acc(AccidentalVal::NATURAL,  60.4, SymId::accSagittal11LargeDiesisUp),
-      Acc(AccidentalVal::NATURAL, -64.9, SymId::accSagittal35LargeDiesisDown),
-      Acc(AccidentalVal::NATURAL,  64.9, SymId::accSagittal35LargeDiesisUp),
-      Acc(AccidentalVal::NATURAL, -70.7, SymId::accSagittalFlat25SUp),
-      Acc(AccidentalVal::NATURAL,  70.7, SymId::accSagittalSharp25SDown),
-      Acc(AccidentalVal::NATURAL, -86.4, SymId::accSagittalFlat7CUp),
-      Acc(AccidentalVal::NATURAL,  86.4, SymId::accSagittalSharp7CDown),
-      Acc(AccidentalVal::NATURAL, -92.2, SymId::accSagittalFlat5CUp),
-      Acc(AccidentalVal::NATURAL,  92.2, SymId::accSagittalSharp5CDown),
-      Acc(AccidentalVal::NATURAL,-107.9, SymId::accSagittalFlat5v7kUp),
-      Acc(AccidentalVal::NATURAL, 107.9, SymId::accSagittalSharp5v7kDown),
-      Acc(AccidentalVal::NATURAL,-113.7, SymId::accSagittalFlat),
-      Acc(AccidentalVal::NATURAL, 113.7, SymId::accSagittalSharp),
+      Acc(AccidentalVal::NATURAL,   -17, SymId::accSagittal5v7KleismaDown),
+      Acc(AccidentalVal::NATURAL,    17, SymId::accSagittal5v7KleismaUp),
+      Acc(AccidentalVal::NATURAL,   -17, SymId::accSagittal5CommaDown),
+      Acc(AccidentalVal::NATURAL,    17, SymId::accSagittal5CommaUp),
+      Acc(AccidentalVal::NATURAL,   -33, SymId::accSagittal7CommaDown),
+      Acc(AccidentalVal::NATURAL,    33, SymId::accSagittal7CommaUp),
+      Acc(AccidentalVal::NATURAL,   -33, SymId::accSagittal25SmallDiesisDown),
+      Acc(AccidentalVal::NATURAL,    33, SymId::accSagittal25SmallDiesisUp),
+      Acc(AccidentalVal::NATURAL,   -50, SymId::accSagittal35MediumDiesisDown),
+      Acc(AccidentalVal::NATURAL,    50, SymId::accSagittal35MediumDiesisUp),
+      Acc(AccidentalVal::NATURAL,   -50, SymId::accSagittal11MediumDiesisDown),
+      Acc(AccidentalVal::NATURAL,    50, SymId::accSagittal11MediumDiesisUp),
+      Acc(AccidentalVal::NATURAL,   -50, SymId::accSagittal11LargeDiesisDown),
+      Acc(AccidentalVal::NATURAL,    50, SymId::accSagittal11LargeDiesisUp),
+      Acc(AccidentalVal::NATURAL,   -50, SymId::accSagittal35LargeDiesisDown),
+      Acc(AccidentalVal::NATURAL,    50, SymId::accSagittal35LargeDiesisUp),
+      Acc(AccidentalVal::NATURAL,   -67, SymId::accSagittalFlat25SUp),
+      Acc(AccidentalVal::NATURAL,    67, SymId::accSagittalSharp25SDown),
+      Acc(AccidentalVal::NATURAL,   -67, SymId::accSagittalFlat7CUp),
+      Acc(AccidentalVal::NATURAL,    67, SymId::accSagittalSharp7CDown),
+      Acc(AccidentalVal::NATURAL,   -83, SymId::accSagittalFlat5CUp),
+      Acc(AccidentalVal::NATURAL,    83, SymId::accSagittalSharp5CDown),
+      Acc(AccidentalVal::NATURAL,   -83, SymId::accSagittalFlat5v7kUp),
+      Acc(AccidentalVal::NATURAL,    83, SymId::accSagittalSharp5v7kDown),
+      Acc(AccidentalVal::NATURAL,  -100, SymId::accSagittalFlat),
+      Acc(AccidentalVal::NATURAL,   100, SymId::accSagittalSharp),
+
+      // Turkish folk music accidentals
+      Acc(AccidentalVal::NATURAL, -22.2, SymId::accidental1CommaFlat),
+      Acc(AccidentalVal::NATURAL,  22.2, SymId::accidental1CommaSharp),
+      Acc(AccidentalVal::NATURAL, -44.4, SymId::accidental2CommaFlat),
+      Acc(AccidentalVal::NATURAL,  44.4, SymId::accidental2CommaSharp),
+      Acc(AccidentalVal::NATURAL, -66.7, SymId::accidental3CommaFlat),
+      Acc(AccidentalVal::NATURAL,  66.7, SymId::accidental3CommaSharp),
+      Acc(AccidentalVal::NATURAL, -88.9, SymId::accidental4CommaFlat),
+      //Acc(AccidentalVal::NATURAL,  88.9, SymId::accidentalSharp), // there's no accidental4CommaSharp, it does look like a regular sharp instead.
+      Acc(AccidentalVal::NATURAL, 111.1, SymId::accidental5CommaSharp),
       };
 
 //---------------------------------------------------------
@@ -241,7 +253,7 @@ void Accidental::read(XmlReader& e)
                         _role = r;
                   }
             else if (tag == "small")
-                  _small = e.readInt();
+                  m_isSmall = e.readInt();
             else if (Element::readProperties(e))
                   ;
             else
@@ -354,7 +366,7 @@ void Accidental::layout()
             }
 
       qreal m = parent() ? parent()->mag() : 1.0;
-      if (_small)
+      if (m_isSmall)
             m *= score()->styleD(Sid::smallNoteMag);
       setMag(m);
 
@@ -561,7 +573,7 @@ QVariant Accidental::getProperty(Pid propertyId) const
       {
       switch (propertyId) {
             case Pid::ACCIDENTAL_TYPE:    return int(_accidentalType);
-            case Pid::SMALL:              return _small;
+            case Pid::SMALL:              return m_isSmall;
             case Pid::ACCIDENTAL_BRACKET: return int(bracket());
             case Pid::ROLE:               return int(role());
             default:
@@ -596,7 +608,7 @@ bool Accidental::setProperty(Pid propertyId, const QVariant& v)
                   setAccidentalType(AccidentalType(v.toInt()));
                   break;
             case Pid::SMALL:
-                  _small = v.toBool();
+                  m_isSmall = v.toBool();
                   break;
             case Pid::ACCIDENTAL_BRACKET:
                   _bracket = AccidentalBracket(v.toInt());

@@ -354,7 +354,7 @@ public:
   {
     score  = s;
     level  = 0;
-    curTicks = MScore::division;
+    curTicks = DIVISION;
     slur   = false;
     stemDirection = MScore::AUTO;
   }
@@ -742,9 +742,9 @@ void ExportLy::printChordList()
 	  int factor=1;
 	  // works at least if denominator is 4:
 	  if (timedenom == 2) factor=2; else factor = 1;
-	  int measnum = chordThis->cd.tickpos / (z1 * MScore::division * factor);
+	  int measnum = chordThis->cd.tickpos / (z1 * DIVISION * factor);
 	  qDebug("Measnum chord: \n");
-	  int surplus = chordThis->cd.tickpos % MScore::division;
+	  int surplus = chordThis->cd.tickpos % DIVISION;
 	  if (measnum == 0) surplus = chordThis->cd.tickpos;
 	  level++;
 	  indentF();
@@ -3093,101 +3093,101 @@ int ExportLy::getLen(int l, int* dots)
 {
   int len  = 4;
 
-  if (l == 16 * MScore::division) //longa, whole measure of 4/2-time
+  if (l == 16 * DIVISION) //longa, whole measure of 4/2-time
     len=-2;
-  else if (l == 12 * MScore::division) // "6/2" "dotted brevis" used for whole-measure rest in 6/2 time.
+  else if (l == 12 * DIVISION) // "6/2" "dotted brevis" used for whole-measure rest in 6/2 time.
     len=-3;
-  else if (l == 10 * MScore::division) // "5/2"- time, used for whole-measure rest.
+  else if (l == 10 * DIVISION) // "5/2"- time, used for whole-measure rest.
     len=-4;
-  else if (l == 8 * MScore::division) //brevis
+  else if (l == 8 * DIVISION) //brevis
     len = -1;
-  else if (l == 7 * MScore::division) //doubledotted whole
+  else if (l == 7 * DIVISION) //doubledotted whole
     {
       len = 1;
       *dots = 2;
     }
-  else if (l == 6 * MScore::division) //dotted whole
+  else if (l == 6 * DIVISION) //dotted whole
     {
       len  = 1;
       *dots = 1;
     }
-  else if (l == 5 * MScore::division) // whole measure of 5/4-time
+  else if (l == 5 * DIVISION) // whole measure of 5/4-time
       len = -5;
-  else if (l == 4 * MScore::division) //whole
+  else if (l == 4 * DIVISION) //whole
     len = 1;
-  else if (l == 3 * MScore::division) // dotted half
+  else if (l == 3 * DIVISION) // dotted half
     {
       len = 2;
       *dots = 1;
     }
-  else if (l == ((MScore::division/2)*7)) // double-dotted half: 7/8 used for \partial bar.
+  else if (l == ((DIVISION/2)*7)) // double-dotted half: 7/8 used for \partial bar.
     {
       len = 2;
       *dots=2;
     }
-  else if (l == 2 * MScore::division)
+  else if (l == 2 * DIVISION)
     len = 2;
-  else if (l == MScore::division)         //quarter
+  else if (l == DIVISION)         //quarter
     len = 4;
-  else if (l == MScore::division *3 /2)   //dotted quarter
+  else if (l == DIVISION *3 /2)   //dotted quarter
     {
       len=4;
       *dots=1;
     }
-  else if (l == ((MScore::division/4)*7)) // double-dotted quarter
+  else if (l == ((DIVISION/4)*7)) // double-dotted quarter
     {
       len = 4;
       *dots=2;
     }
-  else if (l == MScore::division / 2)     //8th
+  else if (l == DIVISION / 2)     //8th
     len = 8;
-  else if (l == MScore::division*3 /4) //dotted 8th
+  else if (l == DIVISION*3 /4) //dotted 8th
     {
       len = 8;
       *dots=1;
     }
-  else if (l == ((MScore::division/8)*7)) // double-dotted 8th
+  else if (l == ((DIVISION/8)*7)) // double-dotted 8th
     {
       len = 8;
       *dots=2;
     }
-  else if (l == MScore::division / 4)
+  else if (l == DIVISION / 4)
     len = 16;
-  else if (l == MScore::division / 8)
+  else if (l == DIVISION / 8)
     len = 32;
-  else if (l == MScore::division * 3 /8) //dotted 16th.
+  else if (l == DIVISION * 3 /8) //dotted 16th.
     {
       len = 16;
       *dots = 1;
     }
-  else if (l == ((MScore::division/16)*7)) // double-dotted 16th.
+  else if (l == ((DIVISION/16)*7)) // double-dotted 16th.
     {
       len = 16;
       *dots=2;
     }
-  else if (l == MScore::division / 16)
+  else if (l == DIVISION / 16)
     len = 64;
-  else if (l == MScore::division /32)
+  else if (l == DIVISION /32)
     len = 128;
   //triplets, lily uses nominal value surrounded by \times 2/3 {  }
   //so we set len equal to nominal value
-  else if (l == ((MScore::division  * 8)/3))
+  else if (l == ((DIVISION  * 8)/3))
      len = 1;
-  else if (l == MScore::division * 4 /3)
+  else if (l == DIVISION * 4 /3)
      len = 2;
-  else if (l == (MScore::division * 2)/3)
+  else if (l == (DIVISION * 2)/3)
     len = 4;
-  else if (l == MScore::division /3)
+  else if (l == DIVISION /3)
     len = 8;
-  else if (l == MScore::division /(3*2))
+  else if (l == DIVISION /(3*2))
     len = 16;
-  else if (l == MScore::division /3*4)
+  else if (l == DIVISION /3*4)
     len = 32;
-  else if (l == MScore::division/3*8)
+  else if (l == DIVISION/3*8)
     len = 64;
   else if (l == 0)
     len = 1;
-  else qDebug("measure: %d, unsupported len %d (%d,%d)\n", measurenumber, l, l/MScore::division, l % MScore::division);
+  else qDebug("measure: %d, unsupported len %d (%d,%d)\n", measurenumber, l, l/DIVISION, l % DIVISION);
   return len;
 }
 
@@ -3915,7 +3915,7 @@ void ExportLy::writeVoiceMeasure(MeasureBase* mb, Staff* staff, int staffInd, in
 		 writeTimeSig((TimeSig*)e);
 		 out << "\n";
 
-		 int nombarlen=z1*MScore::division;
+		 int nombarlen=z1*DIVISION;
 
 		 if (timedenom==8) nombarlen=nombarlen/2;
 		 if (timedenom == 2) nombarlen = 2*nombarlen;
@@ -4000,7 +4000,7 @@ void ExportLy::writeVoiceMeasure(MeasureBase* mb, Staff* staff, int staffInd, in
 	     int l = ((Rest*)e)->actualTicks();
 	     int mlen=((Rest*)e)->segment()->measure()->ticks();
 
-	     int nombarl=z1*MScore::division;
+	     int nombarl=z1*DIVISION;
 
 	     if (((l==mlen) || (l==0)) and (mlen ==nombarl))  //l == 0 ??
 	       {
@@ -4926,4 +4926,3 @@ bool ExportLy::write(const QString& name)
      for it here. (olav)
  */
 }
-

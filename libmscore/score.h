@@ -18,16 +18,15 @@
  Definition of Score class.
 */
 
-#include "config.h"
 #include "input.h"
 #include "instrument.h"
-#include "select.h"
-#include "synthesizerstate.h"
-#include "mscoreview.h"
-#include "spannermap.h"
 #include "layoutbreak.h"
+#include "mscoreview.h"
 #include "property.h"
+#include "select.h"
+#include "spannermap.h"
 #include "sym.h"
+#include "synthesizerstate.h"
 
 namespace Ms {
 
@@ -94,12 +93,12 @@ struct Interval;
 struct TEvent;
 struct LayoutContext;
 
-enum class Tid;
+enum class Tid : short;
 enum class ClefType : signed char;
 enum class BeatType : char;
-enum class Key;
+enum class Key : signed char;
 enum class HairpinType : signed char;
-enum class SegmentType;
+enum class SegmentType : short;
 enum class OttavaType : char;
 enum class Voicing : signed char;
 enum class HDuration : signed char;
@@ -130,14 +129,15 @@ enum class Pad : char {
 
 //---------------------------------------------------------
 //   LayoutMode
-//    PAGE   The normal page view, honors page and line breaks.
-//    LINE   The panoramic view, one long system
-//    FLOAT  The "reflow" mode, ignore page and line breaks
-//    SYSTEM The "never ending page", page break are turned into line break
+//    PAGE        The normal page view, honors page and line breaks.
+//    LINE        The panoramic view, one long system
+//    FLOAT       The "reflow" mode, ignore page and line breaks, stave spacer up, fixed and down
+//    SYSTEM      The "never ending page", page break are turned into line break
+//    DOUBLE_PAGE The normal paginated layout arranged as double-page spreads
 //---------------------------------------------------------
 
 enum class LayoutMode : char {
-      PAGE, FLOAT, LINE, SYSTEM
+      PAGE, FLOAT, LINE, SYSTEM, DOUBLE_PAGE
       };
 
 //---------------------------------------------------------
@@ -207,7 +207,7 @@ struct Position {
       Segment* segment { 0 };
       int staffIdx     { -1 };
       int line         { 0 };
-      int fret         { FRET_NONE };
+      int fret         { INVALID_FRET_INDEX };
       QPointF pos;
       };
 
@@ -485,6 +485,7 @@ class Score : public QObject, public ScoreElement {
       SelectionFilter _selectionFilter;
       Audio* _audio { 0 };
       PlayMode _playMode { PlayMode::SYNTHESIZER };
+      bool _isPlaying { false };
 
       qreal _noteHeadWidth { 0.0 };       // cached value
       QString accInfo;                    ///< information about selected element(s) for use by screen-readers
@@ -540,6 +541,8 @@ class Score : public QObject, public ScoreElement {
       void selectAdd(Element* e);
       void selectRange(Element* e, int staffIdx);
 
+      bool canReselectItem(const Element* e) const;
+
       void cmdAddPitch(const EditData&, int note, bool addFlag, bool insert);
       void cmdAddFret(int fret);
       void cmdToggleVisible();
@@ -553,7 +556,8 @@ class Score : public QObject, public ScoreElement {
 
       void deleteSpannersFromRange(const Fraction& t1, const Fraction& t2, int trackStart, int trackEnd, const SelectionFilter& filter);
       void deleteAnnotationsFromRange(Segment* segStart, Segment* segEnd, int trackStart, int trackEnd, const SelectionFilter& filter);
-      ChordRest* deleteRange(Segment* segStart, Segment* segEnd, int trackStart, int trackEnd, const SelectionFilter& filter);
+      std::vector<ChordRest*> deleteRange(Segment* segStart, Segment* segEnd, int trackStart, int trackEnd,
+                                          const SelectionFilter& filter);
 
       void update(bool resetCmdState);
 
@@ -579,6 +583,7 @@ class Score : public QObject, public ScoreElement {
 
    signals:
       void posChanged(POS, unsigned);
+      void partColorChanged();
       void playlistChanged();
 
    public:
@@ -624,6 +629,7 @@ class Score : public QObject, public ScoreElement {
       void cmdRemovePart(Part*);
       void cmdAddTie(bool addToChord = false);
       void cmdToggleTie();
+      Note* findOrCreateTieTarget(Note*);
       static std::vector<Note*> cmdTieNoteList(const Selection& selection, bool noteEntryMode);
       void cmdAddOttava(OttavaType);
       void cmdAddStretch(qreal);
@@ -643,6 +649,9 @@ class Score : public QObject, public ScoreElement {
       bool trKeys, bool transposeChordNames, bool useDoubleSharpsFlats);
 
       bool appendMeasuresFromScore(Score* score, const Fraction& startTick, const Fraction& endTick);
+
+      MeasureBase* insertMeasuresFromScore (Score* scoreSource, const Selection& selectionSource, MeasureBase& mbInsert);
+
       bool appendScore(Score*, bool addPageBreak = false, bool addSectionBreak = true);
 
       void write(XmlWriter&, bool onlySelection);
@@ -710,7 +719,9 @@ class Score : public QObject, public ScoreElement {
       Chord* addChord(const Fraction& tick, TDuration d, Chord* oc, bool genTie, Tuplet* tuplet);
 
       ChordRest* addClone(ChordRest* cr, const Fraction& tick, const TDuration& d);
-      Rest* setRest(const Fraction& tick,  int track, const Fraction&, bool useDots, Tuplet* tuplet, bool useFullMeasureRest = true);
+      Rest* setRest(const Fraction& tick, int track, const Fraction&, bool useDots, Tuplet* tuplet, bool useFullMeasureRest = true);
+      std::vector<Rest*> setRests(const Fraction& tick, int track, const Fraction&, bool useDots, Tuplet* tuplet,
+                                  bool useFullMeasureRest = true);
 
       void upDown(bool up, UpDownMode);
       void upDownDelta(int pitchDelta);
@@ -771,6 +782,8 @@ class Score : public QObject, public ScoreElement {
 
       void cmdRelayout();
       void cmdToggleAutoplace(bool all);
+      void cmdApplyInputState();
+      void cmdCycleVoiceFilter(int voice=0);
 
       bool playNote() const                 { return _updateState._playNote; }
       void setPlayNote(bool v)              { _updateState._playNote = v;    }
@@ -781,7 +794,9 @@ class Score : public QObject, public ScoreElement {
       void deleteLater(ScoreElement* e)     { _updateState._deleteList.push_back(e); }
       void deletePostponed();
 
+      bool regroupVoicing(const Fraction& startTick, const Fraction& endTick, int staffIdx);
       void changeVoice(int);
+      void cmdToggleMouseEntry(void);
 
       void colorItem(Element*);
       QList<Part*>& parts()                { return _parts; }
@@ -856,7 +871,7 @@ class Score : public QObject, public ScoreElement {
       Element* getScoreElementOfMeasureBase(MeasureBase*) const;
 
       void cmd(const QAction*, EditData&);
-      int fileDivision(int t) const { return ((qint64)t * MScore::division + _fileDivision/2) / _fileDivision; }
+      int fileDivision(int t) const { return (t * DIVISION + _fileDivision / 2) / _fileDivision; }
       void setFileDivision(int t) { _fileDivision = t; }
 
       QString importedFilePath() const           { return _importedFilePath; }
@@ -931,7 +946,7 @@ class Score : public QObject, public ScoreElement {
       void setInputTrack(int t)                { inputState().setTrack(t);    }
 
       void spatiumChanged(qreal oldValue, qreal newValue);
-      void styleChanged();
+      void styleChanged() override;
 
       void cmdPaste(const QMimeData* ms, MuseScoreView* view, Fraction scale = Fraction(1, 1));
       bool pasteStaff(XmlReader&, Segment* dst, int staffIdx, Fraction scale = Fraction(1, 1));
@@ -1006,6 +1021,7 @@ class Score : public QObject, public ScoreElement {
 
       qreal loWidth() const;
       qreal loHeight() const;
+      QRectF pageLayoutRect() const;
 
       virtual int npages() const                { return _pages.size(); }
       virtual int pageIdx(Page* page) const     { return _pages.indexOf(page); }
@@ -1035,6 +1051,8 @@ class Score : public QObject, public ScoreElement {
       Segment* lastSegmentMM() const;
 
       void connectTies(bool silent=false);
+      void connectArpeggios();
+      void fixupLaissezVibrer();
 
       qreal point(const Spatium sp) const { return sp.val() * spatium(); }
 
@@ -1062,7 +1080,7 @@ class Score : public QObject, public ScoreElement {
       void doLayoutRange(const Fraction&, const Fraction&);
       void layoutLinear(bool layoutAll, LayoutContext& lc);
 
-      void layoutChords1(Segment* segment, int staffIdx);
+      void layoutChords1(Segment* segment, int staffIdx, bool preserveMeasureRestX = false);
       qreal layoutChords2(std::vector<Note*>& notes, bool up);
       void layoutChords3(std::vector<Note*>&, const Staff*, Segment*);
 
@@ -1114,6 +1132,8 @@ class Score : public QObject, public ScoreElement {
 
       bool floatMode() const                { return layoutMode() == LayoutMode::FLOAT; }
       bool pageMode() const                 { return layoutMode() == LayoutMode::PAGE; }
+      bool doublePageMode() const           { return layoutMode() == LayoutMode::DOUBLE_PAGE; }
+      bool paginatedMode() const            { return pageMode() || doublePageMode(); }
       bool lineMode() const                 { return layoutMode() == LayoutMode::LINE; }
       bool systemMode() const               { return layoutMode() == LayoutMode::SYSTEM; }
 
@@ -1128,6 +1148,8 @@ class Score : public QObject, public ScoreElement {
       void setAudio(Audio* a)      { _audio = a;       }
       PlayMode playMode() const    { return _playMode; }
       void setPlayMode(PlayMode v) { _playMode = v;    }
+      void setIsPlaying(bool v);
+      bool isPlaying() const;
 
       int linkId();
       void linkId(int);
@@ -1172,6 +1194,7 @@ class Score : public QObject, public ScoreElement {
       Note* upAltCtrl(Note*) const;
       Element* downAlt(Element*);
       Note* downAltCtrl(Note*) const;
+      Element* moveAlt(Element*, Direction);
 
       Element* firstElement(bool frame = true);
       Element* lastElement(bool frame = true);
@@ -1333,6 +1356,7 @@ class MasterScore : public Score {
       void setPlaylistClean()                                         { _playlistDirty = false; }
 
       void setExpandRepeats(bool expandRepeats);
+      bool expandRepeats() const { return _expandRepeats; }
       void updateRepeatListTempo();
       virtual const RepeatList& repeatList() const override;
       virtual const RepeatList& repeatList2() const override;
@@ -1494,4 +1518,3 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(LayoutFlags);
 
 
 #endif
-

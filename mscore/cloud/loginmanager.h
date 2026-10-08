@@ -13,8 +13,6 @@
 #ifndef __LOGINMANAGER_H__
 #define __LOGINMANAGER_H__
 
-#include "config.h"
-
 namespace Ms {
 
 class ApiRequest;
@@ -28,7 +26,7 @@ class LoginManager : public QObject
       {
       Q_OBJECT
 
-      enum class RequestType
+      enum class RequestType : char
             {
             LOGIN,
             LOGIN_REFRESH,
@@ -100,9 +98,6 @@ class LoginManager : public QObject
    public:
       LoginManager(QAction* uploadAudioMenuAction, QObject* parent = 0);
       void login(QString login, QString password);
-#ifdef USE_WEBENGINE
-      void loginInteractive();
-#endif
       void upload(const QString& path, int nid, const QString& title);
       void updateScoreData(const QString& nid, bool newScore);
       bool hasAccessToken();

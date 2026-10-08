@@ -194,23 +194,26 @@ void InputState::update(Selection& selection)
 
 void InputState::moveInputPos(Element* e)
       {
-      if (e == 0)
+      if (!e)
             return;
 
-      Segment* s;
-      if (e->isChordRest())
-            s = toChordRest(e)->segment();
-      else
+      Segment* s = nullptr;
+
+      if (ChordRest* cr = chordRest(e))
+            s = cr->segment();
+      else if (e->isSegment())
             s = toSegment(e);
 
-      if (s->isSegment()) {
-            if (s->measure()->isMMRest()) {
-                  Measure* m = s->measure()->mmRestFirst();
-                  s = m->findSegment(SegmentType::ChordRest, m->tick());
-                  }
-            _lastSegment = _segment;
-            _segment = s;
+      if (!s)
+            return;
+
+      if (s->measure()->isMMRest()) {
+            Measure* m = s->measure()->mmRestFirst();
+            s = m->findSegment(SegmentType::ChordRest, m->tick());
             }
+
+      _lastSegment = _segment;
+      _segment = s;
       }
 
 //---------------------------------------------------------
@@ -235,15 +238,10 @@ Segment* InputState::nextInputPos() const
       {
       Measure* m = _segment->measure();
       Segment* s = _segment->next1(SegmentType::ChordRest);
-      for (; s; s = s->next1(SegmentType::ChordRest)) {
-            if (s->element(_track)) {
-                  if (s->element(_track)->isRest() && toRest(s->element(_track))->isGap())
-                        m = s->measure();
-                  else
-                        return s;
-                  }
-            else if (s->measure() != m)
+      while (s) {
+            if (s->element(_track) || s->measure() != m)
                   return s;
+            s = s->next1(SegmentType::ChordRest);
             }
       return 0;
       }

@@ -87,7 +87,7 @@
        </spacer>
       </item>
       <item row="0" column="0" colspan="3">
-       <widget class="QCheckBox" name="small">
+       <widget class="QCheckBox" name="isSmall">
         <property name="focusPolicy">
          <enum>Qt::TabFocus</enum>
         </property>
@@ -108,65 +108,6 @@
          <string>Reset 'Head group' value</string>
         </property>
        </widget>
-      </item>
-      <item row="13" column="0" colspan="4">
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QToolButton" name="dot1">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <property name="text">
-           <string>Dot 1</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QToolButton" name="dot2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Dot 2</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QToolButton" name="dot3">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Dot 3</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QToolButton" name="dot4">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Dot 4</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
       </item>
       <item row="3" column="3">
        <widget class="Ms::ResetButton" name="resetNoteHeadType" native="true">
@@ -251,9 +192,70 @@
         </property>
        </widget>
       </item>
-      <item row="14" column="0" colspan="4">
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
-        <item>
+      <item row="13" column="0" colspan="4">
+       <layout class="QGridLayout" name="selectButtonLayout">
+        <property name="horizontalSpacing">
+         <number>3</number>
+        </property>
+        <property name="verticalSpacing">
+         <number>3</number>
+        </property>
+        <item row="0" column="0">
+         <widget class="QToolButton" name="dot1">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="styleSheet">
+           <string notr="true"/>
+          </property>
+          <property name="text">
+           <string>Dot 1</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QToolButton" name="dot2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Dot 2</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QToolButton" name="dot3">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Dot 3</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QToolButton" name="dot4">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Dot 4</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
          <widget class="QToolButton" name="stem">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -266,7 +268,7 @@
           </property>
          </widget>
         </item>
-        <item>
+        <item row="2" column="1">
          <widget class="QToolButton" name="hook">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -279,7 +281,7 @@
           </property>
          </widget>
         </item>
-        <item>
+        <item row="3" column="0">
          <widget class="QToolButton" name="beam">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -292,7 +294,7 @@
           </property>
          </widget>
         </item>
-        <item>
+        <item row="3" column="1">
          <widget class="QToolButton" name="tuplet">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -698,7 +700,7 @@
  </customwidgets>
  <tabstops>
   <tabstop>title</tabstop>
-  <tabstop>small</tabstop>
+  <tabstop>isSmall</tabstop>
   <tabstop>noteHeadScheme</tabstop>
   <tabstop>noteHeadGroup</tabstop>
   <tabstop>noteHeadType</tabstop>

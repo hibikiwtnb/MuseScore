@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="3.1">
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
   <work>
     <work-number>MuseScore testfile</work-number>
     <work-title>Almost Invisible Elements</work-title>
@@ -43,7 +43,7 @@
           <beats>4</beats>
           <beat-type>4</beat-type>
           </time>
-        <clef>
+        <clef print-object="no">
           <sign>G</sign>
           <line>2</line>
           </clef>
@@ -122,7 +122,7 @@
         <type>quarter</type>
         <stem>down</stem>
         </note>
-      <note print-object="no">
+      <note>
         <pitch>
           <step>A</step>
           <octave>4</octave>
@@ -131,6 +131,7 @@
         <voice>2</voice>
         <type>quarter</type>
         <stem>down</stem>
+        <notehead>none</notehead>
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>

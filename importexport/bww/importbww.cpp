@@ -21,14 +21,14 @@
 // Currently all output (both debug and error reports) are done using qDebug.
 
 #include "lexer.h"
-#include "writer.h"
 #include "parser.h"
+#include "writer.h"
 
-#include "libmscore/fraction.h"
 #include "libmscore/barline.h"
 #include "libmscore/box.h"
 #include "libmscore/chord.h"
 #include "libmscore/clef.h"
+#include "libmscore/fraction.h"
 #include "libmscore/keysig.h"
 #include "libmscore/layoutbreak.h"
 #include "libmscore/measure.h"
@@ -36,10 +36,10 @@
 #include "libmscore/part.h"
 #include "libmscore/pitchspelling.h"
 #include "libmscore/score.h"
-#include "libmscore/slur.h"
 #include "libmscore/tie.h"
 #include "libmscore/staff.h"
 #include "libmscore/tempotext.h"
+#include "libmscore/text.h"
 #include "libmscore/timesig.h"
 #include "libmscore/tuplet.h"
 #include "libmscore/volta.h"
@@ -108,9 +108,10 @@ static void setTempo(Ms::Score* score, int tempo)
       Ms::TempoText* tt = new Ms::TempoText(score);
       tt->setTempo(double(tempo)/60.0);
       tt->setTrack(0);
+      tt->setFollowText(true);
       QString tempoText = Ms::TempoText::duration2tempoTextString(Ms::TDuration::DurationType::V_QUARTER);
       tempoText += QString(" = %1").arg(tempo);
-      tt->setPlainText(tempoText);
+      tt->setXmlText(tempoText);
       Ms::Measure* measure = score->firstMeasure();
       Ms::Segment* segment = measure->getSegment(Ms::SegmentType::ChordRest, Ms::Fraction(0,1));
       segment->add(tt);
@@ -247,7 +248,7 @@ void MsScWriter::beginMeasure(const Bww::MeasureBeginFlags mbf)
             Ms::Clef* clef = new Ms::Clef(score);
             clef->setClefType(Ms::ClefType::G);
             clef->setTrack(0);
-            Ms::Segment* s = currentMeasure->getSegment(Ms::SegmentType::Clef, tick);
+            Ms::Segment* s = currentMeasure->getSegment(Ms::SegmentType::HeaderClef, tick);
             s->add(clef);
             // keysig
             Ms::KeySigEvent key;
@@ -335,7 +336,7 @@ void MsScWriter::note(const QString pitch, const QVector<Bww::BeamType> beamList
             }
       StepAlterOct sao = stepAlterOctMap.value(pitch);
 
-      int ticks = 4 * Ms::MScore::division / type.toInt();
+      int ticks = 4 * Ms::DIVISION / type.toInt();
       if (dots) ticks = 3 * ticks / 2;
       qDebug() << "ticks:" << ticks;
       Ms::TDuration durationType(Ms::TDuration::DurationType::V_INVALID);
@@ -559,4 +560,3 @@ Score::FileError importBww(MasterScore* score, const QString& path)
       }
 
 } // namespace Ms
-

@@ -45,6 +45,10 @@
 #include "libmscore/imageStore.h"
 #include "libmscore/mscore.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+#define endl Qt::endl
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 // FOR GRADIENT FUNCTIONALITY THAT IS NOT IMPLEMENTED (YET):
 //
@@ -188,7 +192,7 @@ public:
 
     QBrush brush;
     QPen pen;
-    QMatrix matrix;
+    QTransform transform;
 //    QFont font;  // UNUSED
 
 // GRADIENTS NOT IMPLEMENTED (YET)
@@ -251,7 +255,7 @@ protected:
 #define SVG_QUOTE    "\""
 #define SVG_COMMA    ","
 #define SVG_GT       ">"
-#define SVG_PX       "px"
+#define SVG_MM       "mm"
 #define SVG_NONE     "none"
 #define SVG_EVENODD  "evenodd"
 #define SVG_BUTT     "butt"
@@ -409,7 +413,7 @@ public:
 //    }
 //    void saveConicalGradientBrush(const QGradient *)
 //    {
-//        qWarning("svg's don't support conical gradients!");
+//        qDebug("svg's don't support conical gradients!");
 //    }
 //
 //    void saveGradientStops(QTextStream &str, const QGradient *g) {
@@ -522,7 +526,7 @@ public:
             qts << SVG_STROKE_DASHOFFSET << dashOffset  << SVG_QUOTE;
             break; }
         default:
-            qWarning("Unsupported pen style");
+            qDebug("Unsupported pen style");
             break;
         }
         // Set stroke-width attribute, unless it's zero or 1 (default is 1)
@@ -546,7 +550,7 @@ public:
             qts << SVG_STROKE_LINECAP << SVG_ROUND << SVG_QUOTE;
             break;
         default:
-            qWarning("Unhandled cap style");
+            qDebug("Unhandled cap style");
             break;
         }
         // Set stroke-linejoin, stroke-miterlimit attributes
@@ -563,7 +567,7 @@ public:
             qts << SVG_STROKE_LINEJOIN   << SVG_ROUND << SVG_QUOTE;
             break;
         default:
-            qWarning("Unhandled join style");
+            qDebug("Unhandled join style");
             break;
         }
         // An uncommon, possibly non-existent in MuseScore, effect
@@ -812,7 +816,7 @@ void SvgGenerator::setSize(const QSize &size)
 {
     Q_D(SvgGenerator);
     if (d->engine->isActive()) {
-        qWarning("SvgGenerator::setSize(), cannot set size while SVG is being generated");
+        qDebug("SvgGenerator::setSize(), cannot set size while SVG is being generated");
         return;
     }
     d->engine->setSize(size);
@@ -855,7 +859,7 @@ void SvgGenerator::setViewBox(const QRectF &viewBox)
 {
     Q_D(SvgGenerator);
     if (d->engine->isActive()) {
-        qWarning("SvgGenerator::setViewBox(), cannot set viewBox while SVG is being generated");
+        qDebug("SvgGenerator::setViewBox(), cannot set viewBox while SVG is being generated");
         return;
     }
     d->engine->setViewBox(viewBox);
@@ -883,7 +887,7 @@ void SvgGenerator::setFileName(const QString &fileName)
 {
     Q_D(SvgGenerator);
     if (d->engine->isActive()) {
-        qWarning("SvgGenerator::setFileName(), cannot set file name while SVG is being generated");
+        qDebug("SvgGenerator::setFileName(), cannot set file name while SVG is being generated");
         return;
     }
 
@@ -917,7 +921,7 @@ void SvgGenerator::setOutputDevice(QIODevice *outputDevice)
 {
     Q_D(SvgGenerator);
     if (d->engine->isActive()) {
-        qWarning("SvgGenerator::setOutputDevice(), cannot set output device while SVG is being generated");
+        qDebug("SvgGenerator::setOutputDevice(), cannot set output device while SVG is being generated");
         return;
     }
     d->owns_iodevice = false;
@@ -988,7 +992,7 @@ int SvgGenerator::metric(QPaintDevice::PaintDeviceMetric metric) const
     case QPaintDevice::PdmDevicePixelRatioScaled:
         return 1;
     default:
-        qWarning("SvgGenerator::metric(), unhandled metric %d\n", metric);
+        qDebug("SvgGenerator::metric(), unhandled metric %d\n", metric);
         break;
     }
     return 0;
@@ -1013,17 +1017,17 @@ bool SvgPaintEngine::begin(QPaintDevice *)
 
     // Check for errors
     if (!d->outputDevice) {
-        qWarning("SvgPaintEngine::begin(), no output device");
+        qDebug("SvgPaintEngine::begin(), no output device");
         return false;
     }
     if (!d->outputDevice->isOpen()) {
         if (!d->outputDevice->open(QIODevice::WriteOnly | QIODevice::Text)) {
-            qWarning("SvgPaintEngine::begin(), could not open output device: '%s'",
+            qDebug("SvgPaintEngine::begin(), could not open output device: '%s'",
                      qPrintable(d->outputDevice->errorString()));
             return false;
         }
     } else if (!d->outputDevice->isWritable()) {
-        qWarning("SvgPaintEngine::begin(), could not write to read-only output device: '%s'",
+        qDebug("SvgPaintEngine::begin(), could not write to read-only output device: '%s'",
                  qPrintable(d->outputDevice->errorString()));
         return false;
     }
@@ -1033,8 +1037,8 @@ bool SvgPaintEngine::begin(QPaintDevice *)
     stream() << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>" << endl << SVG_BEGIN;
     if (d->viewBox.isValid()) {
         // viewBox has floating point values, size width/height is integer
-        stream() << SVG_WIDTH    << d->viewBox.width()  << SVG_PX << SVG_QUOTE
-                 << SVG_HEIGHT   << d->viewBox.height() << SVG_PX << SVG_QUOTE;
+        stream() << SVG_WIDTH    << d->viewBox.width() / Ms::DPMM << SVG_MM << SVG_QUOTE
+                 << SVG_HEIGHT   << d->viewBox.height() / Ms::DPMM << SVG_MM << SVG_QUOTE;
 
         stream() << SVG_VIEW_BOX << d->viewBox.left()
                  << SVG_SPACE    << d->viewBox.top()

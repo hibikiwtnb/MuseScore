@@ -13,11 +13,11 @@
 #ifndef __STAFFTYPE_H__
 #define __STAFFTYPE_H__
 
-#include "element.h"
-#include "spatium.h"
-#include "mscore.h"
 #include "durationtype.h"
+#include "element.h"
+#include "mscore.h"
 #include "note.h"
+#include "spatium.h"
 
 namespace Ms {
 
@@ -297,7 +297,7 @@ class StaffType {
       void setShowBarlines(bool val)           { _showBarlines = val;     }
       bool showBarlines() const                { return _showBarlines;    }
       qreal userMag() const                    { return _userMag;         }
-      bool small() const                       { return _small;           }
+      bool isSmall() const                     { return _small;           }
       bool invisible() const                   { return _invisible;       }
       const QColor& color() const              { return _color;           }
       void setUserMag(qreal val)               { _userMag = val;          }

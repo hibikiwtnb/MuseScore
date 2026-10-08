@@ -61,7 +61,7 @@
          </widget>
         </item>
         <item row="1" column="2">
-         <widget class="QCheckBox" name="small">
+         <widget class="QCheckBox" name="isSmallCheckbox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -368,17 +368,35 @@
          </layout>
         </item>
         <item row="3" column="0">
-         <widget class="QLabel" name="label_PartName">
-          <property name="text">
-           <string>Part name:</string>
-          </property>
-          <property name="buddy">
-           <cstring>partName</cstring>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QLineEdit" name="partName"/>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <item>
+           <widget class="QLabel" name="label_PartName">
+            <property name="text">
+             <string>Part name:</string>
+            </property>
+            <property name="buddy">
+             <cstring>partName</cstring>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="partName"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_InstrumentNameColor">
+            <property name="text">
+             <string>Instrument Name Color:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="Awl::ColorLabel" name="color_2">
+            <property name="focusPolicy">
+             <enum>Qt::TabFocus</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>
@@ -930,7 +948,7 @@
         </size>
        </property>
        <property name="toolTip">
-        <string>Go to previous staff</string>
+        <string>Apply and go to previous staff</string>
        </property>
        <property name="text">
         <string notr="true"/>
@@ -950,7 +968,7 @@
         </size>
        </property>
        <property name="toolTip">
-        <string>Go to next staff</string>
+        <string>Apply and go to next staff</string>
        </property>
        <property name="text">
         <string notr="true"/>
@@ -1007,7 +1025,7 @@
   <tabstop>showTimesig</tabstop>
   <tabstop>showBarlines</tabstop>
   <tabstop>hideSystemBarLine</tabstop>
-  <tabstop>small</tabstop>
+  <tabstop>isSmallCheckbox</tabstop>
   <tabstop>invisible</tabstop>
   <tabstop>color</tabstop>
   <tabstop>cutaway</tabstop>
@@ -1036,7 +1054,6 @@
   <tabstop>nextButton</tabstop>
  </tabstops>
  <resources>
-  <include location="musescore.qrc"/>
   <include location="musescore.qrc"/>
  </resources>
  <connections>

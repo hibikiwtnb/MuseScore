@@ -28,7 +28,7 @@
 
 namespace Ms {
 
-extern QString iconPath;
+QString iconPath;
 QIcon* icons[int(Icons::ICONS)];
 
 //---------------------------------------------------------
@@ -62,6 +62,8 @@ static const char* iconNames[] = {
       "note-dot3.svg",
       "note-dot4.svg",
       "stem-flip.svg",
+      "mouse-entry.svg",
+      "edit-playback.svg",
       "edit-undo.svg",
       "edit-redo.svg",
       "edit-cut.svg",
@@ -90,6 +92,8 @@ static const char* iconNames[] = {
       "document-save.svg",
       "document-save-as.svg",
       "document-save-online.svg",
+      "document-reload.svg",
+      "document-export.svg",
       "mscore.png",
       "acciaccatura.svg",
       "appoggiatura.svg",
@@ -110,6 +114,7 @@ static const char* iconNames[] = {
       "format-text-bold.svg",
       "format-text-italic.svg",
       "format-text-underline.svg",
+      "format-text-strike.svg",
       "format-justify-left.svg",
       "format-justify-center.svg",
       "format-justify-right.svg",
@@ -130,6 +135,8 @@ static const char* iconNames[] = {
       "media-playback-loop-in.svg",
       "media-playback-loop-out.svg",
       "media-playback-metronome.svg",
+      "media-independent-metronome.svg",
+      "media-playback-highlight.svg",
       "media-playback-countin.svg",
       "frame-vertical.svg",
       "frame-horizontal.svg",
@@ -148,13 +155,17 @@ static const char* iconNames[] = {
       "braces.svg",
       "timesig_allabreve.svg",
       "timesig_common.svg",
+      // "timesig_cut2.svg",
+      // "timesig_cut3.svg",
       "timesig_prolatio01.svg",
       "timesig_prolatio02.svg",
       "timesig_prolatio03.svg",
       "timesig_prolatio04.svg",
       "timesig_prolatio05.svg",
+      "timesig_prolatio06.svg",
       "timesig_prolatio07.svg",
       "timesig_prolatio08.svg",
+      "timesig_prolatio09.svg",
       "timesig_prolatio10.svg",
       "timesig_prolatio11.svg",
       "edit.svg",
@@ -168,6 +179,21 @@ static const char* iconNames[] = {
       "note_timewise.svg",
       "arrowsMoveToTop.svg",
       "arrowsMoveToBottom.svg",
+      "note-coloring.svg",
+
+      // Alternative Options
+      "debug.svg",
+      "empty_trailing_measure.svg",
+      "instruments.svg",
+      "preferences.svg",
+      "page-settings.svg",
+      "style-settings.svg",
+      "reset-stretch.svg",
+      "remove-range.svg",
+      "regroup-rhythm.svg",
+      "rhythmic-slash-notation.svg",
+      "keyboard.svg",
+      "keyboard-vertical.svg",
       };
 
 //---------------------------------------------------------

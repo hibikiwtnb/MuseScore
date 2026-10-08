@@ -10,9 +10,11 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "global/log.h"
 #include "textedit.h"
 #include "score.h"
+#include "textedit.h"
+
+#include "global/log.h"
 
 namespace Ms {
 
@@ -43,7 +45,18 @@ void TextBase::editInsertText(TextCursor* cursor, const QString& s)
             if (!c.isHighSurrogate())
                   ++col;
             }
-      cursor->curLine().insert(cursor, s);
+
+      TextBlock& block = _layout[cursor->row()];
+      const CharFormat* previousFormat = block.formatAt(std::max(cursor->column() - 1, 0));
+      if (previousFormat && previousFormat->fontFamily() == "ScoreText" && s == " ") {
+            // This space would be ignored by the xml parser (see #15629)
+            // We must use the nonBreaking space character instead
+            QString nonBreakingSpace = QString(QChar(0xa0));
+            cursor->curLine().insert(cursor, nonBreakingSpace);
+            }
+      else
+            cursor->curLine().insert(cursor, s);
+
       cursor->setColumn(cursor->column() + col);
       cursor->clearSelection();
 
@@ -135,6 +148,7 @@ void TextBase::endEdit(EditData& ed)
             // command. Text shouldn't happen to be empty in other cases though.
             Q_ASSERT(newlyAdded || textWasEdited);
 
+            setXmlText(ted->oldXmlText);    // reset text to value before editing
             undo->reopen();
             score()->undoRemoveElement(this);
             ed.element = 0;
@@ -145,6 +159,10 @@ void TextBase::endEdit(EditData& ed)
                   Filter::ChangePropertyLinked,
                   Filter::Link,
                   };
+
+            CmdState& cs = score()->cmdState();
+            cs.reset();
+            cs.setTick(tick());
 
             if (newlyAdded && !undo->current()->hasUnfilteredChildren(filters, this)) {
                   for (Filter f : filters)
@@ -188,13 +206,11 @@ void TextBase::insertSym(EditData& ed, SymId id)
 
       deleteSelectedText(ed);
       QString s = score()->scoreFont()->toString(id);
-      CharFormat fmt = *_cursor->format();  // save format
 //      uint code = ScoreFont::fallbackFont()->sym(id).code();
       _cursor->format()->setFontFamily("ScoreText");
       _cursor->format()->setBold(false);
       _cursor->format()->setItalic(false);
       score()->undo(new InsertText(_cursor, s), &ed);
-      _cursor->setFormat(fmt);  // restore format
       }
 
 //---------------------------------------------------------
@@ -220,6 +236,9 @@ bool TextBase::edit(EditData& ed)
       // do nothing on Shift, it messes up IME on Windows. See #64046
       if (ed.key == Qt::Key_Shift)
             return false;
+
+      CharFormat* currentFormat = _cursor->format();
+
       QString s         = ed.s;
       bool ctrlPressed  = ed.modifiers & Qt::ControlModifier;
       bool shiftPressed = ed.modifiers & Qt::ShiftModifier;
@@ -375,7 +394,7 @@ bool TextBase::edit(EditData& ed)
                         break;
 
                   case Qt::Key_Space:
-                        if (ed.modifiers & CONTROL_MODIFIER) {
+                        if ((ed.modifiers & CONTROL_MODIFIER) || currentFormat->fontFamily() == "ScoreText") {
                               s = QString(QChar(0xa0)); // non-breaking space
                               }
                         else {
@@ -467,6 +486,8 @@ bool TextBase::edit(EditData& ed)
                   }
             }
       if (!s.isEmpty()) {
+            if (currentFormat->fontFamily() == "ScoreText")
+                  currentFormat->setFontFamily(propertyDefault(Pid::FONT_FACE).value<QString>());
             deleteSelectedText(ed);
             score()->undo(new InsertText(_cursor, s), &ed);
             }
@@ -493,6 +514,7 @@ void TextBase::movePosition(EditData& ed, QTextCursor::MoveOperation op)
 void ChangeText::insertText(EditData* ed)
       {
       TextCursor tc = c;
+      tc.setFormat(format); // To undo TextCursor::updateCursorFormat()
       c.text()->editInsertText(&tc, s);
       if (ed) {
             TextCursor* ttc = c.text()->cursor(*ed);
@@ -509,6 +531,7 @@ void ChangeText::removeText(EditData* ed)
       TextCursor tc = c;
       TextBlock& l  = c.curLine();
       int column    = c.column();
+      format = *l.formatAt(column + s.size() - 1);
 
       for (int n = 0; n < s.size(); ++n)
             l.remove(column, &c);
@@ -617,7 +640,7 @@ Element* TextBase::drop(EditData& ed)
 
 void TextBase::paste(EditData& ed)
       {
-      QString txt = QApplication::clipboard()->text(QClipboard::Clipboard);
+      QString txt = QApplication::clipboard()->text();
       if (MScore::debugMode)
             qDebug("<%s>", qPrintable(txt));
 

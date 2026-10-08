@@ -286,7 +286,7 @@ bool isPowerOfTwo(unsigned int x)
 
 bool isSimpleNoteDuration(const ReducedFraction &duration)
       {
-      const auto division = ReducedFraction::fromTicks(MScore::division);
+      const auto division = ReducedFraction::fromTicks(DIVISION);
       auto div = (duration > division) ? duration / division : division / duration;
       if (div > ReducedFraction(0, 1)) {
             div.reduce();

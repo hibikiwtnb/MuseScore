@@ -122,12 +122,63 @@
     <seq>Alt+Ç</seq> <!-- AZERTY for 9 -->
     </SC>
   <SC>
+    <key>interval10</key>
+    <seq>Alt+0</seq>
+    <seq>Alt+À</seq> <!-- AZERTY for 0 -->
+    </SC>
+  <SC>
+    <key>interval-2</key>
+    <seq>Alt+Shift+2</seq>
+    <seq>Alt+Shift+É</seq> <!-- AZERTY for 2 -->
+    </SC>
+  <SC>
+    <key>interval-3</key>
+    <seq>Alt+Shift+3</seq>
+    <seq>Alt+Shift+&quot;</seq> <!-- AZERTY for 3 -->
+    </SC>
+  <SC>
+    <key>interval-4</key>
+    <seq>Alt+Shift+4</seq>
+    <seq>Alt+Shift+'</seq> <!-- AZERTY for 4 -->
+    </SC>
+  <SC>
+    <key>interval-5</key>
+    <seq>Alt+Shift+5</seq>
+    <seq>Alt+Shift+(</seq> <!-- AZERTY for 5 -->
+    </SC>
+  <SC>
+    <key>interval-6</key>
+    <seq>Alt+Shift+6</seq>
+    <seq>Alt+Shift+-</seq> <!-- AZERTY for 6 -->
+    </SC>
+  <SC>
+    <key>interval-7</key>
+    <seq>Alt+Shift+7</seq>
+    <seq>Alt+Shift+È</seq> <!-- AZERTY for 7 -->
+    </SC>
+  <SC>
+    <key>interval-8</key>
+    <seq>Alt+Shift+8</seq>
+    <seq>Alt+Shift+_</seq> <!-- AZERTY for 8 -->
+    </SC>
+  <SC>
+    <key>interval-9</key>
+    <seq>Alt+Shift+9</seq>
+    <seq>Alt+Shift+Ç</seq> <!-- AZERTY for 9 -->
+    </SC>
+  <SC>
+     <key>interval-10</key>
+     <seq>Alt+Shift+0</seq>
+     <seq>Alt+Shift+À</seq> <!-- AZERTY for 0 -->
+     </SC>
+  <SC>
     <key>note-a</key>
     <seq>A</seq>
     </SC>
   <SC>
     <key>note-b</key>
     <seq>B</seq>
+    <seq>H</seq>
     </SC>
   <SC>
     <key>note-c</key>
@@ -156,6 +207,7 @@
   <SC>
     <key>chord-b</key>
     <seq>Shift+B</seq>
+    <seq>Shift+H</seq>
     </SC>
   <SC>
     <key>chord-c</key>
@@ -188,6 +240,7 @@
   <SC>
     <key>insert-b</key>
     <seq>Ctrl+Shift+B</seq>
+    <seq>Ctrl+Shift+H</seq>
     </SC>
   <SC>
     <key>insert-c</key>
@@ -556,6 +609,7 @@
   <SC>
     <key>pad-dot</key>
     <seq>.</seq>
+    <seq>NumPad+\,</seq>
     </SC>
   <SC>
     <key>tie</key>
@@ -716,10 +770,12 @@
   <SC>
     <key>zoomin</key>
     <seq>Ctrl++</seq>
+    <seq>Ctrl+=</seq>
     </SC>
   <SC>
     <key>zoomout</key>
     <seq>Ctrl+-</seq>
+    <seq>Ctrl+Shift+-</seq>
     </SC>
   <SC>
     <key>zoom100</key>
@@ -1028,11 +1084,11 @@
     </SC>
   <SC>
     <key>add-parentheses</key>
-    <seq>(</seq>
+    <seq>)</seq>
     </SC>
   <SC>
     <key>toggle-mmrest</key>
-    <seq>M</seq>
+    <seq>Ctrl+Shift+M</seq>
     </SC>
   <SC>
     <key>text-b</key>
@@ -1061,10 +1117,6 @@
   <SC>
     <key>viewmode</key>
     <seq>Ctrl+Shift+V</seq>
-    </SC>
-  <SC>
-    <key>toggle-insert-mode</key>
-    <seq>Ctrl+I</seq>
     </SC>
   <SC>
     <key>toggle-autoplace</key>

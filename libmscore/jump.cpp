@@ -11,9 +11,9 @@
 //=============================================================================
 
 #include "jump.h"
+#include "measure.h"
 #include "score.h"
 #include "xml.h"
-#include "measure.h"
 
 namespace Ms {
 
@@ -206,7 +206,7 @@ bool Jump::setProperty(Pid propertyId, const QVariant& v)
                   setContinueAt(v.toString());
                   break;
             case Pid::PLAY_REPEATS:
-                  setPlayRepeats(v.toInt());
+                  setPlayRepeats(v.toBool());
                   break;
             default:
                   if (!TextBase::setProperty(propertyId, v))
@@ -246,7 +246,7 @@ QVariant Jump::propertyDefault(Pid propertyId) const
 Element* Jump::nextSegmentElement()
       {
       Segment* seg = measure()->last();
-      return seg->firstElement(staffIdx());
+      return seg->firstElementForNavigation(staffIdx());
       }
 
 //---------------------------------------------------------

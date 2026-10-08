@@ -179,9 +179,7 @@ bool Score::sanityCheck(const QString& name)
             for (int staffIdx = 0; staffIdx < endStaff; ++staffIdx) {
                   Rest* fmrest0 = 0;      // full measure rest in voice 0
                   Fraction voices[VOICES];
-#ifndef NDEBUG
                   m->setCorrupted(staffIdx, false);
-#endif
                   for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
                         for (int v = 0; v < VOICES; ++v) {
                               ChordRest* cr = toChordRest(s->element(staffIdx * VOICES + v));
@@ -200,9 +198,7 @@ bool Score::sanityCheck(const QString& name)
                         QString msg = QObject::tr("Measure %1, staff %2 incomplete. Expected: %3; Found: %4").arg(mNumber).arg(staffIdx + 1).arg(mLen.print(), voices[0].print());
                         qDebug() << msg;
                         error += QString("%1\n").arg(msg);
-#ifndef NDEBUG
                         m->setCorrupted(staffIdx, true);
-#endif
                         result = false;
                         // try to fix a bad full measure rest
                         if (fmrest0) {
@@ -217,9 +213,7 @@ bool Score::sanityCheck(const QString& name)
                               QString msg = QObject::tr("Measure %1, staff %2, voice %3 too long. Expected: %4; Found: %5").arg(mNumber).arg(staffIdx + 1).arg(v + 1).arg(mLen.print(), voices[v].print());
                               qDebug() << msg;
                               error += QString("%1\n").arg(msg);
-#ifndef NDEBUG
                               m->setCorrupted(staffIdx, true);
-#endif
                               result = false;
                               }
                         }
@@ -319,7 +313,7 @@ bool Score::checkClefs()
 //   fillGap
 //---------------------------------------------------------
 
-void Measure::fillGap(const Fraction& pos, const Fraction& len, int track, const Fraction& stretch)
+void Measure::fillGap(const Fraction& pos, const Fraction& len, int track, const Fraction& stretch, bool useGapRests)
       {
       qDebug("measure %6d pos %d, len %d/%d, stretch %d/%d track %d",
          tick().ticks(),
@@ -334,7 +328,7 @@ void Measure::fillGap(const Fraction& pos, const Fraction& len, int track, const
             rest->setTicks(len);
             rest->setDurationType(d);
             rest->setTrack(track);
-            rest->setGap(true);
+            rest->setGap(useGapRests);
             score()->undoAddCR(rest, this, (pos / stretch) + tick());
             }
       }
@@ -346,7 +340,7 @@ void Measure::fillGap(const Fraction& pos, const Fraction& len, int track, const
 //    with invisible rests
 //---------------------------------------------------------
 
-void Measure::checkMeasure(int staffIdx)
+void Measure::checkMeasure(int staffIdx, bool useGapRests)
       {
       if (isMMRest())
             return;
@@ -388,7 +382,7 @@ void Measure::checkMeasure(int staffIdx)
             if (f > expectedPos) {
                   // don't fill empty voices
                   if (expectedPos.isNotZero())
-                        fillGap(expectedPos, f - expectedPos, track, stretch);
+                        fillGap(expectedPos, f - expectedPos, track, stretch, useGapRests);
                   }
             else if (f < expectedPos)
                   qDebug("measure overrun %6d, %d > %d, track %d", tick().ticks(), expectedPos.ticks(), f.ticks(), track);

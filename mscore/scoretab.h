@@ -22,6 +22,7 @@
 
 namespace Ms {
 
+class MasterScore;
 class MuseScore;
 class ScoreView;
 class Score;

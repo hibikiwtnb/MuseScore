@@ -10,22 +10,23 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "utils.h"
-#include "score.h"
+#include "accidental.h"
 #include "chord.h"
+#include "drumset.h"
+#include "excerpt.h"
 #include "measure.h"
+#include "navigate.h"
+#include "part.h"
+#include "range.h"
+#include "rest.h"
+#include "score.h"
+#include "slur.h"
+#include "staff.h"
+#include "stringdata.h"
 #include "tie.h"
 #include "tuplet.h"
-#include "staff.h"
-#include "part.h"
-#include "drumset.h"
-#include "slur.h"
-#include "navigate.h"
-#include "stringdata.h"
 #include "undo.h"
-#include "range.h"
-#include "excerpt.h"
-#include "accidental.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -81,7 +82,7 @@ NoteVal Score::noteValForPosition(Position pos, AccidentalType at, bool &error)
                         }
                   // build a default NoteVal for that string
                   nval.string = line;
-                  if (pos.fret != FRET_NONE)          // if a fret is given, use it
+                  if (pos.fret != INVALID_FRET_INDEX)          // if a fret is given, use it
                         nval.fret = pos.fret;
                   else {                              // if no fret, use 0 as default
                         _is.setString(line);
@@ -171,7 +172,7 @@ Note* Score::addPitch(NoteVal& nval, bool addFlag, InputState* externalInputStat
             //   We could split the duration at the barline and continue into the next bar, but this would create extra
             //   notes, extra ties, and extra pain. Instead, we simply truncate the duration at the barline.
             Fraction ticks2measureEnd = is.segment()->measure()->ticks() - is.segment()->rtick();
-            duration = is.duration() > ticks2measureEnd ? ticks2measureEnd : is.duration().fraction();
+            duration = is.duration().fraction() > ticks2measureEnd ? ticks2measureEnd : is.duration().fraction();
             }
       else {
             duration = is.duration().fraction();
@@ -256,17 +257,19 @@ Note* Score::addPitch(NoteVal& nval, bool addFlag, InputState* externalInputStat
             if (e) {
                   Fraction stick = Fraction(0, 1);
                   Element* ee = is.slur()->startElement();
-                  if (ee->isChordRest())
-                        stick = toChordRest(ee)->tick();
-                  else if (ee->isNote())
-                        stick = toNote(ee)->chord()->tick();
-                  if (stick == e->tick()) {
-                        is.slur()->setTick(stick);
-                        is.slur()->setStartElement(e);
-                        }
-                  else {
-                        is.slur()->setTick2(e->tick());
-                        is.slur()->setEndElement(e);
+                  if (ee) {
+                        if (ee->isChordRest())
+                              stick = toChordRest(ee)->tick();
+                        else if (ee->isNote())
+                              stick = toNote(ee)->chord()->tick();
+                        if (stick == e->tick()) {
+                              is.slur()->setTick(stick);
+                              is.slur()->setStartElement(e);
+                              }
+                        else {
+                              is.slur()->setTick2(e->tick());
+                              is.slur()->setEndElement(e);
+                              }
                         }
                   }
             else

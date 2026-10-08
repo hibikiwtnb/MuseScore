@@ -13,6 +13,7 @@
 #ifndef __ARTICULATION_H__
 #define __ARTICULATION_H__
 
+#include "chordrest.h"
 #include "element.h"
 #include "mscore.h"
 #include "sym.h"
@@ -64,9 +65,9 @@ class Articulation final : public Element {
       MScore::OrnamentStyle _ornamentStyle;     // for use in ornaments such as trill
       bool _playArticulation;
 
-      void draw(QPainter*) const;
+      void draw(QPainter*) const override;
 
-      enum class AnchorGroup {
+      enum class AnchorGroup : char {
             ARTICULATION,
             LUTE_FINGERING,
             OTHER
@@ -76,6 +77,7 @@ class Articulation final : public Element {
    public:
       Articulation(Score*);
       Articulation(SymId, Score*);
+      Articulation(const Articulation&) = default;
       Articulation &operator=(const Articulation&) = delete;
 
       Articulation* clone() const override   { return new Articulation(*this); }
@@ -86,7 +88,7 @@ class Articulation final : public Element {
       SymId symId() const                       { return _symId; }
       void setSymId(SymId id);
       int subtype() const override;
-      QString userName() const;
+      QString userName() const override;
       const char* articulationName() const;  // type-name of articulation; used for midi rendering
       static const char* symId2ArticulationName(SymId symId);
 
@@ -141,6 +143,7 @@ class Articulation final : public Element {
       bool isOrnament() const;
 
       void doAutoplace();
+      int vStaffIdx() const override { return chordRest()->vStaffIdx(); }
       };
 
 }     // namespace Ms

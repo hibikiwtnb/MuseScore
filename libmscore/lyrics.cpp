@@ -10,18 +10,18 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "lyrics.h"
 
-#include "chord.h"
+//#include "chord.h"
+#include "measure.h"
+#include "lyrics.h"
 #include "score.h"
+#include "segment.h"
+#include "staff.h"
 #include "sym.h"
 #include "system.h"
-#include "xml.h"
-#include "staff.h"
-#include "segment.h"
-#include "undo.h"
 #include "textedit.h"
-#include "measure.h"
+#include "undo.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -259,7 +259,7 @@ void Lyrics::layout()
       QString trailing;
 
       if (score()->styleB(Sid::lyricsAlignVerseNumber)) {
-            QRegularExpression punctuationPattern("(^[\\d\\W]*)([^\\d\\W].*?)([\\d\\W]*$)", QRegularExpression::UseUnicodePropertiesOption);
+            static const QRegularExpression punctuationPattern("(^[\\d\\W]*)([^\\d\\W].*?)([\\d\\W]*$)", QRegularExpression::UseUnicodePropertiesOption);
             QRegularExpressionMatch punctuationMatch = punctuationPattern.match(text);
             if (punctuationMatch.hasMatch()) {
                   // leading and trailing punctuation
@@ -272,12 +272,12 @@ void Lyrics::layout()
             }
 
       bool styleDidChange = false;
-      if ((_no & 1) && !_even) {
+      if (isEven() && !_even) {
             initTid(Tid::LYRICS_EVEN, /* preserveDifferent */ true);
             _even             = true;
             styleDidChange    = true;
             }
-      if (!(_no & 1) && _even) {
+      if (!isEven() && _even) {
             initTid(Tid::LYRICS_ODD, /* preserveDifferent */ true);
             _even             = false;
             styleDidChange    = true;
@@ -400,14 +400,13 @@ void Lyrics::layout2(int nAbove)
 void Lyrics::paste(EditData& ed)
       {
       MuseScoreView* scoreview = ed.view;
-#if defined(Q_OS_MAC) || defined(Q_OS_WIN)
-      QClipboard::Mode mode = QClipboard::Clipboard;
-#else
-      QClipboard::Mode mode = QClipboard::Selection;
-#endif
-      QString txt = QApplication::clipboard()->text(mode);
+      QString txt = QApplication::clipboard()->text();
       QString regex = QString("[^\\S") + QChar(0xa0) + QChar(0x202F) + "]+";
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+      QStringList sl = txt.split(QRegExp(regex), Qt::SkipEmptyParts);
+#else
       QStringList sl = txt.split(QRegExp(regex), QString::SkipEmptyParts);
+#endif
       if (sl.empty())
             return;
 
@@ -456,7 +455,7 @@ void Lyrics::paste(EditData& ed)
       score()->endCmd();
       txt = sl.join(" ");
 
-      QApplication::clipboard()->setText(txt, mode);
+      QApplication::clipboard()->setText(txt);
       if (minus)
             scoreview->lyricsMinus();
       else if (underscore)
@@ -512,7 +511,9 @@ Element* Lyrics::drop(EditData& data)
 void Lyrics::endEdit(EditData& ed)
       {
       TextBase::endEdit(ed);
-      triggerLayoutAll();
+      triggerLayout();
+      if (_separator)
+            _separator->triggerLayout();
       }
 
 //---------------------------------------------------------
@@ -600,7 +601,7 @@ QVariant Lyrics::propertyDefault(Pid id) const
       {
       switch (id) {
             case Pid::SUB_STYLE:
-                  return int((_no & 1) ? Tid::LYRICS_EVEN : Tid::LYRICS_ODD);
+                  return int(isEven() ? Tid::LYRICS_EVEN : Tid::LYRICS_ODD);
             case Pid::PLACEMENT:
                   return score()->styleV(Sid::lyricsPlacement);
             case Pid::SYLLABIC:
@@ -646,7 +647,7 @@ void Lyrics::undoChangeProperty(Pid id, const QVariant& v, PropertyFlags ps)
                   if (l->no() == v.toInt()) {
                         // verse already exists, swap
                         l->TextBase::undoChangeProperty(id, no(), ps);
-                        Placement p = l->placement();
+                        const Placement p = l->placement();
                         l->TextBase::undoChangeProperty(Pid::PLACEMENT, int(placement()), ps);
                         TextBase::undoChangeProperty(Pid::PLACEMENT, int(p), ps);
                         break;

@@ -11,13 +11,13 @@
 //=============================================================================
 
 #include "breath.h"
-#include "sym.h"
-#include "system.h"
-#include "segment.h"
 #include "measure.h"
 #include "score.h"
-#include "xml.h"
+#include "segment.h"
 #include "staff.h"
+#include "sym.h"
+#include "system.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -31,6 +31,7 @@ const std::vector<BreathType> Breath::breathList {
       { SymId::caesuraShort,         true,  2.0 },
       { SymId::caesuraThick,         true,  2.0 },
       { SymId::chantCaesura,         true,  2.0 },
+      { SymId::caesuraSingleStroke,  true,  2.0 },
       };
 
 //---------------------------------------------------------
@@ -65,13 +66,22 @@ void Breath::layout()
       {
       bool palette = (!staff() || track() == -1);
       if (!palette) {
-            int voiceOffset = placeBelow() * (staff()->lines(tick()) - 1) * spatium();
-            if (isCaesura())
-                  setPos(rxpos(), spatium() + voiceOffset);
-            else if ((score()->styleSt(Sid::MusicalSymbolFont) == "Emmentaler") && (symId() == SymId::breathMarkComma))
-                  setPos(rxpos(), 0.5 * spatium() + voiceOffset);
-            else
-                  setPos(rxpos(), -0.5 * spatium() + voiceOffset);
+            const qreal voiceOffset = placeBelow() ? (staff()->lines(tick()) - 1) * spatium() : 0.0;
+            if (isCaesura()) {
+                  // special handling for chant caesura, which is higher than the other ones
+                  if (symId() == SymId::chantCaesura)
+                        setPos(rxpos(), 1.5 * spatium() + voiceOffset);
+                  else
+                        setPos(rxpos(), symHeight(symId()) / 2 + voiceOffset);
+                  }
+            else if ((score()->styleSt(Sid::musicalSymbolFont) == "Emmentaler") && (symId() == SymId::breathMarkComma)) {
+                  const qreal shift = placeBelow() ? -0.5 * spatium() + symHeight(symId()) : 0.5 * spatium();
+                  setPos(rxpos(), shift + voiceOffset);
+                  }
+            else {
+                  const qreal shift = placeBelow() ? 0.5 * spatium() + symHeight(symId()) : -0.5 * spatium();
+                  setPos(rxpos(), shift + voiceOffset);
+                  }
             }
       setbbox(symBbox(_symId));
       }

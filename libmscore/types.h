@@ -10,8 +10,7 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#pragma once
 
 #include "config.h"
 
@@ -31,34 +30,36 @@ Q_NAMESPACE
 ///   Note: keep in sync with array elementNames[] in scoreElement.cpp
 //-------------------------------------------------------------------
 
-enum class ElementType {
+enum class ElementType : char {
       ///.\{
       INVALID = 0,
       BRACKET_ITEM,
       PART,
       STAFF,
       SCORE,
-      SYMBOL,
       TEXT,
+      LAYOUT_BREAK,
       MEASURE_NUMBER,
       MMREST_RANGE,
       INSTRUMENT_NAME,
-      SLUR_SEGMENT,
-      TIE_SEGMENT,
       BAR_LINE,
       STAFF_LINES,
       SYSTEM_DIVIDER,
+      SLUR_SEGMENT,
+      TIE_SEGMENT,
       STEM_SLASH,
       ARPEGGIO,
       ACCIDENTAL,
       LEDGER_LINE,
       STEM,                   // list STEM before NOTE: notes in TAB might 'break' stems
-      NOTE,                   // and this requires stems to be drawn before notes
-      CLEF,                   // elements from CLEF to TIMESIG need to be in the order
-      KEYSIG,                 // in which they appear in a measure
+      HOOK,                   // and this requires stems to be drawn before notes
+      NOTE,                   // elements from CLEF to TIMESIG need to be in the order
+      CLEF,                   // in which they appear in a measure
+      KEYSIG,
       AMBITUS,
       TIMESIG,
       REST,
+      SYMBOL,
       BREATH,
       REPEAT_MEASURE,
       TIE,
@@ -67,7 +68,6 @@ enum class ElementType {
       CHORDLINE,
       DYNAMIC,
       BEAM,
-      HOOK,
       LYRICS,
       FIGURED_BASS,
       MARKER,
@@ -96,7 +96,6 @@ enum class ElementType {
       PEDAL_SEGMENT,
       LYRICSLINE_SEGMENT,
       GLISSANDO_SEGMENT,
-      LAYOUT_BREAK,
       SPACER,
       STAFF_STATE,
       NOTEHEAD,
@@ -119,7 +118,6 @@ enum class ElementType {
       PALM_MUTE,
       TEXTLINE,
       TEXTLINE_BASE,
-      NOTELINE,
       LYRICSLINE,
       GLISSANDO,
       BRACKET,
@@ -150,7 +148,7 @@ enum class ElementType {
 //---------------------------------------------------------
 // NOTE: keep this in sync with with accList array in accidentals.cpp
 
-enum class AccidentalType : unsigned char {
+enum class AccidentalType : unsigned char{
       ///.\{
       NONE,
       FLAT,
@@ -254,9 +252,9 @@ enum class AccidentalType : unsigned char {
       SHARP_31,
       FLAT_53,
       SHARP_53,
-      //EQUALS_ALMOST,
-      //EQUALS,
-      //TILDE,
+      EQUALS_ALMOST,
+      EQUALS,
+      TILDE,
 
       // Persian
       SORI,
@@ -307,12 +305,23 @@ enum class AccidentalType : unsigned char {
       SAGITTAL_SHARP25SD,
       SAGITTAL_FLAT7CU,
       SAGITTAL_SHARP7CD,
-      SAGITTAL_SHARP5CD,
-      SAGITTAL_SHARP5V7KD,
       SAGITTAL_FLAT5CU,
+      SAGITTAL_SHARP5CD,
       SAGITTAL_FLAT5V7KU,
+      SAGITTAL_SHARP5V7KD,
       SAGITTAL_FLAT,
       SAGITTAL_SHARP,
+
+      // Turkish folk music
+      ONE_COMMA_FLAT,
+      ONE_COMMA_SHARP,
+      TWO_COMMA_FLAT,
+      TWO_COMMA_SHARP,
+      THREE_COMMA_FLAT,
+      THREE_COMMA_SHARP,
+      FOUR_COMMA_FLAT,
+      //FOUR_COMMA_SHARP, // uses a regular sharp glyph
+      FIVE_COMMA_SHARP,
 
       END
       ///\}
@@ -322,7 +331,7 @@ enum class AccidentalType : unsigned char {
 //   NoteType
 //---------------------------------------------------------
 
-enum class NoteType {
+enum class NoteType : unsigned char {
       ///.\{
       NORMAL        = 0,
       ACCIACCATURA  = 0x1,
@@ -349,7 +358,7 @@ constexpr bool operator& (NoteType t1, NoteType t2) {
 //   Direction
 //---------------------------------------------------------
 
-enum class Direction {
+enum class Direction : char {
       ///.\{
       AUTO, UP, DOWN
       ///\}
@@ -359,7 +368,7 @@ enum class Direction {
 //   GlissandoType
 //---------------------------------------------------------
 
-enum class GlissandoType {
+enum class GlissandoType : char {
       ///.\{
       STRAIGHT, WAVY
       ///\}
@@ -369,7 +378,7 @@ enum class GlissandoType {
 //   GlissandoStyle
 //---------------------------------------------------------
 
-enum class GlissandoStyle {
+enum class GlissandoStyle : char {
       ///.\{
       CHROMATIC, WHITE_KEYS, BLACK_KEYS, DIATONIC, PORTAMENTO
       ///\}
@@ -379,7 +388,7 @@ enum class GlissandoStyle {
 //   HarmonyType
 //---------------------------------------------------------
 
-enum class HarmonyType {
+enum class HarmonyType :char {
       ///.\{
       STANDARD,
       ROMAN,
@@ -391,7 +400,7 @@ enum class HarmonyType {
 //   Placement
 //---------------------------------------------------------
 
-enum class Placement {
+enum class Placement : char {
       ///.\{
       ABOVE, BELOW
       ///\}
@@ -401,7 +410,7 @@ enum class Placement {
 //   HPlacement
 //---------------------------------------------------------
 
-enum class HPlacement {
+enum class HPlacement : char {
       ///.\{
       LEFT, CENTER, RIGHT
       ///\}
@@ -411,7 +420,7 @@ enum class HPlacement {
 //   MMRestRangeBracketType
 //---------------------------------------------------------
 
-enum class MMRestRangeBracketType {
+enum class MMRestRangeBracketType : char {
       ///.\{
       BRACKETS, PARENTHESES, NONE
       ///\}
@@ -433,7 +442,7 @@ enum class OffsetType : char {
 //    Type values determine the order of segments for a given tick
 //-------------------------------------------------------------------
 
-enum class SegmentType {
+enum class SegmentType : short {
       ///.\{
       Invalid            = 0x0,
       BeginBarLine       = 0x1,
@@ -471,7 +480,7 @@ constexpr bool operator& (const SegmentType t1, const SegmentType t2) {
 ///   Must be in sync with textStyles array (in style.cpp)
 //-------------------------------------------------------------------
 
-enum class Tid {
+enum class Tid : short {
       ///.\{
       DEFAULT,
       TITLE,
@@ -577,7 +586,11 @@ constexpr Align operator~ (Align a) {
 //---------------------------------------------------------
 
 enum class FontStyle : char {
-      Normal = 0, Bold = 1, Italic = 2, Underline = 4
+      Normal = 0,
+      Bold = 1 << 0,
+      Italic = 1 << 1,
+      Underline = 1 << 2,
+      Strike = 1 << 3
       };
 
 constexpr FontStyle operator+ (FontStyle a1, FontStyle a2) {
@@ -652,5 +665,3 @@ Q_DECLARE_METATYPE(Ms::PlayEventType);
 Q_DECLARE_METATYPE(Ms::AccidentalType);
 
 Q_DECLARE_METATYPE(Ms::HPlacement);
-
-#endif

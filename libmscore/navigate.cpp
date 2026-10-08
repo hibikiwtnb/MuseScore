@@ -10,24 +10,22 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "navigate.h"
-#include "element.h"
-#include "clef.h"
-#include "score.h"
-#include "note.h"
-#include "rest.h"
-#include "chord.h"
-#include "system.h"
-#include "segment.h"
-#include "harmony.h"
-#include "utils.h"
-#include "input.h"
-#include "measure.h"
-#include "page.h"
-#include "spanner.h"
-#include "system.h"
-#include "staff.h"
 #include "barline.h"
+#include "clef.h"
+#include "chord.h"
+#include "element.h"
+#include "input.h"
+#include "navigate.h"
+#include "measure.h"
+#include "note.h"
+#include "page.h"
+#include "rest.h"
+#include "score.h"
+#include "segment.h"
+#include "spanner.h"
+#include "staff.h"
+#include "system.h"
+#include "utils.h"
 
 namespace Ms {
 
@@ -265,6 +263,82 @@ Note* Score::downAltCtrl(Note* note) const
       {
       return note->chord()->downNote();
       }
+
+//---------------------------------------------------------
+//   moveAlt - Updated upAlt/downAlt to let tick (beat) take
+//      precedence - facilitate up/down traveling in a
+//      vertical time domain
+//
+//    element: Note() or Rest()
+//    return: Note() or Rest()
+//
+//    return next higher/lower pitched note in chord
+//    or top/bottom of next/previous track's chord if at wit's end
+//---------------------------------------------------------
+
+Element* Score::moveAlt(Element* element, Direction direction)
+      {
+      Element* result = nullptr;
+      ChordRest* cr   = nullptr;
+      auto originalTrack = element->track();
+      bool moveUp = (direction == Direction::UP);
+      bool isNote = element->isNote();
+      bool isRest = element->isRest();
+
+      if (isNote) {
+            cr = toChordRest(element->parent());
+            auto note = toNote(element);
+            auto chord = note->chord();
+            const std::vector<Note*>& notes = chord->notes();
+            auto it = std::find(notes.begin(), notes.end(), note);
+            // Traverse notes within same ChordRest until at extremum
+            auto condition = moveUp ? notes.end() : notes.begin();
+            if (moveUp)
+                  ++it;
+            if (it != condition) {
+                  if (!moveUp)
+                        --it;
+                  result = *it;
+                  }
+            }
+      else if (isRest)
+            cr = toChordRest(element);
+
+      if (!result) {
+            // Traverse same-beat tracks
+            std::vector<ChordRest*> chordRestsOfBeat;
+            if (!cr)
+                  return nullptr;
+
+            cr->getChordRestsAtPosition(chordRestsOfBeat, false);
+            if (moveUp)
+                  std::reverse(chordRestsOfBeat.begin(), chordRestsOfBeat.end());
+
+            for (auto it : chordRestsOfBeat) {
+                  auto targetCR = it;
+                  auto targetTrack = targetCR->track();
+                  if (moveUp && (targetTrack >= originalTrack))
+                        continue;
+                  else if (!moveUp && (targetTrack <= originalTrack))
+                        continue;
+                  if (targetCR)
+                        result = targetCR;
+                  break;
+                  }
+
+            if (result && (result->track() == originalTrack)) {
+                  result = element;
+                  }
+            }
+
+      if (result && result->isChord()) {
+            auto chord = toChord(result);
+            result = moveUp ? chord->downNote() : chord->upNote();
+            }
+
+      return result;
+      }
+
 
 //---------------------------------------------------------
 //   firstElement
@@ -538,7 +612,8 @@ Element* Score::nextElement()
             switch (e->type()) {
                   case ElementType::NOTE:
                   case ElementType::REST:
-                  case ElementType::CHORD: {
+                  case ElementType::CHORD:
+                  case ElementType::TUPLET: {
                         Element* next = e->nextElement();
                         if (next)
                               return next;
@@ -666,7 +741,8 @@ Element* Score::prevElement()
             switch (e->type()) {
                   case ElementType::NOTE:
                   case ElementType::REST:
-                  case ElementType::CHORD: {
+                  case ElementType::CHORD:
+                  case ElementType::TUPLET: {
                         Element* prev = e->prevElement();
                         if (prev)
                               return prev;
@@ -773,7 +849,7 @@ Element* Score::prevElement()
                               int si = cr ? cr->staffIdx() : 0;
                               Segment* s = toMeasure(mb)->last();
                               if (s)
-                                    return s->lastElement(si);
+                                    return s->lastElementForNavigation(si);
                               }
                         else {
                               return mb;

@@ -13,8 +13,13 @@
 #ifndef __PIANOVIEW_H__
 #define __PIANOVIEW_H__
 
-#include "libmscore/pos.h"
 #include "pianorolledittool.h"
+#include "preferences.h"
+
+#include "libmscore/pos.h"
+#include "libmscore/staff.h"
+
+#include <QSet>
 
 namespace Ms {
 
@@ -23,12 +28,13 @@ class Staff;
 class Chord;
 class ChordRest;
 class Segment;
+class Measure;
 class Note;
 class NoteEvent;
 class PianoView;
 class NoteTweakerDialog;
 
-enum class NoteSelectType {
+enum class NoteSelectType : char {
       REPLACE = 0,
       XOR,
       ADD,
@@ -36,11 +42,36 @@ enum class NoteSelectType {
       FIRST
       };
 
-enum class DragStyle {
-    NONE = 0,
-    CANCELLED,
-    SELECTION_RECT,
-    NOTES
+enum class DragStyle : char {
+      NONE = 0,
+      CANCELLED,
+      SELECTION_RECT,
+      NOTE_POSITION,
+      NOTE_LENGTH_START,
+      NOTE_LENGTH_END,
+      DRAW_NOTE,
+      PAINT_NOTES,
+      ERASE,
+      CUT,
+      TIE,
+      EVENT_ONTIME,
+      EVENT_MOVE,
+      EVENT_LENGTH,
+      MOVE_VIEWPORT
+      };
+
+enum class PianoRollCursorMode : char {
+      SELECT,
+      SELECTION_RECT,
+      ADD,
+      PAINT,
+      ERASE,
+      CUT,
+      TIE,
+      EVENT_ADJUST,
+      RESIZE,
+      MOVE,
+      CONSOLIDATE_TIES
       };
 
 struct BarPattern {
@@ -56,9 +87,7 @@ class PianoItem {
       Note* _note;
       PianoView* _pianoView;
       
-      void paintNoteBlock(QPainter* painter, NoteEvent* evt);
       QRect boundingRectTicks(NoteEvent* evt);
-      QRect boundingRectPixels(NoteEvent* evt);
       bool intersectsBlock(int startTick, int endTick, int highPitch, int lowPitch, NoteEvent* evt);
       
    public:
@@ -67,10 +96,7 @@ class PianoItem {
       PianoItem(Note*, PianoView*);
       ~PianoItem() {}
       Note* note() { return _note; }
-      void paint(QPainter* painter);
       bool intersects(int startTick, int endTick, int highPitch, int lowPitch);
-      
-      QRect boundingRect();
       
       NoteEvent* getTweakNoteEvent();
       };
@@ -84,13 +110,49 @@ class PianoView : public QGraphicsView {
 
 public:
       static const BarPattern barPatterns[];
+      void setScope(PianoRollScope scope);
+      void setColoring(Coloring);
+      void setUseNoteColors(bool);
+
+      PianoRollScope getScope() { return _scope; }
+      void centerSelectionTimeInView();
+      void ensureSelectionVisible(bool force = false);
+
+      bool selectionRectAllowed() const;
+
+      Fraction levelPreviewTickOffset() const;
+      Fraction levelPreviewEventTickDelta() const;
+
+      bool levelPreviewMovesNotes() const;
+      bool levelPreviewMovesEvents() const;
+      bool levelEventPreview(const NoteEvent* event, int& ontime, int& len) const;
+
+      Fraction levelPreviewLengthOffset() const;
+      bool levelPreviewResizesNotes() const;
+
+      void setLevelInteractionNotes(const QSet<const Note*>& notes);
+      void clearLevelInteractionNotes();
+      bool levelInteractionHighlighted(const Note* note) const;
 
 private:
-      Staff* _staff;
-      Chord* _chord;
+      Staff* _staff { nullptr };
+      Chord* _chord { nullptr };
+
+      Score* currentScore() const
+            { return _staff ? _staff->score() : nullptr; }
+
+      bool _playbackActive { false };
+      bool _use88KeyView { false };
+
+      VerticalPitchLayout _verticalPitchLayout;
+      PianoRollScope _scope;
+      Coloring _coloring;
+      bool _useNoteColors { false };
+
+      PianoRollOrientation _orientation;
       
-      Pos trackingPos;  //Track mouse position
-      Pos* _locator;
+      Pos _trackingPos;  //Track mouse position
+      Pos* _locator { nullptr };
       int _ticks;
       TType _timeType;
       int _noteHeight;
@@ -99,65 +161,273 @@ private:
       int _subdiv;  //Beat subdivisions
       int _barPattern;
 
-      bool _playEventsView;
       bool _mouseDown;
       bool _dragStarted;
       QString _dragNoteCache;
       QPointF _mouseDownPos;
       QPointF _lastMousePos;
+
+      struct CutDragState {
+            QPointF lastPos;
+            int undoStartIdx { -1 };
+            };
+
+      CutDragState _cutDrag;
+
+      struct TieDragTarget {
+            Fraction tick;
+            int track;
+            int pitch;
+
+            bool operator==(const TieDragTarget& other) const
+                  {
+                  return tick == other.tick
+                        && track == other.track
+                        && pitch == other.pitch;
+                  }
+            };
+
+      struct TieDragState {
+            QVector<TieDragTarget> targets;
+            QPointF lastPos;
+            int undoStartIdx { -1 };
+            };
+
+      TieDragState _tieDrag;
+
+      struct OnsetPaintState {
+            QPointF lastPos;
+            int undoStartIdx { -1 };
+            QHash<int, QVector<Note*>> notes;
+            };
+
+      OnsetPaintState _onsetPaint;
+
+      struct PaintDragState {
+            QPointF lastPos;
+            int undoStartIdx { -1 };
+            QSet<quint64> visitedCells;
+            QList<Note*> selectedNotes;
+            };
+
+      PaintDragState _paintDrag;
+
+      QPointF _mouseDownScreenPos;
+      QPointF _lastMouseScreenPos;
+      QPointF _viewportFocus;
       QPointF _popupMenuPos;
       DragStyle _dragStyle;
       int _dragStartPitch;
+      Fraction _dragStartTick;
+      Fraction _dragEndTick;
+      int _dragNoteLengthMargin = 4;
       bool _inProgressUndoEvent;
+      bool _selectionHandledOnPress { false };
+      bool _actionHandledOnPress { false };
+
+      Fraction _levelPreviewLengthOffset;
+      Fraction _levelPreviewTickOffset;
+      Fraction _levelPreviewEventTickDelta;
+      bool _levelPreviewActive { false };
 
       //The length of the note we are using for editng purposes, expressed as a fraction of the measure.
       // Note length will be (2^_editNoteLength) of a measure
-      int _editNoteLength = 0;
+      Fraction _editNoteLength = Fraction(1, 4);
       int _editNoteDots = 0;
       int _editNoteVoice = 0;
-      PianoRollEditTool _editNoteTool = PianoRollEditTool::SELECT;
+      PianoRollEditTool _editNoteTool = PianoRollEditTool::EVENT_ADJUST;
+      Qt::KeyboardModifiers _cursorModifiers { Qt::NoModifier };
+      QCursor _addNoteCursor;
+      QCursor _paintNoteCursor;
+      QCursor _eraseNoteCursor;
+      QCursor _scissorsNoteCursor;
+      QCursor _tieNoteCursor;
+      QCursor _tieConsolidateNoteCursor;
+      bool _automaticVoiceAssignment { true };
 
       QList<PianoItem*> _noteList;
+      QHash<int, QVector<PianoItem*>> _noteTimeBuckets;
       quint8 _pitchHighlight[128];
 
-      virtual void drawBackground(QPainter* painter, const QRectF& rect);
+      float _noteRectRoundedRadius = 3;
 
-      void addChord(Chord* _chord, int voice);
+      int _lastLocatorPixel[3] { -1, -1, -1 };
+      qreal _playbackLocatorTick { 0.0 };
+      bool _playbackLocatorTickValid { false };
+
+      struct LevelEventPreview {
+            int ontime;
+            int len;
+            };
+
+      QSet<const Note*> _levelInteractionNotes;
+
+      QHash<const NoteEvent*, LevelEventPreview> _levelEventPreviews;
+
+      QHash<const Note*, QSet<int>> _playbackNoteEvents;
+
+      virtual void drawBackground(QPainter* painter, const QRectF& rect) override;
+      void drawTimeGrid(QPainter* painter,
+                        int tick1,
+                        int tick2,
+                        qreal lineStart,
+                        qreal lineEnd,
+                        const QPen& penLineMajor,
+                        const QPen& penLineMinor,
+                        const QPen& penLineSub);
+      void drawVisibleNotes(QPainter* painter, const QRectF& exposedRect);
+      void drawNoteBlock(QPainter* p, PianoItem* block);
+      QRect boundingRect(const Note* note, bool applyEvents);
+      QRect boundingRect(const Note* note, const NoteEvent* evt, bool applyEvents);
+
+      bool useOnsetDiamond(const Staff* staff,
+                           const Fraction& tick) const;
+      bool useOnsetDiamond(const Note* note) const;
+
+      QRect onsetDiamondRect(const Note* note,
+                             const NoteEvent* event = nullptr,
+                             bool applyEvents = false) const;
+
+      QVector<Fraction> onsetPaintTicks(const QPointF& from,
+                                       const QPointF& to) const;
+      Fraction gridLengthAt(const Fraction& tick) const;
+
+      Fraction clampTickToScore(const Fraction& tick) const;
+
+      int pixelXToTick(int pixX) const;
+      int tickToPixelX(int tick) const;
+      qreal tickToPixelXF(qreal tick) const;
+
+      int pixelXToPitch(int pixX) const;
+      int pitchToPixelX(int pitch) const;
+
+      int pixelYToPitch(int pixY) const;
+      int pitchToPixelY(int pitch) const;
+
+      int scenePosToTick(const QPointF& pos) const;
+      int scenePosToPitch(const QPointF& pos) const;
+
+      int minVisiblePitch() const;
+      int maxVisiblePitch() const;
+      int visiblePitchCount() const;
+      bool pitchVisible(int pitch) const;
+
+      qreal pitchCenterPixelX(int pitch) const;
+      QRectF keyboardAlignedPitchLane(int midiPitch) const;
+
+      PianoItem* pickNote(int tick, int pitch);
+      PianoItem* pickNote(const QPointF& pos);
+
+      void setSelectedNoteColor();
+      void resetSelectedNoteColor();
+
+      void addChord(Chord*);
       QVector<Note*> getSegmentNotes(Segment* seg, int track);
       void updateBoundingSize();
       void clearNoteData();
+
+      void indexNoteItem(PianoItem* item);
+      QVector<PianoItem*> noteCandidatesForTickRange(int startTick, int endTick) const;
+      void rebuildNoteTimeBuckets();
+
+      void clearNoteSelection();
+
+      void selectItem(PianoItem* item, NoteSelectType selType);
       void selectNotes(int startTick, int endTick, int lowPitch, int highPitch, NoteSelectType selType);
       void showPopupMenu(const QPoint& pos);
-      bool cutChordRest(ChordRest* targetCr, int track, Fraction cutTick, ChordRest*& cr0, ChordRest*& cr1);
+      bool cutChordRest(ChordRest* targetCr,
+                        int track,
+                        Fraction cutTick,
+                        ChordRest*& cr0,
+                        ChordRest*& cr1,
+                        bool preserveOriginalDuration = false);
+      bool noteRangeContainsChord(const Fraction& startTick, const Fraction& duration, int track) const;
+
+      bool voiceRangeIsFree(const Fraction& startTick,
+                            const Fraction& duration,
+                            int track) const;
+
+      bool voiceHasMatchingChord(const Fraction& startTick,
+                                 const Fraction& duration,
+                                 int track) const;
+
+      int automaticVoiceForNote(const Fraction& startTick,
+                                const Fraction& duration,
+                                int pitch,
+                                int staffIdx,
+                                int preferredVoice) const;
+
+      int insertionVoiceForNote(const Fraction& startTick,
+                                const Fraction& duration,
+                                int pitch,
+                                int staffIdx,
+                                int preferredVoice) const;
+
       QVector<Note*> addNote(Fraction startTick, Fraction duration, int pitch, int track);
       void handleSelectionClick();
       void insertNote(int modifiers);
-      Fraction roundToStartBeat(int tick) const;
+      Fraction roundToNearestBeat(int tick, bool down = true) const;
       Fraction noteEditLength() const;
+      ChordRest* chordRestAt(const Fraction& tick, int track) const;
+      ChordRest* findOrExpandChordRest(Measure* measure, const Fraction& tick, int track);
       void changeChordLength(const QPointF& pos);
       void eraseNote(const QPointF& pos);
-      void appendNoteToChord(const QPointF& pos);
+      void eraseNote(Note* note);
       void cutChord(const QPointF& pos);
+      bool cutChordAt(const Fraction& tick, int track);
+      void regroupNoteAt(const QPointF& pos);
+      bool removeTiesAtBoundary(const Fraction& tick, int track);
+      bool cutChordDragSegment(const QPointF& from, const QPointF& to);
       void toggleTie(const QPointF& pos);
-      void toggleTie(Note*);
+      bool toggleTie(Note*);
+      Note* tieNoteAt(const QPointF& pos);
+      bool toggleTieDragSegment(const QPointF& from, const QPointF& to);
+      void compactMeasures(const QMap<Measure*, QSet<int>>& changedTracks);
+
+      bool rangeTouchesTuplet(const Fraction& startTick,
+                              const Fraction& duration,
+                              int track) const;
+
+      bool pasteWouldTouchTuplet(const QString& copiedNotes,
+                                 Fraction pasteStartTick,
+                                 Fraction lengthOffset,
+                                 bool xIsOffset) const;
+
       void dragSelectionNoteGroup();
-      void finishNoteGroupDrag();
-      bool toolCanDragNotes() const {
-            return _editNoteTool == PianoRollEditTool::SELECT || _editNoteTool == PianoRollEditTool::INSERT_NOTE ||
-                  _editNoteTool == PianoRollEditTool::APPEND_NOTE || _editNoteTool == PianoRollEditTool::CUT_CHORD ||
-                  _editNoteTool == PianoRollEditTool::TIE;
-            }
+      void finishNoteGroupDrag(QMouseEvent* event);
+      void finishNoteEventAdjustDrag();
+      void finishDragUndoGroup(int& undoStartIdx);
+      void updateTrackingPos(const QPoint& viewportPos);
+      bool toolCanDragNotes() const;
+      bool calculateNoteDragOffsets(Fraction& pasteTickOffset,
+                                    Fraction& pasteLengthOffset,
+                                    int& pitchOffset) const;
+
+      bool paintOnsetDragSegment(const QPointF& from,
+                                 const QPointF& to);
+
+      bool paintNoteDragSegment(const QPointF& from,
+                                const QPointF& to);
+      bool paintNoteCell(const QPointF& pos);
+      void applyPaintSelection();
+      Note* paintNoteAt(int tick, int pitch);
+
+      void drawPitchText(QPainter* p, const QRectF& bounds, const QString& name, const QColor& noteColor);
+      QString pitchNameForMidi(int) const;
 
       QAction* getAction(const char* id);
+      PianoRollCursorMode effectiveCursorMode() const;
+      void updateCursor();
 
-   protected:
-      virtual void wheelEvent(QWheelEvent* event);
-      virtual void keyReleaseEvent(QKeyEvent* event);
-      virtual void mousePressEvent(QMouseEvent* event);
-      virtual void mouseReleaseEvent(QMouseEvent* event);
-      virtual void mouseMoveEvent(QMouseEvent* event);
-      virtual void leaveEvent(QEvent*);
-      virtual void contextMenuEvent(QContextMenuEvent *event);
+    protected:
+      bool eventFilter(QObject* watched, QEvent* event) override;
+      void wheelEvent(QWheelEvent* event) override;
+      void keyReleaseEvent(QKeyEvent* event) override;
+      void mousePressEvent(QMouseEvent* event) override;
+      void mouseReleaseEvent(QMouseEvent* event) override;
+      void mouseMoveEvent(QMouseEvent* event) override;
+      void leaveEvent(QEvent*) override;
+      void contextMenuEvent(QContextMenuEvent *event) override;
 
    signals:
       void xZoomChanged(qreal);
@@ -168,12 +438,18 @@ private:
       void pitchChanged(int);
       void trackingPosChanged(const Pos&);
       void selectionChanged();
+      void onTimeDragged(int);
+      void tickLenDragged(int);
       void showNoteTweakerRequest();
+      void noteEventsChanged();
+      void editNoteLengthChanged(const Fraction& duration);
+      void keyboardResizeWheel(int delta);
 
    public slots:
       void moveLocator(int);
       void updateNotes();
-      void setXZoom(int);
+      void setXZoom(qreal);
+      void setNoteHeight(int);
       void setTuplet(int);
       void setSubdiv(int);
       void setBarPattern(int);
@@ -182,9 +458,9 @@ private:
       void setNotesToVoice(int voice);
 
       QString serializeSelectedNotes();
-      void pasteNotes(const QString& copiedNotes, Fraction pasteStartTick, int pitchOffset, bool xIsOffset = false);
+      QVector<Note*> pasteNotes(const QString& copiedNotes, Fraction pasteStartTick, Fraction lengthOffset, int pitchOffset, bool xIsOffset = false);
       void drawDraggedNotes(QPainter* painter);
-      void drawDraggedNote(QPainter* painter, Fraction startTick, Fraction frac, int pitch, int track, QColor color);
+      void drawDraggedNote(QPainter* painter, Fraction startTick, Fraction frac, int pitch, int track, QColor color, const QString& pitchName = QString());
 
       void cutNotes();
       void copyNotes();
@@ -193,36 +469,80 @@ private:
    public:
       PianoView();
       ~PianoView();
+      void setVerticalPitchLayout(VerticalPitchLayout layout);
+      void setOrientation(PianoRollOrientation orientation);
       Staff* staff() { return _staff; }
+      void setEditableStaff(Staff* st);
       void setStaff(Staff*, Pos* locator);
-      void ensureVisible(int tick);
+      bool playbackTickBeyondCenter(qreal tick) const;
+      void ensureVisible(qreal tick, qreal horizontalOffset = 0.0);
+      void ensurePlaybackTickVisible(qreal tick);
+      void ensurePlaybackTickAtKeyboard(qreal tick);
       int noteHeight() { return _noteHeight; }
       qreal xZoom() { return _xZoom; }
       int tuplet() { return _tuplet; }
       int subdiv() { return _subdiv; }
       int barPattern() { return _barPattern; }
       PianoRollEditTool editTool() const { return _editNoteTool; }
-      QList<QGraphicsItem*> items() { return scene()->selectedItems(); }
       int editNoteDots() const { return _editNoteDots; }
 
-      void setEditNoteLength(int len) { _editNoteLength = len; }
+      void deleteSelectedNotes();
+
+      bool paintDragActive() const;
+
+      void setEditNoteLength(Fraction len) { _editNoteLength = len; }
       void setEditNoteVoice(int voice) { _editNoteVoice = voice; }
       void setEditNoteDots(int dot) { _editNoteDots = dot; }
-      void setEditNoteTool(PianoRollEditTool tool) { _editNoteTool = tool; }
+      void setEditNoteTool(PianoRollEditTool);
 
-      int pixelXToTick(int pixX);
-      int tickToPixelX(int tick);
-      int pixelYToPitch(int pixY) { return (int)floor(128 - pixY / (qreal)_noteHeight); }
-      int pitchToPixelY(int pitch) { return (128 - pitch) * _noteHeight; }
+      void setPlaybackActive(bool);
 
-      PianoItem* pickNote(int tick, int pitch);
+      void setAutomaticVoiceAssignment(bool value)
+            { _automaticVoiceAssignment = value; }
+      bool automaticVoiceAssignment() const
+            { return _automaticVoiceAssignment; }
+
+      void setPlaybackNoteEvents(const QHash<const Note*, QSet<int>>& events);
+      void clearPlaybackNoteEvents();
+
+      void setPlaybackLocatorTick(qreal tick);
+      void clearPlaybackLocatorTick();
+
+      Fraction snapTickToGrid(int tick, Direction) const;
+      qreal tickToPixelYF(qreal tick) const;
+      int pixelYToTick(int y) const;
+      int tickToPixelY(int tick) const;
+
+      int viewportReferenceTick() const;
+      void positionViewportAtTick(int tick);
 
       QList<PianoItem*> getSelectedItems();
-      QList<PianoItem*> getItems();
       
+      void set88KeyView(bool);
+
       void zoomView(int step, bool horizontal, int centerX, int centerY);
 
-      bool playEventsView() { return _playEventsView; }
+      bool isTool(PianoRollEditTool v) const
+            { return v == _editNoteTool; }
+      bool eventsAdjustTool() const
+            { return _editNoteTool == PianoRollEditTool::EVENT_ADJUST; }
+      bool selectTool() const
+            { return _editNoteTool == PianoRollEditTool::SELECT; }
+      bool addTool() const
+            { return _editNoteTool == PianoRollEditTool::ADD; }
+      bool eraseTool() const
+            { return _editNoteTool == PianoRollEditTool::ERASE; }
+      bool cutTool() const
+            { return _editNoteTool == PianoRollEditTool::CUT; }
+      bool tieTool() const
+            { return _editNoteTool == PianoRollEditTool::TIE; }
+
+
+      inline bool isHorizontal() const
+            { return _orientation == PianoRollOrientation::HORIZONTAL; }
+      inline bool isVertical() const
+            { return _orientation == PianoRollOrientation::VERTICAL; }
+
       };
 
 

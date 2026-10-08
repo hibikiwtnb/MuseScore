@@ -10,33 +10,32 @@
 //  the file LICENCE.GPL
 //=============================================================================
 
-#include "mscore.h"
-#include "segment.h"
-#include "element.h"
-#include "chord.h"
-#include "note.h"
-#include "score.h"
-#include "beam.h"
-#include "tuplet.h"
-#include "text.h"
-#include "measure.h"
 #include "barline.h"
+#include "beam.h"
+#include "clef.h"
+#include "chord.h"
+#include "element.h"
+#include "hairpin.h"
+#include "harmony.h"
+#include "instrchange.h"
+#include "line.h"
+#include "log.h"
+#include "keysig.h"
+#include "mscore.h"
+#include "measure.h"
+#include "note.h"
 #include "part.h"
 #include "repeat.h"
-#include "staff.h"
-#include "line.h"
-#include "hairpin.h"
-#include "ottava.h"
+#include "score.h"
+#include "segment.h"
 #include "sig.h"
-#include "keysig.h"
+#include "staff.h"
 #include "staffstate.h"
-#include "instrchange.h"
-#include "clef.h"
-#include "timesig.h"
 #include "system.h"
-#include "xml.h"
+#include "tuplet.h"
+#include "timesig.h"
 #include "undo.h"
-#include "harmony.h"
+#include "xml.h"
 
 namespace Ms {
 
@@ -335,6 +334,28 @@ Segment* Segment::prev1() const
       return m ? m->last() : 0;
       }
 
+Segment* Segment::prev1WithElemsOnStaff(int staffIdx, SegmentType segType) const
+      {
+      Segment* prev = prev1(segType);
+
+      int startTrack = staffIdx * VOICES;
+      int  endTrack = startTrack + VOICES - 1;
+      while (prev && !prev->hasElements(startTrack, endTrack))
+            prev = prev->prev1(segType);
+
+      return prev;
+      }
+
+Segment* Segment::prev1WithElemsOnTrack(int  trackIdx, SegmentType segType) const
+      {
+      Segment* prev = prev1(segType);
+
+      while (prev && !prev->hasElements(trackIdx, trackIdx))
+            prev = prev->prev1(segType);
+
+      return prev;
+      }
+
 Segment* Segment::prev1enabled() const
       {
       Segment* s = prev1();
@@ -477,6 +498,10 @@ void Segment::removeStaff(int staff)
 
 void Segment::checkElement(Element* el, int track)
       {
+      // prevent segmentation fault on out of bounds index
+      IF_ASSERT_FAILED(track < static_cast<int>(_elist.size()))
+            return;
+
       // generated elements can be overwritten
       if (_elist[track] && !_elist[track]->generated()) {
             qDebug("add(%s): there is already a %s at track %d tick %d",
@@ -637,6 +662,8 @@ void Segment::add(Element* el)
 void Segment::remove(Element* el)
       {
 // qDebug("%p Segment::remove %s %p", this, el->name(), el);
+
+      if (!el) return;
 
       int track = el->track();
 
@@ -942,7 +969,7 @@ bool Segment::setProperty(Pid propertyId, const QVariant& v)
 qreal Segment::widthInStaff(int staffIdx, SegmentType t) const
       {
       const qreal segX = x();
-      qreal nextSegX = segX;
+      qreal nextSegX;
 
       Segment* nextSeg = nextInStaff(staffIdx, t);
       if (nextSeg)
@@ -1197,12 +1224,12 @@ void Segment::scanElements(void* data, void (*func)(void*, Element*), bool all)
       }
 
 //---------------------------------------------------------
-//   firstElement
+//   firstElementForNavigation
 //   This function returns the first main element from a
 //   segment, or a barline if it spanns in the staff
 //---------------------------------------------------------
 
-Element* Segment::firstElement(int staff)
+Element* Segment::firstElementForNavigation(int staff)
       {
       if (isChordRestType()) {
             int strack = staff * VOICES;
@@ -1220,12 +1247,12 @@ Element* Segment::firstElement(int staff)
       }
 
 //---------------------------------------------------------
-//   lastElement
+//   lastElementForNavigation
 //   This function returns the last main element from a
 //   segment, or a barline if it spanns in the staff
 //---------------------------------------------------------
 
-Element* Segment::lastElement(int staff)
+Element* Segment::lastElementForNavigation(int staff)
       {
       if (segmentType() == SegmentType::ChordRest) {
             for (int voice = staff * VOICES + (VOICES - 1); voice/VOICES == staff; voice--) {
@@ -1250,18 +1277,18 @@ Element* Segment::lastElement(int staff)
 
 //---------------------------------------------------------
 //   getElement
-//   protected because it is used by the firstElement and
-//   lastElement functions when segment types that have
+//   protected because it is used by the firstElementForNavigation and
+//   lastElementForNavigation functions when segment types that have
 //   just one element to avoid duplicated code
 //
-//   Use firstElement, or lastElement instead of this
+//   Use firstElementForNavigation, or lastElementForNavigation instead of this
 //---------------------------------------------------------
 
 Element* Segment::getElement(int staff)
       {
       segmentType();
       if (segmentType() == SegmentType::ChordRest) {
-            return firstElement(staff);
+            return firstElementForNavigation(staff);
       }
       else if (segmentType() & (SegmentType::EndBarLine | SegmentType::BarLine | SegmentType::StartRepeatBarLine)) {
             for (int i = staff; i >= 0; i--) {
@@ -1355,7 +1382,7 @@ Element* Segment::lastAnnotation(Segment* s, int activeStaff)
 //   Searches for the next segment that has elements on the
 //   active staff and returns its first element
 //
-//   Uses firstElement so it also returns a barline if it
+//   Uses firstElementForNavigation so it also returns a barline if it
 //   spans into the active staff
 //--------------------------------------------------------
 
@@ -1368,7 +1395,7 @@ Element* Segment::firstInNextSegments(int activeStaff)
             if (!seg) //end of staff, or score
                   break;
 
-            re = seg->firstElement(activeStaff);
+            re = seg->firstElementForNavigation(activeStaff);
             }
 
       if (re)
@@ -1392,8 +1419,16 @@ Element* Segment::firstElementOfSegment(Segment* s, int activeStaff)
       {
       for (auto i: s->elist()) {
             if (i && i->staffIdx() == activeStaff) {
-                  if (i->type() == ElementType::CHORD)
-                        return toChord(i)->notes().back();
+                  if (i->isDurationElement()) {
+                        DurationElement* de = toDurationElement(i);
+                        Tuplet* tuplet = de->tuplet();
+                        if (tuplet && de == tuplet->elements().front())
+                              return tuplet;
+                        }
+                  if (i->type() == ElementType::CHORD) {
+                        Chord* chord = toChord(i);
+                        return chord->firstGraceOrNote();
+                        }
                   else
                         return i;
                   }
@@ -1412,40 +1447,40 @@ Element* Segment::nextElementOfSegment(Segment* s, Element* e, int activeStaff)
             if (s->element(track) == 0)
                   continue;
              Element* el = s->element(track);
-             if (el == e) {
-                 Element* next = s->element(track+1);
-                 while (track < score()->nstaves() * VOICES - 1 &&
-                        (!next || next->staffIdx() != activeStaff)) {
-                       next = s->element(++track);
-                       }
-                 if (!next || next->staffIdx() != activeStaff)
-                       return nullptr;
-                 if (next->isChord())
-                       return toChord(next)->notes().back();
-                 else
-                       return next;
-             }
-             if (el->type() == ElementType::CHORD) {
-                   std::vector<Note*> notes = toChord(el)->notes();
-                   auto i = std::find(notes.begin(), notes.end(), e);
-                   if (i == notes.end())
-                         continue;
-                   if (i!= notes.begin()) {
-                         return *(i-1);
-                         }
-                   else {
-                         Element* nextEl = s->element(++track);
-                         while (track < score()->nstaves() * VOICES - 1 &&
-                                (!nextEl || nextEl->staffIdx() != activeStaff)) {
-                               nextEl = s->element(++track);
-                               }
-                         if (!nextEl || nextEl->staffIdx() != activeStaff)
-                               return nullptr;
-                         if (nextEl->isChord())
-                               return toChord(nextEl)->notes().back();
-                         return nextEl;
-                         }
-                   }
+            if (el == e) {
+                  Element* next = s->element(track+1);
+                  while (track < score()->nstaves() * VOICES - 1 &&
+                         (!next || next->staffIdx() != activeStaff)) {
+                        next = s->element(++track);
+                        }
+                  if (!next || next->staffIdx() != activeStaff)
+                        return nullptr;
+                  if (next->isChord())
+                        return toChord(next)->notes().back();
+                  else
+                        return next;
+                  }
+            if (el->type() == ElementType::CHORD) {
+                  std::vector<Note*> notes = toChord(el)->notes();
+                  auto i = std::find(notes.begin(), notes.end(), e);
+                  if (i == notes.end())
+                        continue;
+                  if (i!= notes.begin()) {
+                        return *(i-1);
+                        }
+                  else {
+                        Element* nextEl = s->element(++track);
+                        while (track < score()->nstaves() * VOICES - 1 &&
+                               (!nextEl || nextEl->staffIdx() != activeStaff)) {
+                              nextEl = s->element(++track);
+                              }
+                        if (!nextEl || nextEl->staffIdx() != activeStaff)
+                              return nullptr;
+                        if (nextEl->isChord())
+                              return toChord(nextEl)->notes().back();
+                        return nextEl;
+                        }
+                  }
             }
       return nullptr;
       }
@@ -1460,47 +1495,47 @@ Element* Segment::prevElementOfSegment(Segment* s, Element* e, int activeStaff)
       for (int track = score()->nstaves() * VOICES - 1; track > 0; --track) {
             if (s->element(track) == 0)
                   continue;
-             Element* el = s->element(track);
-             if (el == e) {
-                 Element* prev = s->element(track-1);
-                 while (track > 0 &&
-                        (!prev || prev->staffIdx() != activeStaff)) {
-                       prev = s->element(--track);
-                       }
-                 if (!prev)
-                       return nullptr;
-                 if (prev->staffIdx() == e->staffIdx()) {
-                 if (prev->isChord())
-                       return toChord(prev)->notes().front();
-                 else
-                       return prev;
-                       }
-                 return nullptr;
-             }
-             if (el->isChord()) {
-                   std::vector<Note*> notes = toChord(el)->notes();
-                   auto i = std::find(notes.begin(), notes.end(), e);
-                   if (i == notes.end())
-                         continue;
-                   if (i!= --notes.end()) {
-                         return *(i+1);
-                         }
-                   else {
-                         Element* prevEl = s->element(--track);
-                         while (track > 0 &&
-                                (!prevEl || prevEl->staffIdx() != activeStaff)) {
-                               prevEl = s->element(--track);
-                               }
-                         if (!prevEl)
-                               return nullptr;
-                         if (prevEl->staffIdx() == e->staffIdx()) {
-                         if (prevEl->isChord())
-                               return toChord(prevEl)->notes().front();
-                         return prevEl;
-                               }
-                         return nullptr;
-                         }
-                   }
+            Element* el = s->element(track);
+            if (el == e) {
+                  Element* prev = s->element(track-1);
+                  while (track > 0 &&
+                         (!prev || prev->staffIdx() != activeStaff)) {
+                        prev = s->element(--track);
+                        }
+                  if (!prev || !e)
+                        return nullptr;
+                  if (prev->staffIdx() == e->staffIdx()) {
+                        if (prev->isChord())
+                             return toChord(prev)->notes().front();
+                        else
+                             return prev;
+                        }
+                  return nullptr;
+                  }
+            if (el->isChord()) {
+                  std::vector<Note*> notes = toChord(el)->notes();
+                  auto i = std::find(notes.begin(), notes.end(), e);
+                  if (i == notes.end())
+                        continue;
+                  if (i!= --notes.end()) {
+                        return *(i+1);
+                        }
+                  else {
+                        Element* prevEl = s->element(--track);
+                        while (track > 0 &&
+                               (!prevEl || prevEl->staffIdx() != activeStaff)) {
+                              prevEl = s->element(--track);
+                              }
+                        if (!prevEl)
+                              return nullptr;
+                        if (prevEl->staffIdx() == e->staffIdx()) {
+                              if (prevEl->isChord())
+                                    return toChord(prevEl)->notes().front();
+                              return prevEl;
+                              }
+                        return nullptr;
+                        }
+                  }
             }
       return nullptr;
       }
@@ -1516,7 +1551,7 @@ Element* Segment::lastElementOfSegment(Segment* s, int activeStaff)
       for (auto i = --elements.end(); i != elements.begin(); --i) {
             if (*i && (*i)->staffIdx() == activeStaff) {
                   if ((*i)->isChord())
-                      return toChord(*i)->notes().front();
+                        return toChord(*i)->notes().front();
                   else
                         return *i;
                   }
@@ -1656,7 +1691,8 @@ Element* Segment::nextElement(int activeStaff)
             case ElementType::FIGURED_BASS:
             case ElementType::STAFF_STATE:
             case ElementType::INSTRUMENT_CHANGE:
-            case ElementType::STICKING: {
+            case ElementType::STICKING:
+            case ElementType::TUPLET:{
                   Element* next = nullptr;
                   if (e->parent() == this)
                         next = nextAnnotation(e);
@@ -1939,12 +1975,23 @@ Element* Segment::prevElement(int activeStaff)
             }
       }
 
+Element* Segment::firstElement(int staffIdx) const
+      {
+      int startTrack = staffIdx * VOICES;
+      int endTrack = startTrack + VOICES;
+      for (int track =  startTrack; track < endTrack; ++track) {
+            if (Element* item = _elist[track])
+                  return item;
+            }
+      return nullptr;
+      }
+
 //--------------------------------------------------------
 //   lastInPrevSegments
 //   Searches for the previous segment that has elements on
 //   the active staff and returns its last element
 //
-//   Uses lastElement so it also returns a barline if it
+//   Uses lastElementForNavigation so it also returns a barline if it
 //   spans into the active staff
 //--------------------------------------------------------
 
@@ -1974,7 +2021,7 @@ Element* Segment::lastInPrevSegments(int activeStaff)
                   //if (seg->segmentType() == SegmentType::EndBarLine)
                   //      score()->inputState().setTrack((activeStaff - 1) * VOICES ); //correction
 
-                  if ((re = seg->lastElement(activeStaff - 1)) != 0)
+                  if ((re = seg->firstElementForNavigation(activeStaff - 1)) != 0)
                         return re;
 
                   seg = seg->prev1MMenabled();
@@ -2098,8 +2145,10 @@ void Segment::createShape(int staffIdx)
                   continue;
             int effectiveTrack = e->vStaffIdx() * VOICES + e->voice();
             if (effectiveTrack >= strack && effectiveTrack < etrack) {
+                  // TODO: we could choose to ignore invisible/no-autoplace notes & rests
+                  // but these might be relied upon by some
                   setVisible(true);
-                  if (e->addToSkyline())
+                  if (e->addToSkyline() || e->isChord())
                         s.add(e->shape().translated(e->pos()));
                   }
             }
@@ -2107,13 +2156,16 @@ void Segment::createShape(int staffIdx)
       for (Element* e : _annotations) {
             if (!e || e->staffIdx() != staffIdx)
                   continue;
-            setVisible(true);
             if (!e->addToSkyline())
                   continue;
+            // TODO: will skipping segments that contain only invisible annotations adversely affect playback or anything else?
+            setVisible(true);
 
             if (e->isHarmony()) {
                   // use same spacing calculation as for chordrest
-                  toHarmony(e)->layout1();
+                  auto h = toHarmony(e);
+                  if (h->bbox().isEmpty())
+                        h->layout1();
                   const qreal margin = styleP(Sid::minHarmonyDistance) * 0.5;
                   qreal x1 = e->bbox().x() - margin + e->pos().x();
                   qreal x2 = e->bbox().x() + e->bbox().width() + margin + e->pos().x();
@@ -2151,6 +2203,8 @@ qreal Segment::minRight() const
             distance = qMax(distance, sh.right());
       if (isClefType())
             distance += score()->styleP(Sid::clefBarlineDistance);
+      if (trailer())
+            distance += score()->styleP(Sid::systemTrailerRightMargin);
       return distance;
       }
 
@@ -2191,6 +2245,8 @@ qreal Segment::minHorizontalCollidingDistance(Segment* ns) const
       {
       qreal w = 0.0;
       for (unsigned staffIdx = 0; staffIdx < _shapes.size(); ++staffIdx) {
+            if (score()->staff(staffIdx) && !score()->staff(staffIdx)->show())
+                  continue;
             qreal d = staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx));
             w       = qMax(w, d);
             }
@@ -2205,8 +2261,10 @@ qreal Segment::minHorizontalCollidingDistance(Segment* ns) const
 qreal Segment::minHorizontalDistance(Segment* ns, bool systemHeaderGap) const
       {
 
-      qreal ww = -1000000.0;        // can remain negative
+      qreal ww = -DBL_MAX;        // can remain negative
       for (unsigned staffIdx = 0; staffIdx < _shapes.size(); ++staffIdx) {
+            if (score()->staff(staffIdx) && !score()->staff(staffIdx)->show())
+                  continue;
             qreal d = ns ? staffShape(staffIdx).minHorizontalDistance(ns->staffShape(staffIdx)) : 0.0;
             // first chordrest of a staff should clear the widest header for any staff
             // so make sure segment is as wide as it needs to be
