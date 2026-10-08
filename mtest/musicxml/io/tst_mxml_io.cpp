@@ -91,6 +91,7 @@ private slots:
       void buzzRoll2() { mxmlIoTest("testBuzzRoll2"); }
       void changeTranspose() { mxmlIoTest("testChangeTranspose"); }
       void changeTransposeNoDiatonic() { mxmlIoTestRef("testChangeTranspose-no-diatonic"); }
+      void transposeDiatonicZero() { mxmlIoTestRef("testTransposeDiatonicZero"); }
       void chordDiagrams1() { mxmlIoTest("testChordDiagrams1"); }
       void chordNoVoice() { mxmlIoTestRef("testChordNoVoice"); }
       void chordSymbols() { mxmlMscxExportTestRef("testChordSymbols"); }

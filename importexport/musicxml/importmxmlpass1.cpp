@@ -2949,25 +2949,32 @@ void MusicXMLParserPass1::time(const Fraction cTime)
 void MusicXMLParserPass1::transpose(const QString& partId, const Fraction& tick)
       {
       Interval interval;
+      bool hasDiatonic = false;
+      int octaveChange = 0;
       while (_e.readNextStartElement()) {
-            int i = _e.readElementText().toInt();
             if (_e.name() == "diatonic") {
-                  interval.diatonic = i;
+                  interval.diatonic = _e.readElementText().toInt();
+                  hasDiatonic = true;
                   }
             else if (_e.name() == "chromatic") {
-                  interval.chromatic = i;
+                  interval.chromatic = _e.readElementText().toInt();
                   }
             else if (_e.name() == "octave-change") {
-                  interval.diatonic += i * 7;
-                  interval.chromatic += i * 12;
+                  octaveChange = _e.readElementText().toInt();
                   }
             else
                   skipLogCurrElem();
             }
 
+      // Calculate "diatonic" only when the element is missing: an explicit 0 is meaningful,
+      // e.g. chromatic -1 with diatonic 0 is written A sounding Ab (a guitar tuned down a
+      // semitone), not written A sounding G#
+      if (!hasDiatonic)
+            interval.diatonic = chromatic2diatonic(interval.chromatic);
+      interval.diatonic += octaveChange * 7;
+      interval.chromatic += octaveChange * 12;
+
       if (_parts[partId]._intervals.count(tick) == 0) {
-            if (!interval.diatonic)
-                  interval.diatonic = chromatic2diatonic(interval.chromatic);
             _parts[partId]._intervals[tick] = interval;
             }
       else
