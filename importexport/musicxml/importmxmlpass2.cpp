@@ -6952,7 +6952,7 @@ Note* MusicXMLParserPass2::note(const QString& partId,
             notations.addToScore(cr, note, noteStartTime, _slurs, _glissandi, _spanners, _trills, _ties, _unstartedTieNotes, _unendedTieNotes);
 
             // if no tie added yet, convert the "tie" into "tied" and add it.
-            if (note && !note->tieFor() && !tieType.isEmpty()) {
+            if (note && !note->tieFor() && !note->tieBack() && !tieType.isEmpty()) {
                   Notation notation { "tied" };
                   const QString ctype { "type" };
                   notation.addAttribute(&ctype, &tieType);
