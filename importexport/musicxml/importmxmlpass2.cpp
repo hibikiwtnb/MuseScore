@@ -1986,11 +1986,16 @@ static void spreadPasses(Score* score, Measure* m, int staffIdx, int passes,
       TimeSig* ts = tsSeg ? toTimeSig(tsSeg->element(tsTrack)) : nullptr;
       if (ts && !ts->isLocal()) {
             const Fraction sig = ts->sig();
-            if (ts->numeratorString().isEmpty())
-                  ts->setNumeratorString(QString::number(sig.numerator()));
-            if (ts->denominatorString().isEmpty())
-                  ts->setDenominatorString(QString::number(sig.denominator()));
+            // setSig() clears the strings: keep the look after it
+            QString ns = ts->numeratorString();
+            QString ds = ts->denominatorString();
+            if (ns.isEmpty())
+                  ns = QString::number(sig.numerator());
+            if (ds.isEmpty())
+                  ds = QString::number(sig.denominator());
             ts->setSig(Fraction(sig.numerator() * passes, sig.denominator()), ts->timeSigType());
+            ts->setNumeratorString(ns);
+            ts->setDenominatorString(ds);
             }
       else if (!ts) {
             ts = new TimeSig(score);
