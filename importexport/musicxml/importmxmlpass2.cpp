@@ -1319,6 +1319,7 @@ static bool convertArticulationToSymId(const QString& mxmlName, SymId& id)
       map["up-bow"]                 = SymId::stringsUpBow;
       map["down-bow"]               = SymId::stringsDownBow;
       map["open-string"]            = SymId::brassMuteOpen;
+      map["open"]                   = SymId::brassMuteOpen;    // MusicXML 4.0, e.g. hi-hat open
       map["thumb-position"]         = SymId::stringsThumbPosition ;
       map["double-tongue"]          = SymId::doubleTongueAbove;
       map["triple-tongue"]          = SymId::tripleTongueAbove ;
