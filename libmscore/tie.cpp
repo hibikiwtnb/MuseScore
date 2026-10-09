@@ -694,7 +694,7 @@ void Tie::slurPos(SlurPos* sp)
       qreal yOffInside  = useTablature ? yOffOutside * 0.5 : hw * .3 * __up;
 
       Chord* sc = startNote()->chord();
-      Chord* ec = endNote() ? endNote()->chord() : nullptr;
+      Chord* ec = (endNote() && !_partial) ? endNote()->chord() : nullptr;
       sp->system1 = sc->measure()->system();
       if (!sp->system1) {
             Measure* m = sc->measure();
@@ -738,7 +738,7 @@ void Tie::slurPos(SlurPos* sp)
       //------p2
       y2 = y1;
       if (!ec) {
-            sp->p2 = sp->p1 + QPointF(_spatium * 3, 0.0);
+            sp->p2 = sp->p1 + QPointF(_spatium * (_partial ? 2.0 : 3.0), 0.0);
             sp->system2 = sp->system1;
             return;
             }
@@ -948,13 +948,15 @@ TieSegment* Tie::layoutFor(System* system)
       //
       //    show short bow
       //
-      if (startNote() == 0 || endNote() == 0) {
+      if (startNote() == 0 || endNote() == 0 || _partial) {
             if (startNote() == 0) {
                   qDebug("no start note");
                   return 0;
                   }
             Chord* c1 = startNote()->chord();
-            if (_slurDirection == Direction::AUTO) {
+            if (_partial)
+                  calculateDirection();   // chord-aware, like a regular tie
+            else if (_slurDirection == Direction::AUTO) {
                   if (c1->measure()->hasVoices(c1->staffIdx(), c1->tick(), c1->actualTicks())) {
                         // in polyphonic passage, ties go on the stem side
                         _up = c1->up();

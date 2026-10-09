@@ -58,6 +58,8 @@ class TimeSig final : public Element {
       TimeSigType _timeSigType;
       bool _showCourtesySig;
       bool _largeParentheses;
+      bool _twoPass { false };      // the stretch holds the passes of a 2x (play-twice) measure side by side
+      bool _helper { false };       // generated helper: never drawn, takes no space
 
    public:
       TimeSig(Score* = 0);
@@ -120,6 +122,13 @@ class TimeSig final : public Element {
       void setGroups(const Groups& e) { _groups = e; }
 
       bool isLocal() const                 { return _stretch != Fraction(1,1); }
+
+      // With twoPass() and stretch N, the staff measures hold N passes side by side
+      // (see Measure::passCount()). A helper time signature is never drawn.
+      bool twoPass() const                 { return _twoPass; }
+      void setTwoPass(bool v)              { _twoPass = v;    }
+      bool helper() const                  { return _helper;  }
+      void setHelper(bool v)               { _helper = v;     }
 
       Element* nextSegmentElement() override;
       Element* prevSegmentElement() override;

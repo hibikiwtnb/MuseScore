@@ -57,6 +57,7 @@
 #include "libmscore/pedal.h"
 #include "libmscore/rehearsalmark.h"
 #include "libmscore/rest.h"
+#include "libmscore/segment.h"
 #include "libmscore/slur.h"
 #include "libmscore/staff.h"
 #include "libmscore/stafftext.h"
@@ -1728,6 +1729,7 @@ void MusicXMLParserPass2::initPartState(const QString& partId)
       Q_UNUSED(partId);
       _timeSigDura = Fraction(0, 0);             // invalid
       _ties.clear();
+      _timeOnlyPass.clear();
       _unstartedTieNotes.clear();
       _unendedTieNotes.clear();
       _lastVolta = 0;
@@ -1767,6 +1769,398 @@ static void findIncompleteSpannersInStack(const QString& spannerType, SpannerSta
 //---------------------------------------------------------
 //   findIncompleteSpannersAtPartEnd
 //---------------------------------------------------------
+
+//---------------------------------------------------------
+//   2x (play-twice) measures
+//    A staff measure whose notes carry time-only="1" and
+//    time-only="2" (in different voices, after a <backup>)
+//    is written like the printed band score: the passes side
+//    by side in one measure, the later ones in "2x ( ... )".
+//    A two-pass time signature with stretch N squeezes each
+//    pass into 1/N of the measure; playback and layout read
+//    it through Measure::passCount().
+//---------------------------------------------------------
+
+static int singleTimeOnlyPass(const QString& timeOnly)
+      {
+      const QStringList passes = timeOnly.split(',', Qt::SkipEmptyParts);
+      if (passes.size() != 1)
+            return 0;               // absent, or the note plays in several passes
+      bool ok = false;
+      const int pass = passes.front().trimmed().toInt(&ok);
+      return ok && pass > 0 ? pass : 0;
+      }
+
+static QString twoPassParenthesisFont()
+      {
+#if defined(Q_OS_MAC)
+      return QString("Hiragino Mincho ProN");
+#elif defined(Q_OS_WIN)
+      return QString("MS Mincho");
+#else
+      return QString("Noto Serif CJK JP");
+#endif
+      }
+
+static StaffText* createTwoPassText(Score* score, int track, const QString& text, bool parenthesis)
+      {
+      StaffText* t = new StaffText(score);
+      t->setTrack(track);
+      if (parenthesis) {
+            // tall parenthesis spanning the staff, positioned by layoutTwoPassBracket()
+            t->setFamily(twoPassParenthesisFont());
+            t->setPropertyFlags(Pid::FONT_FACE, PropertyFlags::UNSTYLED);
+            t->setSize(34.0);
+            t->setPropertyFlags(Pid::FONT_SIZE, PropertyFlags::UNSTYLED);
+            t->setAutoplace(false);
+            t->setOffset(QPointF(0.0, 4.6 * score->spatium()));
+            t->setPropertyFlags(Pid::OFFSET, PropertyFlags::UNSTYLED);
+            }
+      t->setXmlText(text);
+      return t;
+      }
+
+static Note* noteAtMeasureStart(Measure* m, int strack, int etrack, int pitch)
+      {
+      Segment* s = m ? m->first(SegmentType::ChordRest) : nullptr;
+      if (!s)
+            return nullptr;
+      for (int track = strack; track < etrack; ++track) {
+            Element* e = s->element(track);
+            if (e && e->isChord()) {
+                  if (Note* n = toChord(e)->findNote(pitch))
+                        return n;
+                  }
+            }
+      return nullptr;
+      }
+
+//---------------------------------------------------------
+//   spreadPasses
+//    move the passes of one staff measure side by side,
+//    the voices of later passes onto the voices of pass 1
+//---------------------------------------------------------
+
+static void spreadPasses(Score* score, Measure* m, int staffIdx, int passes,
+                         const QHash<ChordRest*, int>& passOf, MusicXmlSpannerMap& pendingSpanners)
+      {
+      const Fraction mTick = m->tick();
+      const Fraction len = m->ticks();
+      const int strack = staffIdx * VOICES;
+      const int etrack = strack + VOICES;
+      auto passTick = [&](const Fraction& t, int pass) {
+            return mTick + len * (pass - 1) / passes + (t - mTick) / passes;
+            };
+      auto passEndTick = [&](int pass) { return mTick + len * pass / passes; };
+      auto inMeasure = [&](const Fraction& t) { return t >= mTick && t < mTick + len; };
+
+      // the tracks each pass uses; the k-th track of a later pass moves to the k-th track of pass 1
+      std::map<int, std::set<int> > passTracks;
+      std::map<int, int> trackPass;
+      for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+            for (int track = strack; track < etrack; ++track) {
+                  Element* e = s->element(track);
+                  if (e && e->isChordRest()) {
+                        const int pass = std::min(passOf.value(toChordRest(e), 1), passes);
+                        passTracks[pass].insert(track);
+                        if (pass > 1)
+                              trackPass[track] = pass;
+                        }
+                  }
+            }
+      std::map<int, int> trackMap;
+      const std::vector<int> firstTracks(passTracks[1].begin(), passTracks[1].end());
+      for (const auto& pt : passTracks) {
+            int k = 0;
+            for (int track : pt.second) {
+                  trackMap[track] = (pt.first > 1 && k < int(firstTracks.size())) ? firstTracks[k] : track;
+                  ++k;
+                  }
+            }
+      auto passOfTrack = [&](int track) { auto i = trackPass.find(track); return i == trackPass.end() ? 1 : i->second; };
+      auto mapTrack = [&](int track) { auto i = trackMap.find(track); return i == trackMap.end() ? track : i->second; };
+
+      // collect chordrests and annotations with their new place
+      struct Move {
+            Element* e;
+            Segment* from;
+            Fraction tick;
+            int track;
+            };
+      std::vector<Move> moves;
+      for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+            for (int track = strack; track < etrack; ++track) {
+                  Element* e = s->element(track);
+                  if (e && e->isChordRest())
+                        moves.push_back({ e, s, passTick(s->tick(), passOfTrack(track)), mapTrack(track) });
+                  }
+            for (Element* e : s->annotations()) {
+                  if (e->track() >= strack && e->track() < etrack)
+                        moves.push_back({ e, s, passTick(s->tick(), passOfTrack(e->track())), mapTrack(e->track()) });
+                  }
+            }
+      for (const Move& mv : moves) {
+            if (mv.e->isChordRest())
+                  mv.from->setElement(mv.e->track(), nullptr);
+            else
+                  mv.from->removeAnnotation(mv.e);
+            }
+      std::set<Tuplet*> tuplets;
+      for (const Move& mv : moves) {
+            mv.e->setTrack(mv.track);
+            if (mv.e->isChordRest()) {
+                  if (Tuplet* t = toChordRest(mv.e)->tuplet()) {
+                        for (; t; t = t->tuplet())
+                              tuplets.insert(t);
+                        }
+                  }
+            m->getSegment(SegmentType::ChordRest, mv.tick)->add(mv.e);
+            }
+      for (Tuplet* t : tuplets) {
+            t->setTrack(mapTrack(t->track()));
+            if (!t->elements().empty())
+                  t->setTick(t->elements().front()->tick());
+            }
+      std::vector<Segment*> emptySegments;
+      for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+            if (s->empty() && s->annotations().empty())
+                  emptySegments.push_back(s);
+            }
+      for (Segment* s : emptySegments)
+            m->remove(s);
+
+      // spanners already in the score (slurs) follow their chordrests,
+      // the others (still pending for this part) follow their track's pass
+      std::vector<Spanner*> spanners;
+      for (const auto& i : score->spannerMap().map()) {
+            Spanner* sp = i.second;
+            if (sp->track() >= strack && sp->track() < etrack && !sp->isVolta()
+                && (inMeasure(sp->tick()) || inMeasure(sp->tick2() - Fraction(1, 1920))))
+                  spanners.push_back(sp);
+            }
+      for (Spanner* sp : spanners) {
+            const int pass = passOfTrack(sp->track());
+            Fraction t1 = sp->tick();
+            Fraction t2 = sp->tick2();
+            if (sp->startElement() && sp->startElement()->isChordRest() && sp->endElement() && sp->endElement()->isChordRest()) {
+                  t1 = toChordRest(sp->startElement())->tick();
+                  t2 = toChordRest(sp->endElement())->tick();
+                  }
+            else {
+                  if (inMeasure(t1))
+                        t1 = passTick(t1, pass);
+                  if (inMeasure(t2))
+                        t2 = passTick(t2, pass);
+                  else if (t2 == mTick + len)
+                        t2 = passEndTick(pass);
+                  }
+            score->removeSpanner(sp);
+            sp->setTick(t1);
+            sp->setTick2(t2);
+            sp->setTrack(mapTrack(sp->track()));
+            sp->setTrack2(mapTrack(sp->track2()));
+            score->addSpanner(sp);
+            }
+      for (auto i = pendingSpanners.begin(); i != pendingSpanners.end(); ++i) {
+            SLine* sp = i.key();
+            if (sp->track() < strack || sp->track() >= etrack)
+                  continue;
+            const int pass = passOfTrack(sp->track());
+            const Fraction t1 = Fraction::fromTicks(i.value().first);
+            if (inMeasure(t1))
+                  i.value().first = passTick(t1, pass).ticks();
+            if (i.value().second >= 0) {
+                  const Fraction t2 = Fraction::fromTicks(i.value().second);
+                  if (inMeasure(t2))
+                        i.value().second = passTick(t2, pass).ticks();
+                  else if (t2 == mTick + len)
+                        i.value().second = passEndTick(pass).ticks();
+                  }
+            sp->setTrack(mapTrack(sp->track()));
+            sp->setTrack2(mapTrack(sp->track2()));
+            }
+
+      // the time signature that squeezes the passes; an existing one keeps its look
+      const int tsTrack = strack;
+      Segment* tsSeg = m->findSegment(SegmentType::TimeSig, mTick);
+      TimeSig* ts = tsSeg ? toTimeSig(tsSeg->element(tsTrack)) : nullptr;
+      if (ts && !ts->isLocal()) {
+            const Fraction sig = ts->sig();
+            if (ts->numeratorString().isEmpty())
+                  ts->setNumeratorString(QString::number(sig.numerator()));
+            if (ts->denominatorString().isEmpty())
+                  ts->setDenominatorString(QString::number(sig.denominator()));
+            ts->setSig(Fraction(sig.numerator() * passes, sig.denominator()), ts->timeSigType());
+            }
+      else if (!ts) {
+            ts = new TimeSig(score);
+            ts->setTrack(tsTrack);
+            ts->setSig(Fraction(m->timesig().numerator() * passes, m->timesig().denominator()));
+            ts->setHelper(true);
+            ts->setShowCourtesySig(false);
+            m->getSegment(SegmentType::TimeSig, mTick)->add(ts);
+            }
+      ts->setStretch(Fraction(passes, 1));
+      ts->setTwoPass(true);
+
+      // "2x ( ... )" around each later pass, with room for the parentheses
+      const int labelTrack = firstTracks.empty() ? strack : firstTracks.front();
+      for (int pass = 2; pass <= passes; ++pass) {
+            ChordRest* first = nullptr;
+            ChordRest* last = nullptr;
+            for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+                  if (s->tick() < passEndTick(pass - 1) || s->tick() >= passEndTick(pass))
+                        continue;
+                  for (int track = strack; track < etrack; ++track) {
+                        Element* e = s->element(track);
+                        if (e && e->isChordRest()) {
+                              if (!first)
+                                    first = toChordRest(e);
+                              last = toChordRest(e);
+                              break;
+                              }
+                        }
+                  }
+            if (!first)
+                  continue;
+            TwoPassBracket b;
+            b.staffIdx = staffIdx;
+            b.first = first;
+            b.last = last;
+            b.label = createTwoPassText(score, labelTrack, QString::number(pass) + QChar(0x00D7), false);
+            b.open = createTwoPassText(score, labelTrack, QString("("), true);
+            b.close = createTwoPassText(score, labelTrack, QString(")"), true);
+            first->segment()->add(b.label);
+            first->segment()->add(b.open);
+            last->segment()->add(b.close);
+            m->twoPassBrackets().push_back(b);
+
+            Segment* openSeg = first->segment();
+            openSeg->setExtraLeadingSpace(Spatium(std::max(openSeg->extraLeadingSpace().val(), 3.0)));
+            Segment* closeSeg = (pass == passes)
+                  ? m->getSegmentR(SegmentType::EndBarLine, len)
+                  : last->segment()->next(SegmentType::ChordRest);
+            if (closeSeg)
+                  closeSeg->setExtraLeadingSpace(Spatium(std::max(closeSeg->extraLeadingSpace().val(), 2.5)));
+            }
+
+      m->checkMultiVoices(staffIdx);
+      }
+
+//---------------------------------------------------------
+//   linkTwoPassTies
+//    a tie leaving an earlier pass becomes a short partial
+//    tie that still extends the note into the next measure
+//    when that pass plays; the tie leaving the last pass is
+//    the regular tie into the next measure
+//---------------------------------------------------------
+
+static void linkTwoPassTies(Measure* m, int staffIdx, int passes)
+      {
+      const int strack = staffIdx * VOICES;
+      const int etrack = strack + VOICES;
+      Measure* next = m->nextMeasure();
+      const Fraction lastPassStart = m->tick() + m->ticks() * (passes - 1) / passes;
+      for (int lastPass = 0; lastPass < 2; ++lastPass) {
+            for (Segment* s = m->first(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest)) {
+                  if ((s->tick() >= lastPassStart) != bool(lastPass))
+                        continue;
+                  for (int track = strack; track < etrack; ++track) {
+                        Element* e = s->element(track);
+                        if (!e || !e->isChord())
+                              continue;
+                        for (Note* n : toChord(e)->notes()) {
+                              Tie* tie = n->tieFor();
+                              if (!tie)
+                                    continue;
+                              Note* end = tie->endNote();
+                              if (end && end->chord()->measure() == m)
+                                    continue;   // stays inside its pass
+                              if (!end)
+                                    end = noteAtMeasureStart(next, strack, etrack, n->pitch());
+                              if (lastPass) {
+                                    if (end) {
+                                          tie->setEndNote(end);
+                                          end->setTieBack(tie);
+                                          }
+                                    }
+                              else {
+                                    tie->setPartial(true);
+                                    if (end) {
+                                          tie->setEndNote(end);
+                                          if (!end->tieBack())
+                                                end->setTieBack(tie);
+                                          }
+                                    }
+                              }
+                        }
+                  }
+            }
+      }
+
+//---------------------------------------------------------
+//   applyTwoPassMeasures
+//---------------------------------------------------------
+
+/**
+ Lay out the staff measures of the current part that contain notes of
+ more than one pass (time-only), see spreadPasses().
+ */
+
+void MusicXMLParserPass2::applyTwoPassMeasures()
+      {
+      if (_timeOnlyPass.isEmpty())
+            return;
+
+      struct StaffMeasure {
+            Measure* m { nullptr };
+            int staffIdx { 0 };
+            int passes { 1 };
+            };
+      std::map<std::pair<int, int>, StaffMeasure> staffMeasures;   // (tick, staff) in score order
+      for (auto i = _timeOnlyPass.cbegin(); i != _timeOnlyPass.cend(); ++i) {
+            ChordRest* cr = i.key();
+            Measure* m = cr->measure();
+            if (!m)
+                  continue;
+            const int staffIdx = cr->track() / VOICES;
+            StaffMeasure& sm = staffMeasures[{ m->tick().ticks(), staffIdx }];
+            sm.m = m;
+            sm.staffIdx = staffIdx;
+            sm.passes = std::max(sm.passes, i.value());
+            }
+
+      for (auto& i : staffMeasures) {
+            StaffMeasure& sm = i.second;
+            if (sm.passes > 1)
+                  spreadPasses(_score, sm.m, sm.staffIdx, sm.passes, _timeOnlyPass, _spanners);
+            }
+      for (auto& i : staffMeasures) {
+            StaffMeasure& sm = i.second;
+            if (sm.passes < 2)
+                  continue;
+            linkTwoPassTies(sm.m, sm.staffIdx, sm.passes);
+
+            // back to the plain time signature after the last 2x measure
+            Measure* next = sm.m->nextMeasure();
+            if (!next)
+                  continue;
+            auto n = staffMeasures.find({ next->tick().ticks(), sm.staffIdx });
+            if (n != staffMeasures.end() && n->second.passes > 1)
+                  continue;
+            const int track = sm.staffIdx * VOICES;
+            Segment* tsSeg = next->findSegment(SegmentType::TimeSig, next->tick());
+            if (tsSeg && tsSeg->element(track))
+                  continue;
+            TimeSig* ts = new TimeSig(_score);
+            ts->setTrack(track);
+            ts->setSig(next->timesig());
+            ts->setHelper(true);
+            ts->setShowCourtesySig(false);
+            next->getSegment(SegmentType::TimeSig, next->tick())->add(ts);
+            }
+      _timeOnlyPass.clear();
+      }
 
 SpannerSet MusicXMLParserPass2::findIncompleteSpannersAtPartEnd()
       {
@@ -2339,6 +2733,8 @@ void MusicXMLParserPass2::part()
             else
                   skipLogCurrElem();
             }
+
+      applyTwoPassMeasures();
 
       // stop all remaining extends for this part and add remaining ottava if present
       Measure* lm = msPart->score()->lastMeasure();
@@ -6599,6 +6995,7 @@ Note* MusicXMLParserPass2::note(const QString& partId,
             notePrintSpacingNo(dura);
             return 0;
             }
+      const int timeOnlyPass = singleTimeOnlyPass(_e.attributes().value("time-only").toString());
 
       bool chord = false;
       bool cue = false;
@@ -6888,6 +7285,9 @@ Note* MusicXMLParserPass2::note(const QString& partId,
             cr = c;
             }
       // end allocation
+
+      if (cr && !grace && timeOnlyPass > 0)
+            _timeOnlyPass.insert(cr, timeOnlyPass);
 
       if (rest) {
             const int track = msTrack + msVoice;

@@ -3036,6 +3036,21 @@ bool Measure::isRepeatMeasure(const Staff* staff) const
       }
 
 //---------------------------------------------------------
+//   passCount
+//    number of passes written side by side in this staff measure
+//    (2 for a 2x measure), 1 for a normal measure
+//---------------------------------------------------------
+
+int Measure::passCount(int staffIdx) const
+      {
+      const TimeSig* ts = score()->staff(staffIdx)->timeSig(tick());
+      if (!ts || !ts->twoPass())
+            return 1;
+      const Fraction stretch = ts->stretch().reduced();
+      return stretch.denominator() == 1 ? std::max(stretch.numerator(), 1) : 1;
+      }
+
+//---------------------------------------------------------
 //   isEmpty
 //---------------------------------------------------------
 

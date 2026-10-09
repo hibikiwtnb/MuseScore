@@ -55,6 +55,7 @@
 #include "sym.h"
 #include "system.h"
 #include "systemdivider.h"
+#include "textbase.h"
 #include "tie.h"
 #include "timesig.h"
 #include "tremolo.h"
@@ -3793,7 +3794,7 @@ void layoutTies(Chord* ch, System* system, const Fraction& stick)
                         staff->skyline().add(ts->shape().translated(ts->pos()));
                   }
             t = note->tieBack();
-            if (t) {
+            if (t && !t->partial()) {
                   if (t->startNote()->tick() < stick) {
                         TieSegment* ts = t->layoutBack(system);
                         if (ts && ts->addToSkyline())
@@ -4409,6 +4410,39 @@ System* Score::collectSystem(LayoutContext& lc)
 //   layoutSystemElements
 //---------------------------------------------------------
 
+//---------------------------------------------------------
+//   layoutTwoPassBracket
+//    set the horizontal offsets of "2x", "(" and ")" from the
+//    shapes of the first and last chordrest of the pass;
+//    the texts are annotations of those chordrests' segments
+//---------------------------------------------------------
+
+static void layoutTwoPassBracket(TwoPassBracket& b)
+      {
+      if (!b.first || !b.last)
+            return;
+      const qreal gap = 0.3 * b.first->spatium();
+      qreal openX = 0.0;
+      qreal openW = 0.0;
+      if (b.open) {
+            b.open->layout();
+            openW = b.open->bbox().width();
+            const qreal leftEdge = b.first->x() - b.first->shape().left();
+            openX = leftEdge - gap - openW - b.open->bbox().left();
+            b.open->setOffset(QPointF(openX, b.open->offset().y()));
+            }
+      if (b.label) {
+            b.label->layout();
+            const qreal labelW = b.label->bbox().width();
+            b.label->setOffset(QPointF(openX + (openW - labelW) * 0.5 - b.label->bbox().left(), b.label->offset().y()));
+            }
+      if (b.close) {
+            b.close->layout();
+            const qreal rightEdge = b.last->x() + b.last->shape().right();
+            b.close->setOffset(QPointF(rightEdge + gap - b.close->bbox().left(), b.close->offset().y()));
+            }
+      }
+
 void Score::layoutSystemElements(System* system, LayoutContext& lc)
       {
       //-------------------------------------------------------------
@@ -4458,6 +4492,19 @@ void Score::layoutSystemElements(System* system, LayoutContext& lc)
                         Beam* b = cr->beam();
                         b->layout();
                         }
+                  }
+            }
+
+      //-------------------------------------------------------------
+      // place "2x ( ... )" around the later passes of 2x measures
+      //  Needs final chord shapes (after beams), before annotations
+      //  are laid out and autoplaced.
+      //-------------------------------------------------------------
+
+      for (MeasureBase* mb : system->measures()) {
+            if (mb->isMeasure()) {
+                  for (TwoPassBracket& b : toMeasure(mb)->twoPassBrackets())
+                        layoutTwoPassBracket(b);
                   }
             }
 

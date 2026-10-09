@@ -119,9 +119,9 @@ if (NOT APPLE AND NOT MINGW AND NOT MSVC)
 endif (NOT APPLE AND NOT MINGW AND NOT MSVC)
 
 option(AEOLUS        "Enable pipe organ synthesizer"      OFF)
-option(ZERBERUS      "Enable experimental SFZ sampler"    ON)
+option(ZERBERUS      "Enable experimental SFZ sampler"    OFF)
 option(USE_ZITA_REVERB "Enable Zita Reverb audio effect"    ON)
-option(OSC           "Enable OSC remote control protocol" ON)
+option(OSC           "Enable OSC remote control protocol" OFF)
 option(AVSOMR        "Enable AVSOMR import"               OFF) # AVSOMR - optical music recognition by audirevis
 option(OMR           "Enable PDF import"                  OFF) # OMR - optical music recognition
 # For installation see: http://ubuntuforums.org/showthread.php?t=1647350
@@ -139,7 +139,7 @@ set(OCR OFF)
 
 SET(JACK_LONGNAME "JACK (Jack Audio Connection Kit)")
 SET(JACK_MIN_VERSION "0.98.0")
-option(BUILD_JACK    "Build with support for ${JACK_LONGNAME} audio backend. JACK >= ${JACK_MIN_VERSION} will be needed." ON)
+option(BUILD_JACK    "Build with support for ${JACK_LONGNAME} audio backend. JACK >= ${JACK_MIN_VERSION} will be needed." OFF)
 option(BUILD_PULSEAUDIO "Build with support for PulseAudio audio backend." ON)
 option(BUILD_ALSA "Build with support for ALSA audio backend." ON)
 option(BUILD_PORTAUDIO "Build with support for PortAudio audio backend." ON)
@@ -152,7 +152,7 @@ option(BUILD_AUTOUPDATE "Build with autoupdate support" OFF)
 option(BUILD_CRASH_REPORTER "Build with crash reporter" OFF)
 option(BUILD_PORTABLEAPPS "Windows build for PortableApps.com" OFF)
 set(CRASH_REPORT_URL "http://127.0.0.1:1127/post" CACHE STRING "URL where to send crash reports (valid if BUILD_CRASH_REPORTER is set to ON)")
-option(BUILD_TELEMETRY_MODULE "Build with telemetry module" ON)
+option(BUILD_TELEMETRY_MODULE "Build with telemetry module" OFF)
 set(TELEMETRY_TRACK_ID "" CACHE STRING "Telemetry track id")
 option(PACKAGE_FILE_ASSOCIATION "File types association" OFF)
 

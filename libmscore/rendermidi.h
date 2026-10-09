@@ -70,16 +70,18 @@ class MidiRenderer {
             int _tickOffset;
             Measure const * first;
             Measure const * last;
+            int _playbackCount;     // pass through the repeat, see RepeatSegment::playbackCount
 
          public:
-            Chunk(int tickOffset, Measure const * fst, Measure const * lst)
-               : _tickOffset(tickOffset), first(fst), last(lst) {}
+            Chunk(int tickOffset, Measure const * fst, Measure const * lst, int playbackCount = 1)
+               : _tickOffset(tickOffset), first(fst), last(lst), _playbackCount(playbackCount) {}
 
             Chunk() // "invalid chunk" constructor
-               : _tickOffset(0), first(nullptr), last(nullptr) {}
+               : _tickOffset(0), first(nullptr), last(nullptr), _playbackCount(1) {}
 
             operator bool() const { return bool(first); }
             int tickOffset() const { return _tickOffset; }
+            int playbackCount() const { return _playbackCount; }
             Measure const * startMeasure() const { return first; }
             Measure const * endMeasure() const { return last ? last->nextMeasure() : nullptr; }
             Measure const * lastMeasure() const { return last; }
@@ -109,9 +111,9 @@ class MidiRenderer {
       void renderMetronome(const Chunk&, EventMap* events);
       void renderMetronome(EventMap* events, Measure const * m, const Fraction& tickOffset);
 
-      void collectMeasureEvents(EventMap* events, Measure const * m, const MidiRenderer::StaffContext& sctx, int tickOffset);
-      void collectMeasureEventsSimple(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset);
-      void collectMeasureEventsDefault(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset);
+      void collectMeasureEvents(EventMap* events, Measure const * m, const MidiRenderer::StaffContext& sctx, int tickOffset, int pass);
+      void collectMeasureEventsSimple(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset, int pass);
+      void collectMeasureEventsDefault(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset, int pass);
 
    public:
       explicit MidiRenderer(Score* s) : score(s) {}

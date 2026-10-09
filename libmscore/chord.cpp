@@ -2644,7 +2644,7 @@ void Chord::layoutSpanners(System* system, const Fraction& stick)
             if (t)
                   t->layoutFor(system);
             t = note->tieBack();
-            if (t) {
+            if (t && !t->partial()) {
                   if (t->startNote()->tick() < stick)
                         t->layoutBack(system);
                   }

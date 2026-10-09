@@ -42,8 +42,25 @@ class AccidentalState;
 class Spanner;
 class Part;
 class RepeatMeasure;
+class TextBase;
 
 class MStaff;
+
+//---------------------------------------------------------
+//   TwoPassBracket
+//    "2x ( ... )" around one later pass of a 2x (play-twice)
+//    staff measure; the texts are segment annotations that are
+//    positioned around first..last during layout
+//---------------------------------------------------------
+
+struct TwoPassBracket {
+      int staffIdx { 0 };
+      ChordRest* first { nullptr };
+      ChordRest* last { nullptr };
+      TextBase* label { nullptr };     // "2x", above the opening parenthesis
+      TextBase* open { nullptr };
+      TextBase* close { nullptr };
+      };
 
 //---------------------------------------------------------
 //   MeasureNumberMode
@@ -83,6 +100,8 @@ class Measure final : public MeasureBase {
 
       MeasureNumberMode _noMode;
       bool _breakMultiMeasureRest;
+
+      std::vector<TwoPassBracket> _twoPassBrackets;
 
       void push_back(Segment* e);
       void push_front(Segment* e);
@@ -229,6 +248,9 @@ class Measure final : public MeasureBase {
       bool isCutawayClef(int staffIdx) const;
       bool isFullMeasureRest() const;
       bool isRepeatMeasure(const Staff* staff) const;
+      int passCount(int staffIdx) const;
+      std::vector<TwoPassBracket>& twoPassBrackets()             { return _twoPassBrackets; }
+      const std::vector<TwoPassBracket>& twoPassBrackets() const { return _twoPassBrackets; }
       bool visible(int staffIdx) const;
       bool stemless(int staffIdx) const;
       LayoutBreak* nextSectionBreak() const;

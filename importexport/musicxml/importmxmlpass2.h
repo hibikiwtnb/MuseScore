@@ -312,6 +312,7 @@ public:
 private:
       void addError(const QString& error);      ///< Add an error to be shown in the GUI
       void initPartState(const QString& partId);
+      void applyTwoPassMeasures();
       SpannerSet findIncompleteSpannersAtPartEnd();
       Score::FileError parse();
       void scorePartwise();
@@ -386,6 +387,7 @@ private:
       std::vector<Note*> _unstartedTieNotes;
       std::vector<Note*> _unendedTieNotes;
       MusicXmlSpannerMap _spanners;
+      QHash<ChordRest*, int> _timeOnlyPass;       ///< pass of chordrests with a single time-only value (2x measures)
 
       MusicXmlExtendedSpannerDesc _pedal;         ///< Current pedal
       Pedal* _pedalContinue;                      ///< Current pedal type="change" requiring fixup

@@ -260,6 +260,11 @@ void TimeSig::layout()
       pz = QPointF();
       pn = QPointF();
       pointLargeRightParen = QPointF();
+      if (_helper) {
+            ns.clear();
+            ds.clear();
+            return;
+            }
 
       qreal lineDist;
       int   numOfLines;
@@ -384,6 +389,8 @@ void TimeSig::layout()
 
 void TimeSig::draw(QPainter* painter) const
       {
+      if (_helper)
+            return;
       if (staff() && !const_cast<const Staff*>(staff())->staffType(tick())->genTimesig())
             return;
       painter->setPen(curColor());

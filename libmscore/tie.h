@@ -67,9 +67,15 @@ class Tie final : public SlurTie {
 
    private:
       bool _isInside{ false };
+      bool _partial{ false };       // drawn as a short bow; endNote() is only used for playback
 
    public:
       Tie(Score* = 0);
+
+      // A partial tie leaves the first pass of a 2x (play-twice) measure: it is drawn
+      // as a short bow and its end note does not point back to it.
+      bool partial() const          { return _partial; }
+      void setPartial(bool v)       { _partial = v;    }
 
       Tie* clone() const override       { return new Tie(*this);  }
       ElementType type() const override { return ElementType::TIE; }

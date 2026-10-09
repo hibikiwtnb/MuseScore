@@ -314,10 +314,52 @@ static void playNote(EventMap* events,
       }
 
 //---------------------------------------------------------
+//   2x (play-twice) measures
+//    A staff measure with passCount() N holds N passes side
+//    by side, each squeezed into 1/N of the measure. Pass k
+//    plays only the k-th part, moved to the measure start and
+//    at its written length; later passes repeat the last part.
+//---------------------------------------------------------
+
+static int passCountAt(const ChordRest* cr)
+      {
+      const Measure* m = cr->measure();
+      return m ? m->passCount(cr->staffIdx()) : 1;
+      }
+
+static int passOf(const ChordRest* cr, int passes)
+      {
+      const Measure* m = cr->measure();
+      const Fraction part = ((cr->tick() - m->tick()) * passes / m->ticks()).reduced();
+      return std::min(passes, part.numerator() / part.denominator() + 1);
+      }
+
+static bool playsInPass(const ChordRest* cr, int pass)
+      {
+      const int passes = passCountAt(cr);
+      return passes == 1 || passOf(cr, passes) == std::min(pass, passes);
+      }
+
+static int playTick(const ChordRest* cr)
+      {
+      const int passes = passCountAt(cr);
+      if (passes == 1)
+            return cr->tick().ticks();
+      const Measure* m = cr->measure();
+      const Fraction local = (cr->tick() - m->tick()) * passes - m->ticks() * (passOf(cr, passes) - 1);
+      return (m->tick() + local).ticks();
+      }
+
+static int playTicks(const ChordRest* cr)
+      {
+      return (cr->actualTicks() * passCountAt(cr)).ticks();
+      }
+
+//---------------------------------------------------------
 //   collectNote
 //---------------------------------------------------------
 
-static void collectNote(EventMap* events, int channel, const Note* note, qreal velocityMultiplier, int tickOffset, Staff* staff, SndConfig config)
+static void collectNote(EventMap* events, int channel, const Note* note, qreal velocityMultiplier, int tickOffset, Staff* staff, SndConfig config, int pass)
       {
       if (!note->play() || note->hidden())      // do not play overlapping notes
             return;
@@ -331,7 +373,7 @@ static void collectNote(EventMap* events, int channel, const Note* note, qreal v
             chord = toChord(chord->parent());
             }
 
-      ticks = chord->actualTicks().ticks(); // ticks of the actual note
+      ticks = playTicks(chord); // ticks of the actual note
       // calculate additional length due to ties forward
       // taking NoteEvent length adjustments into account
       // but stopping at any note with multiple NoteEvents
@@ -344,11 +386,11 @@ static void collectNote(EventMap* events, int channel, const Note* note, qreal v
                         // add value of this note to main note
                         // if we wish to suppress first note of ornament,
                         // then do this regardless of number of NoteEvents
-                        tieLen += (n->chord()->actualTicks().ticks() * (nel[0].len())) / 1000;
+                        tieLen += (playTicks(n->chord()) * (nel[0].len())) / 1000;
                         }
                   else {
                         // recurse
-                        collectNote(events, channel, n, velocityMultiplier, tickOffset, staff, config);
+                        collectNote(events, channel, n, velocityMultiplier, tickOffset, staff, config, pass);
                         break;
                         }
                   if (n->tieFor() && n != n->tieFor()->endNote())
@@ -358,9 +400,10 @@ static void collectNote(EventMap* events, int channel, const Note* note, qreal v
                   }
             }
 
-      int tick1    = chord->tick().ticks() + tickOffset;
+      int tick1    = playTick(chord) + tickOffset;
       bool tieFor  = note->tieFor();
-      bool tieBack = note->tieBack();
+      // a partial tie only reaches this note from the first pass
+      bool tieBack = note->tieBack() && !(note->tieBack()->partial() && pass > 1);
 
       NoteEventList nel = note->playEvents();
       int nels = nel.size();
@@ -712,7 +755,7 @@ static void renderHarmony(EventMap* events, Measure const * m, Harmony* h, int t
 //    the original, velocity-only method of collecting events.
 //---------------------------------------------------------
 
-void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset)
+void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset, int pass)
       {
       int firstStaffIdx = sctx.staff->idx();
       int nextStaffIdx  = firstStaffIdx + 1;
@@ -751,6 +794,8 @@ void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * 
                         continue;
 
                   Chord* chord = toChord(cr);
+                  if (!playsInPass(chord, pass))
+                        continue;
                   Staff* st1   = chord->staff();
                   Instrument* instr = chord->part()->instrument(Fraction::fromTicks(tick));
                   int channel = instr->channel(chord->upNote()->subchannel())->channel();
@@ -768,15 +813,15 @@ void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * 
                   if (!graceNotesMerged(chord))
                         for (Chord*& c : chord->graceNotesBefore())
                               for (const Note* note : c->notes())
-                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
 
                   for (const Note* note : chord->notes())
-                        collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                        collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
 
                   if (!graceNotesMerged(chord))
                         for (Chord*& c : chord->graceNotesAfter())
                               for (const Note* note : c->notes())
-                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
                   }
             }
       }
@@ -791,7 +836,7 @@ void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * 
 //          SEG_START - note-on velocity is the same as the start velocity of the seg
 //---------------------------------------------------------
 
-void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset)
+void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset, int pass)
       {
       int controller = getControllerFromCC(sctx.cc);
 
@@ -841,6 +886,8 @@ void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const *
                         continue;
 
                   Chord* chord = toChord(cr);
+                  if (!playsInPass(chord, pass))
+                        continue;
 
                   Instrument* instr = st1->part()->instrument(tick);
                   int subchannel = chord->upNote()->subchannel();
@@ -866,15 +913,15 @@ void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const *
                   if (!graceNotesMerged(chord))
                         for (Chord*& c : chord->graceNotesBefore())
                               for (const Note* note : c->notes())
-                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
 
                   for (const Note* note : chord->notes())
-                        collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                        collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
 
                   if (!graceNotesMerged(chord))
                         for (Chord*& c : chord->graceNotesAfter())
                               for (const Note* note : c->notes())
-                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config);
+                                    collectNote(events, channel, note, veloMultiplier, tickOffset, st1, config, pass);
                   }
             }
       }
@@ -884,15 +931,15 @@ void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const *
 //    redirects to the correct function based on the passed method
 //---------------------------------------------------------
 
-void MidiRenderer::collectMeasureEvents(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset)
+void MidiRenderer::collectMeasureEvents(EventMap* events, Measure const * m, const StaffContext& sctx, int tickOffset, int pass)
       {
       switch (sctx.method) {
             case DynamicsRenderMethod::SIMPLE:
-                  collectMeasureEventsSimple(events, m, sctx, tickOffset);
+                  collectMeasureEventsSimple(events, m, sctx, tickOffset, pass);
                   break;
             case DynamicsRenderMethod::SEG_START:
             case DynamicsRenderMethod::FIXED_MAX:
-                  collectMeasureEventsDefault(events, m, sctx, tickOffset);
+                  collectMeasureEventsDefault(events, m, sctx, tickOffset, pass);
                   break;
             default:
                   qDebug("Unrecognized dynamics method: %d", int(sctx.method));
@@ -1119,11 +1166,11 @@ void MidiRenderer::renderStaffChunk(const Chunk& chunk, EventMap* events, const 
             if (m->isRepeatMeasure(sctx.staff)) {
                   if (const Measure* source = repeatSource(m, sctx.staff)) {
                         int offset = (m->tick() - source->tick()).ticks();
-                        collectMeasureEvents(events, source, sctx, tickOffset + offset);
+                        collectMeasureEvents(events, source, sctx, tickOffset + offset, chunk.playbackCount());
                         }
                   }
             else
-                  collectMeasureEvents(events, m, sctx, tickOffset);
+                  collectMeasureEvents(events, m, sctx, tickOffset, chunk.playbackCount());
             }
       }
 
@@ -2559,7 +2606,7 @@ void MidiRenderer::updateChunksPartition()
 
             if (!minChunkSize) {
                   // just make chunks corresponding to repeat segments
-                  chunks.emplace_back(tickOffset, rs->firstMeasure(), rs->lastMeasure());
+                  chunks.emplace_back(tickOffset, rs->firstMeasure(), rs->lastMeasure(), rs->playbackCount);
                   continue;
                   }
 
@@ -2573,14 +2620,14 @@ void MidiRenderer::updateChunksPartition()
                   if ((++count) >= minChunkSize)
                         needBreak = true;
                   if (needBreak && canBreakChunk(m)) {
-                        chunks.emplace_back(tickOffset, chunkStart, m);
+                        chunks.emplace_back(tickOffset, chunkStart, m, rs->playbackCount);
                         chunkStart = nullptr;
                         needBreak = false;
                         count = 0;
                         }
                   }
             if (chunkStart) // last measures did not get added to chunk list
-                  chunks.emplace_back(tickOffset, chunkStart, rs->lastMeasure());
+                  chunks.emplace_back(tickOffset, chunkStart, rs->lastMeasure(), rs->playbackCount);
             }
 
       if (score != repeatList.score()) {
@@ -2590,7 +2637,7 @@ void MidiRenderer::updateChunksPartition()
             for (Chunk& ch : chunks) {
                   Measure* first = score->tick2measure(ch.startMeasure()->tick());
                   Measure* last = score->tick2measure(ch.lastMeasure()->tick());
-                  ch = Chunk(ch.tickOffset(), first, last);
+                  ch = Chunk(ch.tickOffset(), first, last, ch.playbackCount());
                   }
             }
       }
