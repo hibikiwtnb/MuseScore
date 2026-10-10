@@ -147,12 +147,12 @@ AboutBoxDialog::AboutBoxDialog()
             ":/data/musescore-logo-transbg-m.png" : ":/data/musescore_logo_full.png"));
 
       if (MuseScore::unstable())
-            versionLabel->setText(tr("Unstable Prerelease for Version: %1").arg(VERSION) + tr(" Evolution"));
+            versionLabel->setText(tr("Unstable Prerelease for Version: %1").arg(VERSION) + tr(" Bandscore"));
       else {
             auto msVersion = QString(VERSION);
             if (strlen(BUILD_NUMBER))
                   msVersion += QString("-") + QString(BUILD_NUMBER); // + QString(" Beta");
-            versionLabel->setText(tr("Version: %1").arg(msVersion) + tr(" Evolution")
+            versionLabel->setText(tr("Version: %1").arg(msVersion) + tr(" Bandscore")
 #if defined(Q_OS_WIN) // only the Windows builds come in 32- or 64-bit, all others in 64-bit only
                                   + QString(" %1-bit").arg(QSysInfo::WordSize)
 #if defined(WIN_PORTABLE)

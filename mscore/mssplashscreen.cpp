@@ -93,7 +93,7 @@ void MsSplashScreen::drawContents(QPainter* painter)
             drawDebugRect(painter, _devBuildIconRect, 0xFF, 0x80, 0x80);
 
             painter->setPen(textColor);
-            painter->drawText(_devBuildTextRect, Qt::AlignHCenter | Qt::AlignTop, tr("Evolution"));
+            painter->drawText(_devBuildTextRect, Qt::AlignHCenter | Qt::AlignTop, tr("Bandscore"));
             drawDebugRect(painter, _devBuildTextRect, 0xFF, 0x80, 0x80);
             }
 

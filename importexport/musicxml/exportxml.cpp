@@ -6555,7 +6555,7 @@ static void identification(XmlWriter& xml, Score const* const score)
             xml.tag("encoding-date", QString("2007-09-10"));
             }
       else {
-            xml.tag("software", QString("MuseScore ") + QString(VERSION) + " Evolution");
+            xml.tag("software", QString("MuseScore ") + QString(VERSION) + " Bandscore");
             xml.tag("encoding-date", QDate::currentDate().toString(Qt::ISODate));
             }
 
