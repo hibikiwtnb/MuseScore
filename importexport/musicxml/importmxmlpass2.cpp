@@ -1794,7 +1794,7 @@ static int singleTimeOnlyPass(const QString& timeOnly)
 static QString twoPassParenthesisFont()
       {
 #if defined(Q_OS_MAC)
-      return QString("Hiragino Mincho ProN");
+      return QString("LiSong Pro");
 #elif defined(Q_OS_WIN)
       return QString("MS Mincho");
 #else
