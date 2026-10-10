@@ -3543,11 +3543,9 @@ void MusicXMLParserPass2::staffDetails(const QString& partId, Measure* measure)
                   measure->setStaffVisible(staffIdx, false);
                   }
             else if (measure && !measure->hasVoices(staffIdx) && measure->isOnlyRests(staffIdx * VOICES)) {
-                  // measures with print-object="no" are generally exported by exporters such as dolet when empty staves are hidden.
-                  // for this reason, if we see print-object="no" (and no print-spacing), we can assume that this indicates we should set
-                  // the hide empty staves style.
-                  _score->style().set(Sid::hideEmptyStaves, true);
-                  _score->style().set(Sid::dontHideStavesInFirstSystem, false);
+                  // An empty staff the source did not print (a band score prints only the parts
+                  // playing in a system). Shown anyway: hiding empty staves would hide every
+                  // resting part of the whole score (all but the vocal on an intro page).
                   }
             else {
                   // this doesn't apply to a measure, so we'll assume the entire staff has to be hidden.
@@ -3793,6 +3791,10 @@ void MusicXMLParserPass2::applyMeasureRepeats()
       for (const auto& staffMarks : marksPerStaff) {
             const int staffIdx = staffMarks.first;
             const auto& marks = staffMarks.second;
+            // No "%" on a tablature: its content is not read (empty), a repeat sign alone on it
+            // would stand for nothing
+            if (_score->staff(staffIdx)->isTabStaff(Fraction(0, 1)))
+                  continue;
             bool active = false;
             for (Measure* m = _score->firstMeasure(); m; m = m->nextMeasure()) {
                   bool explicitStart = false;

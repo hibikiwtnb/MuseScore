@@ -394,7 +394,8 @@ private slots:
             {
             MasterScore* score = readScore(DIR + "testHiddenStaves.xml");
 
-            QVERIFY(score->style().value(Sid::hideEmptyStaves).toBool());
+            // bandscore: empty unprinted staves are shown, never "hide empty staves"
+            QVERIFY(!score->style().value(Sid::hideEmptyStaves).toBool());
             }
       };
 

@@ -2821,12 +2821,9 @@ void MusicXMLParserPass1::attributes(const QString& partId, const Fraction cTime
             // (MuseScore doesn't currently have a mechanism
             // for hiding non-empty staves, so this is an approximation
             // of the correct implementation)
+            // Hidden staves are shown anyway (band scores: every part is shown, also when the
+            // source left it out of a system)
             setNumberOfStavesForPart(_partMap.value(partId), staves);
-            for (int hiddenStaff : hiddenStaves) {
-                  int hiddenStaffIndex = _parts.value(partId).staffNumberToIndex(hiddenStaff);
-                  if (hiddenStaffIndex >= 0)
-                        _partMap.value(partId)->staff(hiddenStaffIndex)->setHideWhenEmpty(Staff::HideMode::AUTO);
-                  }
             }
       }
 
