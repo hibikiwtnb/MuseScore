@@ -796,6 +796,8 @@ void MidiRenderer::collectMeasureEventsSimple(EventMap* events, Measure const * 
                   Chord* chord = toChord(cr);
                   if (!playsInPass(chord, pass))
                         continue;
+                  if (chord->onlyPass() && chord->onlyPass() != _occurrence)
+                        continue;   // e.g. "1x tacet": plays only when its measure is played again
                   Staff* st1   = chord->staff();
                   Instrument* instr = chord->part()->instrument(Fraction::fromTicks(tick));
                   int channel = instr->channel(chord->upNote()->subchannel())->channel();
@@ -888,6 +890,8 @@ void MidiRenderer::collectMeasureEventsDefault(EventMap* events, Measure const *
                   Chord* chord = toChord(cr);
                   if (!playsInPass(chord, pass))
                         continue;
+                  if (chord->onlyPass() && chord->onlyPass() != _occurrence)
+                        continue;   // e.g. "1x tacet": plays only when its measure is played again
 
                   Instrument* instr = st1->part()->instrument(tick);
                   int subchannel = chord->upNote()->subchannel();
@@ -1156,6 +1160,26 @@ static const Measure* repeatSource(const Measure* m, const Staff* staff)
       return nullptr;
       }
 
+//---------------------------------------------------------
+//   occurrence
+//    the how-many-th time measure m is played when it is played
+//    in this chunk: 1 + the earlier chunks (play order) holding m,
+//    whatever brought the playback back (repeat, D.S., D.C.)
+//---------------------------------------------------------
+
+int MidiRenderer::occurrence(const Chunk& chunk, const Measure* m) const
+      {
+      const int t = m->tick().ticks();
+      int n = 1;
+      for (const Chunk& c : chunks) {
+            if (c.utick1() >= chunk.utick1())
+                  break;
+            if (c.tick1() <= t && t < c.tick2())
+                  ++n;
+            }
+      return n;
+      }
+
 void MidiRenderer::renderStaffChunk(const Chunk& chunk, EventMap* events, const StaffContext& sctx)
       {
       Measure const * const start = chunk.startMeasure();
@@ -1163,6 +1187,7 @@ void MidiRenderer::renderStaffChunk(const Chunk& chunk, EventMap* events, const 
       const int tickOffset = chunk.tickOffset();
 
       for (Measure const * m = start; m != end; m = m->nextMeasure()) {
+            _occurrence = occurrence(chunk, m);
             if (m->isRepeatMeasure(sctx.staff)) {
                   if (const Measure* source = repeatSource(m, sctx.staff)) {
                         int offset = (m->tick() - source->tick()).ticks();

@@ -11,6 +11,7 @@
 //=============================================================================
 
 #include "marker.h"
+#include <QRegularExpression>
 #include "measure.h"
 #include "score.h"
 #include "xml.h"
@@ -62,6 +63,20 @@ Marker::Marker(Score* s, Tid tid)
       }
 
 //---------------------------------------------------------
+//   setDefaultLabel
+//    the default label of the marker type, unless the label is
+//    a numbered one of that type ("segno1", "coda1b": numbered
+//    segnos and codas of band scores, see markerType())
+//---------------------------------------------------------
+
+void Marker::setDefaultLabel(const QString& s)
+      {
+      if (_label.contains(QRegularExpression("[0-9]")) && markerType(_label) == _markerType)
+            return;
+      setLabel(s);
+      }
+
+//---------------------------------------------------------
 //   setMarkerType
 //---------------------------------------------------------
 
@@ -72,45 +87,45 @@ void Marker::setMarkerType(Type t)
       switch (t) {
             case Type::SEGNO:
                   txt = "<sym>segno</sym>";
-                  setLabel("segno");
+                  setDefaultLabel("segno");
                   break;
 
             case Type::VARSEGNO:
                   txt = "<sym>segnoSerpent1</sym>";
-                  setLabel("varsegno");
+                  setDefaultLabel("varsegno");
                   break;
 
             case Type::CODA:
                   txt = "<sym>coda</sym>";
-                  setLabel("codab");
+                  setDefaultLabel("codab");
                   break;
 
             case Type::VARCODA:
                   txt = "<sym>codaSquare</sym>";
-                  setLabel("varcoda");
+                  setDefaultLabel("varcoda");
                   break;
 
             case Type::CODETTA:
                   txt = "<sym>coda</sym><sym>coda</sym>";
-                  setLabel("codetta");
+                  setDefaultLabel("codetta");
                   break;
 
             case Type::FINE:
                   txt = "Fine";
                   initTid(Tid::REPEAT_RIGHT, true);
-                  setLabel("fine");
+                  setDefaultLabel("fine");
                   break;
 
             case Type::TOCODA:
                   txt = "To Coda";
                   initTid(Tid::REPEAT_RIGHT, true);
-                  setLabel("coda");
+                  setDefaultLabel("coda");
                   break;
 
             case Type::TOCODASYM:
                   txt = "To <font size=\"20\"/><sym>coda</sym>";
                   initTid(Tid::REPEAT_RIGHT, true);
-                  setLabel("coda");
+                  setDefaultLabel("coda");
                   break;
 
             case Type::USER:
@@ -147,8 +162,12 @@ void Marker::styleChanged()
 //   markerType
 //---------------------------------------------------------
 
-Marker::Type Marker::markerType(const QString& s) const
+Marker::Type Marker::markerType(const QString& label) const
       {
+      // numbered segnos and codas of band scores ("segno1", "coda1", "coda1b", see the
+      // MusicXML import): the number names the marker, the rest gives its type
+      QString s = label;
+      s.remove(QRegularExpression("[0-9]+"));
       if (s == "segno")
             return Type::SEGNO;
       else if (s == "varsegno")

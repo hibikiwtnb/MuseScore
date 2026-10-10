@@ -63,6 +63,7 @@ class Marker final : public TextBase {
 
       QString label() const            { return _label; }
       void setLabel(const QString& s)  { _label = s; }
+      void setDefaultLabel(const QString& s);
       void undoSetLabel(const QString& s);
       void undoSetMarkerType(const Type t);
 

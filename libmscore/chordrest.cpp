@@ -71,6 +71,7 @@ ChordRest::ChordRest(const ChordRest& cr, bool link)
       {
       _durationType = cr._durationType;
       _staffMove    = cr._staffMove;
+      _onlyPass     = cr._onlyPass;
       _beam         = 0;
       _tabDur       = 0;  // tab sur. symb. depends upon context: can't be
                           // simply copied from another CR
@@ -163,6 +164,8 @@ void ChordRest::writeProperties(XmlWriter& xml) const
             xml.tag("BeamMode", s);
             }
       writeProperty(xml, Pid::SMALL);
+      if (_onlyPass)
+            xml.tag("onlyPass", _onlyPass);
       if (actualDurationType().dots())
             xml.tag("dots", actualDurationType().dots());
       writeProperty(xml, Pid::STAFF_MOVE);
@@ -208,7 +211,9 @@ bool ChordRest::readProperties(XmlReader& e)
       {
       const QStringRef& tag(e.name());
 
-      if (tag == "durationType") {
+      if (tag == "onlyPass")
+            _onlyPass = e.readInt();
+      else if (tag == "durationType") {
             setDurationType(e.readElementText());
             if (actualDurationType().type() != TDuration::DurationType::V_MEASURE) {
                   if (score()->mscVersion() < 112 && (type() == ElementType::REST) &&

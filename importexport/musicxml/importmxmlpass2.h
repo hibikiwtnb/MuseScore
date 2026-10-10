@@ -477,6 +477,7 @@ private:
       void dynamics();
       void otherDirection();
       void handleRepeats(Measure* measure, const int track, const Fraction tick);
+      void setRepeatLabels(TextBase* tb) const;
       QString matchRepeat() const;
       void handleNmiCmi(Measure* measure, const int track, const Fraction tick, DelayedDirectionsList& delayedDirections);
       void handleChordSym(const int track, const Fraction tick, HarmonyMap& harmonyMap);

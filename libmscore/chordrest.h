@@ -51,6 +51,7 @@ class ChordRest : public DurationElement {
       ElementList _el;
       TDuration _durationType;
       int _staffMove;         // -1, 0, +1, used for crossbeaming
+      int _onlyPass { 0 };    // plays only the n-th time its measure is played (MusicXML time-only), 0: always
 
       void processSiblings(std::function<void(Element*)> func);
 
@@ -115,6 +116,8 @@ class ChordRest : public DurationElement {
       void undoSetSmall(bool val);
 
       int staffMove() const                     { return _staffMove; }
+      int onlyPass() const                      { return _onlyPass; }
+      void setOnlyPass(int n)                   { _onlyPass = n; }
       void setStaffMove(int val)                { _staffMove = val; }
       virtual int vStaffIdx() const override    { return staffIdx() + _staffMove;  }
 

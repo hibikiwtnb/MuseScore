@@ -93,6 +93,9 @@ class MidiRenderer {
 
    private:
       std::vector<Chunk> chunks;
+      int _occurrence { 1 };  // the how-many-th time the measure being collected is played
+
+      int occurrence(const Chunk& chunk, const Measure* m) const;
 
       struct StaffContext
             {

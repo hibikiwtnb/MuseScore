@@ -53,6 +53,7 @@
 #include "libmscore/ottava.h"
 #include "libmscore/page.h"
 #include "libmscore/repeat.h"
+#include <set>
 #include "libmscore/part.h"
 #include "libmscore/pedal.h"
 #include "libmscore/rehearsalmark.h"
@@ -2121,6 +2122,7 @@ void MusicXMLParserPass2::applyTwoPassMeasures()
             Measure* m { nullptr };
             int staffIdx { 0 };
             int passes { 1 };
+            std::set<int> passSet;  // the passes its time-only notes name
             };
       std::map<std::pair<int, int>, StaffMeasure> staffMeasures;   // (tick, staff) in score order
       for (auto i = _timeOnlyPass.cbegin(); i != _timeOnlyPass.cend(); ++i) {
@@ -2132,7 +2134,23 @@ void MusicXMLParserPass2::applyTwoPassMeasures()
             StaffMeasure& sm = staffMeasures[{ m->tick().ticks(), staffIdx }];
             sm.m = m;
             sm.staffIdx = staffIdx;
-            sm.passes = std::max(sm.passes, i.value());
+            sm.passSet.insert(i.value());
+            }
+
+      // A staff measure whose time-only notes all name one pass (e.g. "1x tacet": time-only="2")
+      // is not a 2x measure: it keeps its layout, and its chords play only on that pass.
+      // Only measures holding notes of two passes or more are laid out side by side.
+      for (auto i = _timeOnlyPass.cbegin(); i != _timeOnlyPass.cend(); ++i) {
+            ChordRest* cr = i.key();
+            if (!cr->measure())
+                  continue;
+            const StaffMeasure& sm = staffMeasures[{ cr->measure()->tick().ticks(), cr->track() / VOICES }];
+            if (sm.passSet.size() == 1)
+                  cr->setOnlyPass(i.value());
+            }
+      for (auto& i : staffMeasures) {
+            StaffMeasure& sm = i.second;
+            sm.passes = sm.passSet.size() > 1 ? *sm.passSet.rbegin() : 1;
             }
 
       for (auto& i : staffMeasures) {
@@ -5111,12 +5129,59 @@ void MusicXMLParserDirection::addInferredCrescLine(const int track, const Fracti
       }
 
 //---------------------------------------------------------
+//   setRepeatLabels
+//    Numbered segnos and codas (band scores: "𝄋①", "D.S.①"):
+//    the values of the <sound> attributes name the markers, so
+//    that each jump finds its own. A segno marker is labelled
+//    with its segno value; a To Coda marker with its tocoda
+//    value; a Coda marker with its coda value + "b" (MuseScore
+//    keeps "coda" for To Coda and "codab" for Coda; see codaLabel()). A D.S.
+//    jumps to its dalsegno value, and with a tocoda value plays
+//    until that To Coda and continues at its Coda.
+//---------------------------------------------------------
+
+// the label of the Coda marker for a coda name: "coda1" -> "coda1b", "coda" -> "codab";
+// a name already in MuseScore's Coda form ("codab", as MuseScore exports it) is kept
+static QString codaLabel(const QString& name)
+      {
+      QString base = name;
+      base.remove(QRegularExpression("[0-9]+"));
+      return base == "coda" ? name + "b" : name;
+      }
+
+void MusicXMLParserDirection::setRepeatLabels(TextBase* tb) const
+      {
+      if (tb->isMarker()) {
+            Marker* m = toMarker(tb);
+            if (m->markerType() == Marker::Type::SEGNO && !_sndSegno.isEmpty())
+                  m->setLabel(_sndSegno);
+            else if (m->markerType() == Marker::Type::TOCODA && !_sndToCoda.isEmpty())
+                  m->setLabel(_sndToCoda);
+            else if (m->markerType() == Marker::Type::CODA && !_sndCoda.isEmpty())
+                  m->setLabel(codaLabel(_sndCoda));
+            }
+      else if (tb->isJump()) {
+            Jump* j = toJump(tb);
+            if (!_sndDalsegno.isEmpty() && _sndDalsegno != "yes")
+                  j->setJumpTo(_sndDalsegno);
+            if (!_sndToCoda.isEmpty() && _sndToCoda != "yes") {
+                  j->setPlayUntil(_sndToCoda);
+                  j->setContinueAt(codaLabel(_sndToCoda));
+                  }
+            }
+      }
+
+//---------------------------------------------------------
 //   handleRepeats
 //---------------------------------------------------------
 
 void MusicXMLParserDirection::handleRepeats(Measure* measure, const int track, const Fraction tick)
       {
-      if (!preferences.getBool(PREF_IMPORT_MUSICXML_IMPORTINFERTEXTTYPE))
+      // The <sound> attributes say what the direction does, whatever its text: always used.
+      // Guessing from the text alone (matchRepeat) only when text inference is on.
+      const bool hasSound = !(_sndCoda.isEmpty() && _sndDacapo.isEmpty() && _sndDalsegno.isEmpty()
+                              && _sndFine.isEmpty() && _sndSegno.isEmpty() && _sndToCoda.isEmpty());
+      if (!hasSound && !preferences.getBool(PREF_IMPORT_MUSICXML_IMPORTINFERTEXTTYPE))
             return;
       // Try to recognize the various repeats
       QString repeat;
@@ -5141,6 +5206,7 @@ void MusicXMLParserDirection::handleRepeats(Measure* measure, const int track, c
             TextBase* tb = nullptr;
             if ((tb = findJump(repeat, _score)) || (tb = findMarker(repeat, _score))) {
                   tb->setTrack(track);
+                  setRepeatLabels(tb);
                   if (!_wordsText.isEmpty()) {
                         tb->setXmlText(_wordsText);
                         _wordsText.clear();
