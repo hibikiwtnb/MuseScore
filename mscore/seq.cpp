@@ -2566,18 +2566,12 @@ void Seq::putEvent(const NPlayEvent& event, unsigned framePos)
             return;
             }
 
-      // With a PortMidi output a part plays in one place only: an SFZ sound
-      // (Zerberus) in the internal synth, every other sound on the external module
-      const QString synti = cs->midiMapping(channel)->articulation()->synti();
-      const bool internalOnly = cachedPrefs.usePortMidiOutput && synti == "Zerberus";
-      const bool externalOnly = cachedPrefs.usePortMidiOutput && !internalOnly;
-
       // audio
-      if (!externalOnly)
-            _synti->play(event, _synti->index(synti));
+      int syntiIdx= _synti->index(cs->midiMapping(channel)->articulation()->synti());
+      _synti->play(event, syntiIdx);
 
       // midi
-      if (!internalOnly && _driver != 0 && (cachedPrefs.useJackMidi || cachedPrefs.useAlsaAudio || cachedPrefs.usePortAudio))
+      if (_driver != 0 && (cachedPrefs.useJackMidi || cachedPrefs.useAlsaAudio || cachedPrefs.usePortAudio))
             _driver->putEvent(event, framePos);
       }
 
