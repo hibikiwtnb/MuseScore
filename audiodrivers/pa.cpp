@@ -289,29 +289,69 @@ void Portaudio::midiRead()
 #define less128(__less) ((__less >=0 && __less <= 127) ? __less : 0)
 
 //---------------------------------------------------------
-//   outputChannel
-//    The one PortMidi output has 16 channels and no ports. A score's own
-//    channels can collide there: a MusicXML file may fix some parts' channels
-//    while the others are numbered from 1, and a second port folds onto the first.
-//    Every part channel gets its own MIDI channel instead, in score order,
-//    with drum sets (bank 128, or channel 10 in the score) on channel 10.
+//   OutputChannels
+//    The one PortMidi output has 16 channels and no ports, while a score can
+//    use more: instrument changes, and articulations a part never plays
+//    (pizzicato, slap) each hold a channel of their own. A part channel
+//    therefore gets a MIDI channel only when it first sounds a note, and its
+//    bank, program and controllers are sent along then. When all 15 are taken,
+//    the one silent longest is handed over. Drum sets always play on channel 10.
 //---------------------------------------------------------
 
-static int outputChannel(MasterScore* score, int idx)
-      {
-      const std::vector<MidiMapping>& mapping = score->midiMapping();
-      int next = 0;
-      for (int i = 0; i < int(mapping.size()); ++i) {
-            const MidiMapping& m = mapping[i];
-            const bool drums = m.channel() == 9 || (m.articulation() && m.articulation()->bank() == 128);
-            if (i == idx)
-                  return drums ? 9 : next;
-            if (!drums && ++next == 9)
-                  ++next;
-            next %= 16;
+struct OutputChannels {
+      struct State {
+            int controller[128];
+            int program = -1;
+            int channel = -1;
+            State() { std::fill(std::begin(controller), std::end(controller), -1); }
+            };
+      const MasterScore* score = nullptr;
+      std::vector<State> parts;
+      int owner[16];
+      int sounding[16];
+      unsigned lastUse[16];
+      unsigned clock = 0;
+
+      void reset(const MasterScore* s)
+            {
+            score = s;
+            parts.clear();
+            std::fill(std::begin(owner), std::end(owner), -1);
+            std::fill(std::begin(sounding), std::end(sounding), 0);
+            std::fill(std::begin(lastUse), std::end(lastUse), 0);
             }
-      return score->midiChannel(idx);
-      }
+      State& part(int idx)
+            {
+            if (idx >= int(parts.size()))
+                  parts.resize(idx + 1);
+            return parts[idx];
+            }
+      int assign(int idx, bool drums)
+            {
+            int chan = 9;
+            if (!drums) {
+                  chan = -1;
+                  for (int pass = 0; pass < 3 && chan < 0; ++pass) {
+                        for (int c = 0; c < 16; ++c) {
+                              if (c == 9)
+                                    continue;
+                              bool usable = pass == 0 ? owner[c] == -1 : (pass == 1 ? sounding[c] == 0 : true);
+                              if (usable && (chan < 0 || lastUse[c] < lastUse[chan]))
+                                    chan = c;
+                              }
+                        }
+                  }
+            // drum parts share channel 10 instead of taking it from each other
+            if (!drums && owner[chan] >= 0 && owner[chan] < int(parts.size()))
+                  parts[owner[chan]].channel = -1;
+            owner[chan] = idx;
+            sounding[chan] = 0;
+            part(idx).channel = chan;
+            return chan;
+            }
+      };
+
+static OutputChannels outputChannels;
 
 // TODO: this was copied from Jack version...I'd like to eventually unify these two, so that they handle midi event types in the same manner
 void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
@@ -320,63 +360,84 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
       if (!portMidiDriver || !portMidiDriver->getOutputStream() || !portMidiDriver->canOutput())
             return;
 
-      int portIdx = seq->score()->midiPort(e.channel());
-      int chan    = outputChannel(seq->score(), e.channel());
+      MasterScore* score = seq->score();
+      const int idx = e.channel();
+      int portIdx = score->midiPort(idx);
 
       if (portIdx < 0 ) {
             qDebug("Portaudio::putEvent: invalid port %d", portIdx);
             return;
             }
 
-      if (midiOutputTrace) {
-            int a     = e.dataA();
-            int b     = e.dataB();
-            qDebug("MidiOut<%d>: Portaudio: %02x %02x %02x, chan: %i", portIdx, e.type(), a, b, chan);
+      auto write = [&](int status, int a, int b) {
+            PmError error = Pm_WriteShort(portMidiDriver->getOutputStream(), seq->getCurrentMillisecondTimestampWithLatency(framePos),
+                                          Pm_Message(status, less128(a), less128(b)));
+            if (error != pmNoError)
+                  qDebug("Portaudio: error %d", error);
+            };
+      // A drum set is bank 128 in the internal synth, bank MSB 1 on the wire;
+      // an XG module takes a drum kit from MSB 127 and would play MSB 1 as a melodic voice
+      auto controller = [&](int chan, int ctrl, int value) {
+            if (ctrl == CTRL_PROGRAM)
+                  write(ME_PROGRAM | chan, value, 0);
+            else
+                  write(ME_CONTROLLER | chan, ctrl, ctrl == CTRL_HBANK && value == 1 ? 127 : value);
+            };
+
+      OutputChannels& oc = outputChannels;
+      if (oc.score != score)
+            oc.reset(score);
+      OutputChannels::State& state = oc.part(idx);
+      if (e.type() == ME_CONTROLLER) {
+            if (e.dataA() == CTRL_PROGRAM)
+                  state.program = e.dataB();
+            else if (e.dataA() >= 0 && e.dataA() < 128)
+                  state.controller[e.dataA()] = e.dataB();
             }
+
+      const bool noteOn = e.type() == ME_NOTEON && e.velo() > 0;
+      int chan = state.channel;
+      if (chan < 0) {
+            if (!noteOn)
+                  return;
+            const Channel* articulation = score->midiMapping()[idx].articulation();
+            const bool drums = score->midiChannel(idx) == 9 || (articulation && articulation->bank() == 128);
+            chan = oc.assign(idx, drums);
+            for (int ctrl : { int(CTRL_HBANK), int(CTRL_LBANK) })
+                  if (state.controller[ctrl] >= 0)
+                        controller(chan, ctrl, state.controller[ctrl]);
+            if (state.program >= 0)
+                  controller(chan, CTRL_PROGRAM, state.program);
+            for (int ctrl = 0; ctrl < 128; ++ctrl)
+                  if (state.controller[ctrl] >= 0 && ctrl != CTRL_HBANK && ctrl != CTRL_LBANK)
+                        controller(chan, ctrl, state.controller[ctrl]);
+            }
+      if (e.type() == ME_NOTEON || e.type() == ME_NOTEOFF) {
+            oc.lastUse[chan] = ++oc.clock;
+            if (noteOn)
+                  ++oc.sounding[chan];
+            else if (oc.sounding[chan] > 0)
+                  --oc.sounding[chan];
+            }
+
+      if (midiOutputTrace)
+            qDebug("MidiOut<%d>: Portaudio: %02x %02x %02x, chan: %i", portIdx, e.type(), e.dataA(), e.dataB(), chan);
 
       switch(e.type()) {
             case ME_NOTEON:
             case ME_NOTEOFF:
             case ME_POLYAFTER:
-            case ME_CONTROLLER:
-                  // Catch CTRL_PROGRAM and let other ME_CONTROLLER events to go
-                  if (e.dataA() == CTRL_PROGRAM) {
-                        // Convert CTRL_PROGRAM event to ME_PROGRAM
-                        int msg = Pm_Message(ME_PROGRAM | chan, less128(e.dataB()), 0);
-                        PmError error = Pm_WriteShort(portMidiDriver->getOutputStream(), seq->getCurrentMillisecondTimestampWithLatency(framePos), msg);
-                        if (error != pmNoError) {
-                              qDebug("Portaudio: error %d", error);
-                              return;
-                              }
-                        break;
-                        }
-                  // fall through
             case ME_PITCHBEND:
-                  {
-                  int dataB = e.dataB();
-                  // A drum set is bank 128 in the internal synth, bank MSB 1 on the wire;
-                  // an XG module takes a drum kit from MSB 127 and would play MSB 1 as a melodic voice
-                  if (e.type() == ME_CONTROLLER && e.dataA() == CTRL_HBANK && dataB == 1)
-                        dataB = 127;
-                  int msg = Pm_Message(e.type() | chan, less128(e.dataA()), less128(dataB));
-                  PmError error = Pm_WriteShort(portMidiDriver->getOutputStream(), seq->getCurrentMillisecondTimestampWithLatency(framePos), msg);
-                  if (error != pmNoError) {
-                        qDebug("Portaudio: error %d", error);
-                        return;
-                        }
-                  }
+                  write(e.type() | chan, e.dataA(), e.dataB());
                   break;
-
+            case ME_CONTROLLER:
+                  if (e.dataA() == CTRL_ALL_NOTES_OFF)
+                        oc.sounding[chan] = 0;
+                  controller(chan, e.dataA(), e.dataB());
+                  break;
             case ME_PROGRAM:
             case ME_AFTERTOUCH:
-                  {
-                  int msg = Pm_Message(e.type() | chan, less128(e.dataA()), 0);
-                  PmError error = Pm_WriteShort(portMidiDriver->getOutputStream(), seq->getCurrentMillisecondTimestampWithLatency(framePos), msg);
-                  if (error != pmNoError) {
-                        qDebug("Portaudio: error %d", error);
-                        return;
-                        }
-                  }
+                  write(e.type() | chan, e.dataA(), 0);
                   break;
             case ME_SONGPOS:
             case ME_CLOCK:
