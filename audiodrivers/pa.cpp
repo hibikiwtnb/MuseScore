@@ -28,6 +28,7 @@
 
 #include "mididriver.h"
 
+#include "libmscore/instrument.h"
 #include "libmscore/score.h"
 
 #include "mscore/preferences.h"
@@ -287,6 +288,31 @@ void Portaudio::midiRead()
 // Prevent killing sequencer with wrong data
 #define less128(__less) ((__less >=0 && __less <= 127) ? __less : 0)
 
+//---------------------------------------------------------
+//   outputChannel
+//    The one PortMidi output has 16 channels and no ports. A score's own
+//    channels can collide there: a MusicXML file may fix some parts' channels
+//    while the others are numbered from 1, and a second port folds onto the first.
+//    Every part channel gets its own MIDI channel instead, in score order,
+//    with drum sets (bank 128, or channel 10 in the score) on channel 10.
+//---------------------------------------------------------
+
+static int outputChannel(MasterScore* score, int idx)
+      {
+      const std::vector<MidiMapping>& mapping = score->midiMapping();
+      int next = 0;
+      for (int i = 0; i < int(mapping.size()); ++i) {
+            const MidiMapping& m = mapping[i];
+            const bool drums = m.channel() == 9 || (m.articulation() && m.articulation()->bank() == 128);
+            if (i == idx)
+                  return drums ? 9 : next;
+            if (!drums && ++next == 9)
+                  ++next;
+            next %= 16;
+            }
+      return score->midiChannel(idx);
+      }
+
 // TODO: this was copied from Jack version...I'd like to eventually unify these two, so that they handle midi event types in the same manner
 void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
       {
@@ -295,7 +321,7 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
             return;
 
       int portIdx = seq->score()->midiPort(e.channel());
-      int chan    = seq->score()->midiChannel(e.channel());
+      int chan    = outputChannel(seq->score(), e.channel());
 
       if (portIdx < 0 ) {
             qDebug("Portaudio::putEvent: invalid port %d", portIdx);
