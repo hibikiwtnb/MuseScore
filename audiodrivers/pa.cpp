@@ -327,7 +327,12 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
                   // fall through
             case ME_PITCHBEND:
                   {
-                  int msg = Pm_Message(e.type() | chan, less128(e.dataA()), less128(e.dataB()));
+                  int dataB = e.dataB();
+                  // A drum set is bank 128 in the internal synth, bank MSB 1 on the wire;
+                  // an XG module takes a drum kit from MSB 127 and would play MSB 1 as a melodic voice
+                  if (e.type() == ME_CONTROLLER && e.dataA() == CTRL_HBANK && dataB == 1)
+                        dataB = 127;
+                  int msg = Pm_Message(e.type() | chan, less128(e.dataA()), less128(dataB));
                   PmError error = Pm_WriteShort(portMidiDriver->getOutputStream(), seq->getCurrentMillisecondTimestampWithLatency(framePos), msg);
                   if (error != pmNoError) {
                         qDebug("Portaudio: error %d", error);

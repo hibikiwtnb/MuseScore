@@ -267,6 +267,7 @@ class Seq : public QObject, public Sequencer {
             bool useAlsaAudio = false;
             bool usePortAudio = false;
             bool usePulseAudio = false;
+            bool usePortMidiOutput = false;
 
             void update();
             };

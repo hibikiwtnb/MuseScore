@@ -314,6 +314,9 @@ void Seq::CachedPreferences::update()
 #ifdef USE_PORTAUDIO
       usePortAudio = preferences.getBool(PREF_IO_PORTAUDIO_USEPORTAUDIO);
 #endif
+#ifdef USE_PORTMIDI
+      usePortMidiOutput = usePortAudio && !preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE).isEmpty();
+#endif
       usePulseAudio = preferences.getBool(PREF_IO_PULSEAUDIO_USEPULSEAUDIO);
       }
 
@@ -2325,7 +2328,12 @@ void Seq::stopNotes(int channel, bool realTime)
             };
       // For VSTs/devices that do not support All Notes Off
       // CTRL_ALL_NOTES_OFF should still be evoked after calling this function, even if it seems redundant
-      auto turnAllNotesOff = [send](int channel) {
+      // Not on a PortMidi output: 128 note offs per channel flood a hardware module
+      // (an MU2000 takes seconds to read them and drops the notes that follow);
+      // CTRL_ALL_NOTES_OFF stops the notes there and in the internal synth alike
+      auto turnAllNotesOff = [this, send](int channel) {
+            if (cachedPrefs.usePortMidiOutput)
+                  return;
             for (unsigned note = 0; note < 128; note++)
                   send(NPlayEvent(ME_NOTEOFF, channel, note, 0));
             };
