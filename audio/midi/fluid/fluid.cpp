@@ -396,6 +396,16 @@ void Fluid::program_change(int chan, int prognum)
 
       Preset* preset = find_preset(banknum, prognum);
       if (!preset) {
+            // The banks of a soundfont after the first are shifted (see updatePatchList): a program
+            // the first soundfont lacks (e.g. a partial GM soundfont without brass) is taken from
+            // the next soundfont that has it, at the same bank, rather than the first piano
+            for (SFont* sf : qAsConst(sfonts)) {
+                  preset = sf->get_preset(banknum + sf->bankOffset(), prognum);
+                  if (preset)
+                        break;
+                  }
+            }
+      if (!preset) {
             //Suppressing qDebug because might not have soundfont if using MIDI out only.
             //qDebug("Fluid::program_change: preset %d %d not found", banknum, prognum);
             preset = find_preset(0, prognum);
