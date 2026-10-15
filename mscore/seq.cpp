@@ -2329,7 +2329,7 @@ void Seq::stopNotes(int channel, bool realTime)
       // For VSTs/devices that do not support All Notes Off
       // CTRL_ALL_NOTES_OFF should still be evoked after calling this function, even if it seems redundant
       // Not on a PortMidi output: 128 note offs per channel flood a hardware module
-      // (an MU2000 takes seconds to read them and drops the notes that follow);
+      // (it can take seconds to read them and drop the notes that follow);
       // CTRL_ALL_NOTES_OFF stops the notes there and in the internal synth alike
       auto turnAllNotesOff = [this, send](int channel) {
             if (cachedPrefs.usePortMidiOutput)
