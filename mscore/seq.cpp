@@ -315,9 +315,7 @@ void Seq::CachedPreferences::update()
       usePortAudio = preferences.getBool(PREF_IO_PORTAUDIO_USEPORTAUDIO);
 #endif
 #ifdef USE_PORTMIDI
-      // "CoreMIDI," (interface without a device name) means no output device
-      const QString portMidiOutput = preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE);
-      usePortMidiOutput = usePortAudio && !portMidiOutput.isEmpty() && !portMidiOutput.endsWith(',');
+      usePortMidiOutput = usePortAudio && !preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE).isEmpty();
 #endif
       usePulseAudio = preferences.getBool(PREF_IO_PULSEAUDIO_USEPULSEAUDIO);
       }
