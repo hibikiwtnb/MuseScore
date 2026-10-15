@@ -2491,6 +2491,7 @@ void MusicXMLParserPass1::part()
       int measureNr = 0;
       while (_e.readNextStartElement()) {
             if (_e.name() == "measure") {
+                  _parts[id].measureTimes.push_back(time);
                   measure(id, time, mdur, vod, measureNr);
                   time += mdur;
                   ++measureNr;

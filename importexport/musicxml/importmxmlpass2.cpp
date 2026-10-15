@@ -561,6 +561,32 @@ static void updatePartWithInstrumentChange(Part* const part, const MusicXMLInstr
       }
 
 //---------------------------------------------------------
+//   scoreTick
+//---------------------------------------------------------
+
+/**
+ Convert a pass 1 time of a part into a score tick.
+ Pass 1 times of a part add up its own measure contents: after a measure too short (or too long)
+ in that part, or after the measures laid out longer since (the 2x measures of the parts imported
+ before), they are off the score measures. Keep the offset in the same measure instead.
+ */
+
+static Fraction scoreTick(const MusicXMLParserPass1& pass1, Score* score, const QString& partId, const Fraction& time)
+      {
+      const QVector<Fraction> times = pass1.getMusicXmlPart(partId).measureTimes;
+      Measure* found = nullptr;
+      Fraction start;
+      int i = 0;
+      for (Measure* m = score->firstMeasure(); m && i < times.size(); m = m->nextMeasure(), ++i) {
+            if (times.at(i) > time)
+                  break;
+            found = m;
+            start = times.at(i);
+            }
+      return found ? found->tick() + (time - start) : time;
+      }
+
+//---------------------------------------------------------
 //   setPartInstruments
 //---------------------------------------------------------
 
@@ -572,6 +598,7 @@ static void updatePartWithInstrumentChange(Part* const part, const MusicXMLInstr
  */
 
 static void setPartInstruments(MxmlLogger* logger, const QXmlStreamReader* const xmlreader,
+                               const MusicXMLParserPass1& pass1,
                                Part* part, const QString& partId,
                                Score* score,
                                const MusicXmlInstrList& instrList,
@@ -629,8 +656,9 @@ static void setPartInstruments(MxmlLogger* logger, const QXmlStreamReader* const
                         //qDebug("instrument change: tick %s (%d) track %d instr '%s'",
                         //       qPrintable(tick.print()), tick.ticks(), track, qPrintable(instrId));
 
-                        Measure* const m = score->tick2measure(tick);
-                        Segment* const segment = m->getSegment(SegmentType::ChordRest, tick);
+                        const Fraction stick = scoreTick(pass1, score, partId, tick);
+                        Measure* const m = score->tick2measure(stick);
+                        Segment* const segment = m->getSegment(SegmentType::ChordRest, stick);
 
                         if (!segment)
                               logger->logError(QString("segment for instrument change at tick %1 not found")
@@ -640,7 +668,7 @@ static void setPartInstruments(MxmlLogger* logger, const QXmlStreamReader* const
                                                .arg(instrId).arg(tick.ticks()).arg(partId), xmlreader);
                         else {
                               MusicXMLInstrument mxmlInstr = instruments.value(instrId);
-                              updatePartWithInstrumentChange(part, mxmlInstr, intervList.interval(tick), segment, track, tick);
+                              updatePartWithInstrumentChange(part, mxmlInstr, intervList.interval(tick), segment, track, stick);
                               }
                         }
                   prevInstrId = instrId;
@@ -2752,7 +2780,7 @@ void MusicXMLParserPass2::part()
 
       if (_pass1.supportsTranspose() == "no")
             _pass1.addInferredTranspose(id);
-      setPartInstruments(_logger, &_e, msPart, id, _score, _pass1.getInstrList(id), _pass1.getIntervals(id), instruments);
+      setPartInstruments(_logger, &_e, _pass1, msPart, id, _score, _pass1.getInstrList(id), _pass1.getIntervals(id), instruments);
 
       // set the part name
       QString partName = mxmlPart.getName();

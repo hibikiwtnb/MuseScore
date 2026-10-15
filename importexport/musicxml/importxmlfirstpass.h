@@ -64,6 +64,7 @@ public:
       Fraction measureDuration(int i) const;
       int nMeasures() const { return measureDurations.size(); }
       MusicXmlInstrList _instrList; // TODO: make private
+      QVector<Fraction> measureTimes; ///< start time of each measure in this part (its own content durations)
       MusicXmlIntervalList _intervals;                     ///< Transpositions
       Interval _inferredTranspose;
       Interval interval(const Fraction f) const;
