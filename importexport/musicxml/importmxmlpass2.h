@@ -307,6 +307,7 @@ public:
       void setDelayedOttava(SLine* ottava) { _delayedOttava = ottava; }
 
       void addInferredHairpin(Hairpin* hp);
+      void addInstrumentLabel(TextBase* text, const Fraction& tick) { _instrumentLabels.push_back({ text, tick }); }
       InferredHairpinsStack getInferredHairpins();
 
 private:
@@ -402,6 +403,13 @@ private:
 
       MusicXmlSlash _measureStyleSlash;           ///< Are we inside a measure to be displayed as slashes?
 
+      struct InstrumentLabel {
+            TextBase* text;                           ///< printed label of an instrument change
+            Fraction tick;                            ///< its tick
+            };
+      std::vector<InstrumentLabel> _instrumentLabels; ///< labels given to the instrument changes at part end
+      void applyInstrumentLabels(Part* part);
+
       struct MeasureRepeatMark {
             Fraction tick;                            ///< tick of the measure carrying the mark
             int staffIdx;                             ///< score staff index
@@ -450,6 +458,7 @@ private:
       QString _sndToCoda;
       QString _placement;
       QString _play;
+      bool _sndInstrument = false;      // the words label an instrument change (sound/midi-instrument)
       bool _hasDefaultY;
       qreal _defaultY;
       bool _hasRelativeY;

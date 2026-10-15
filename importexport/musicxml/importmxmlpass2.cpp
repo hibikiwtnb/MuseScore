@@ -1728,6 +1728,7 @@ static void cleanFretDiagrams(Measure* measure)
 void MusicXMLParserPass2::initPartState(const QString& partId)
       {
       Q_UNUSED(partId);
+      _instrumentLabels.clear();
       _timeSigDura = Fraction(0, 0);             // invalid
       _ties.clear();
       _timeOnlyPass.clear();
@@ -2673,6 +2674,56 @@ void MusicXMLParserPass2::scorePart()
       }
 
 //---------------------------------------------------------
+//   applyInstrumentLabels
+//---------------------------------------------------------
+
+/**
+ Give their printed labels to the instrument changes of \a part.
+
+ A direction with words and sound/midi-instrument is the printed label of an instrument change,
+ e.g. "(Pizz)" where the notes switch to pizzicato strings. The instrument change created for
+ the notes in that measure takes the label text and becomes visible, instead of an invisible
+ instrument name overlapping the label. A label without an instrument change stays a staff text.
+ */
+
+void MusicXMLParserPass2::applyInstrumentLabels(Part* part)
+      {
+      for (const InstrumentLabel& label : _instrumentLabels) {
+            TextBase* const t = label.text;
+            Measure* const m = _score->tick2measure(label.tick);
+            if (!m || !t->parent() || !t->parent()->isSegment())
+                  continue;
+
+            InstrumentChange* ic = nullptr;
+            for (Segment* s = m->first(SegmentType::ChordRest); s && !ic; s = s->next(SegmentType::ChordRest)) {
+                  if (s->tick() < label.tick)
+                        continue;
+                  for (Element* e : s->annotations()) {
+                        if (e->isInstrumentChange() && e->part() == part && !e->visible()) {
+                              ic = toInstrumentChange(e);
+                              break;
+                              }
+                        }
+                  }
+            if (!ic)
+                  continue;
+
+            ic->setXmlText(t->xmlText());
+            ic->setVisible(t->visible());
+            ic->setPlacement(t->placement());
+            ic->setPropertyFlags(Pid::PLACEMENT, PropertyFlags::UNSTYLED);
+            for (Pid pid : { Pid::FONT_FACE, Pid::FONT_SIZE, Pid::FONT_STYLE }) {
+                  // look like the printed label, not like the instrument change style
+                  ic->setProperty(pid, t->getProperty(pid));
+                  ic->setPropertyFlags(pid, PropertyFlags::UNSTYLED);
+                  }
+            toSegment(t->parent())->remove(t);
+            delete t;
+            }
+      _instrumentLabels.clear();
+      }
+
+//---------------------------------------------------------
 //   part
 //---------------------------------------------------------
 
@@ -2758,6 +2809,7 @@ void MusicXMLParserPass2::part()
             }
 
       applyTwoPassMeasures();
+      applyInstrumentLabels(msPart);
 
       // stop all remaining extends for this part and add remaining ottava if present
       Measure* lm = msPart->score()->lastMeasure();
@@ -4174,6 +4226,8 @@ void MusicXMLParserDirection::direction(const QString& partId,
                         // This allows default-y to be at least respected by the order of elements
                         MusicXMLDelayedDirectionElement* delayedDirection = new MusicXMLDelayedDirectionElement(hasTotalY() ? totalY() : 100, t, track, wordsPlacement, measure, tick + _offset, _isBold);
                         delayedDirections.push_back(delayedDirection);
+                        if (_sndInstrument && !_wordsText.isEmpty())
+                              _pass2.addInstrumentLabel(t, tick + _offset);
                         }
                   }
             }
@@ -4468,6 +4522,10 @@ void MusicXMLParserDirection::sound()
                   play();
             else if (_e.name() == "swing")
                   swing();
+            else if (_e.name() == "midi-instrument") {
+                  _sndInstrument = true;
+                  _e.skipCurrentElement();
+                  }
             else
                   skipLogCurrElem();
             }

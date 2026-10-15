@@ -4678,6 +4678,20 @@ void ExportMusicXml::words(TextBase const* const text, int staff)
 
       directionTag(_xml, _attr, text);
       wordsMetronome(_xml, _score, text, offset);
+      if (text->isInstrumentChange()) {
+            // a visible instrument change is the printed label of the change, linked to it
+            // by sound/midi-instrument (see MusicXMLParserPass2::applyInstrumentLabels)
+            const InstrumentChange* ic = toInstrumentChange(text);
+            const int partNr = _score->parts().indexOf(ic->part());
+            const int instNr = instrMap.value(ic->instrument(), -1);
+            if (staff)
+                  _xml.tag("staff", staff);
+            _xml.stag("sound");
+            _xml.tagE(QString("midi-instrument %1").arg(instrId(partNr + 1, instNr + 1)));
+            _xml.etag();
+            _xml.etag();
+            return;
+            }
       directionETag(_xml, staff);
       }
 
