@@ -315,7 +315,8 @@ void Seq::CachedPreferences::update()
       usePortAudio = preferences.getBool(PREF_IO_PORTAUDIO_USEPORTAUDIO);
 #endif
 #ifdef USE_PORTMIDI
-      usePortMidiOutput = usePortAudio && !preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE).isEmpty();
+      usePortMidiOutput = usePortAudio && preferences.getBool(PREF_IO_PORTMIDI_USEOUTPUT)
+            && !preferences.getString(PREF_IO_PORTMIDI_OUTPUTDEVICE).isEmpty();
 #endif
       usePulseAudio = preferences.getBool(PREF_IO_PULSEAUDIO_USEPULSEAUDIO);
       }
@@ -2566,12 +2567,18 @@ void Seq::putEvent(const NPlayEvent& event, unsigned framePos)
             return;
             }
 
+      // The MIDI output checkbox (I/O preferences): on, everything plays on the MIDI output device;
+      // off, everything plays in MuseScore's own synthesizer and nothing goes to the MIDI output
+      const QString synti = cs->midiMapping(channel)->articulation()->synti();
+      const bool externalOnly = cachedPrefs.usePortMidiOutput;
+      const bool internalOnly = cachedPrefs.usePortAudio && !externalOnly;
+
       // audio
-      int syntiIdx= _synti->index(cs->midiMapping(channel)->articulation()->synti());
-      _synti->play(event, syntiIdx);
+      if (!externalOnly)
+            _synti->play(event, _synti->index(synti));
 
       // midi
-      if (_driver != 0 && (cachedPrefs.useJackMidi || cachedPrefs.useAlsaAudio || cachedPrefs.usePortAudio))
+      if (!internalOnly && _driver != 0 && (cachedPrefs.useJackMidi || cachedPrefs.useAlsaAudio || cachedPrefs.usePortAudio))
             _driver->putEvent(event, framePos);
       }
 

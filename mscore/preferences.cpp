@@ -238,6 +238,7 @@ void Preferences::init(bool storeInMemoryOnly)
             {PREF_IO_PORTMIDI_OUTPUTBUFFERCOUNT,                   new IntPreference(65536)},
             {PREF_IO_PORTMIDI_OUTPUTDEVICE,                        new StringPreference("")},
             {PREF_IO_PORTMIDI_OUTPUTLATENCYMILLISECONDS,           new IntPreference(0)},
+            {PREF_IO_PORTMIDI_USEOUTPUT,                           new BoolPreference(true)},
       #endif
             {PREF_IO_PULSEAUDIO_USEPULSEAUDIO,                     new BoolPreference(defaultUsePulseAudio, false)},
             {PREF_SCORE_CHORD_PLAYONADDNOTE,                       new BoolPreference(true, false)},

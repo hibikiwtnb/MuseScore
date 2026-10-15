@@ -3037,6 +3037,13 @@ Adjusting latency can help synchronize your MIDI hardware with MuseScore's inter
             </item>
            </layout>
           </item>
+          <item row="3" column="2" colspan="5">
+           <widget class="QCheckBox" name="portMidiUseOutput">
+            <property name="text">
+             <string>Play on the MIDI output device (unchecked: MuseScore's own sounds)</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -4484,6 +4491,7 @@ Adjusting latency can help synchronize your MIDI hardware with MuseScore's inter
   <tabstop>portaudioDevice</tabstop>
   <tabstop>portMidiInput</tabstop>
   <tabstop>portMidiOutput</tabstop>
+  <tabstop>portMidiUseOutput</tabstop>
   <tabstop>portMidiOutputLatencyMilliseconds</tabstop>
   <tabstop>alsaDriver</tabstop>
   <tabstop>alsaDevice</tabstop>
