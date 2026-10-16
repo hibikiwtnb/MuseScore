@@ -423,6 +423,15 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
             if (!noteOn)
                   return;
             chan = oc.assign(idx, drums);
+            if (!drums) {
+                  // XG part mode Normal: an XG module keeps a part in drum mode once it got bank MSB 127
+                  // (a drum set that once played there) and a later bank 0 does not bring it back
+                  unsigned char partMode[] = { 0xf0, 0x43, 0x10, 0x4c, 0x08, static_cast<unsigned char>(chan), 0x07, 0x00, 0xf7 };
+                  PmError error = Pm_WriteSysEx(portMidiDriver->getOutputStream(),
+                                                seq->getCurrentMillisecondTimestampWithLatency(framePos), partMode);
+                  if (error != pmNoError)
+                        qDebug("Portaudio: error %d", error);
+                  }
             if (midiOutputTrace)
                   qDebug("MidiOut assign: index %d (%s) -> channel %d, bank %d/%d, program %d", idx,
                          qPrintable(articulation ? articulation->name() : QString()), chan + 1,
