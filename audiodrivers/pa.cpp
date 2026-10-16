@@ -303,6 +303,7 @@ struct OutputChannels {
             int controller[128];
             int program = -1;
             int channel = -1;
+            const Channel* articulation = nullptr;
             State() { std::fill(std::begin(controller), std::end(controller), -1); }
             };
       const MasterScore* score = nullptr;
@@ -319,6 +320,15 @@ struct OutputChannels {
             std::fill(std::begin(owner), std::end(owner), -1);
             std::fill(std::begin(sounding), std::end(sounding), 0);
             std::fill(std::begin(lastUse), std::end(lastUse), 0);
+            }
+      // the part channel behind an index changes when the midi mapping is rebuilt
+      // (an instrument change edited, a score reopened): drop what was kept for the old one
+      void release(int idx)
+            {
+            State& st = part(idx);
+            if (st.channel >= 0 && st.channel != 9 && owner[st.channel] == idx)
+                  owner[st.channel] = -1;
+            st = State();
             }
       State& part(int idx)
             {
@@ -387,6 +397,11 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
       OutputChannels& oc = outputChannels;
       if (oc.score != score)
             oc.reset(score);
+      const Channel* articulation = score->midiMapping()[idx].articulation();
+      if (oc.part(idx).articulation != articulation) {
+            oc.release(idx);
+            oc.part(idx).articulation = articulation;
+            }
       OutputChannels::State& state = oc.part(idx);
       if (e.type() == ME_CONTROLLER) {
             if (e.dataA() == CTRL_PROGRAM)
@@ -396,12 +411,17 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
             }
 
       const bool noteOn = e.type() == ME_NOTEON && e.velo() > 0;
+      const bool drums = score->midiChannel(idx) == 9 || (articulation && articulation->bank() == 128);
       int chan = state.channel;
+      // a melodic part must never sound on the drum channel, nor a drum set elsewhere
+      if (chan >= 0 && noteOn && (chan == 9) != drums) {
+            if (chan != 9 && oc.owner[chan] == idx)
+                  oc.owner[chan] = -1;
+            state.channel = chan = -1;
+            }
       if (chan < 0) {
             if (!noteOn)
                   return;
-            const Channel* articulation = score->midiMapping()[idx].articulation();
-            const bool drums = score->midiChannel(idx) == 9 || (articulation && articulation->bank() == 128);
             chan = oc.assign(idx, drums);
             for (int ctrl : { int(CTRL_HBANK), int(CTRL_LBANK) })
                   if (state.controller[ctrl] >= 0)
