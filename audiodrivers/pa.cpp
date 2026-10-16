@@ -423,6 +423,10 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
             if (!noteOn)
                   return;
             chan = oc.assign(idx, drums);
+            if (midiOutputTrace)
+                  qDebug("MidiOut assign: index %d (%s) -> channel %d, bank %d/%d, program %d", idx,
+                         qPrintable(articulation ? articulation->name() : QString()), chan + 1,
+                         state.controller[CTRL_HBANK], state.controller[CTRL_LBANK], state.program);
             for (int ctrl : { int(CTRL_HBANK), int(CTRL_LBANK) })
                   if (state.controller[ctrl] >= 0)
                         controller(chan, ctrl, state.controller[ctrl]);
@@ -441,7 +445,7 @@ void Portaudio::putEvent(const NPlayEvent& e, unsigned framePos)
             }
 
       if (midiOutputTrace)
-            qDebug("MidiOut<%d>: Portaudio: %02x %02x %02x, chan: %i", portIdx, e.type(), e.dataA(), e.dataB(), chan);
+            qDebug("MidiOut<%d>: Portaudio: %02x %02x %02x, index %d, chan: %i", portIdx, e.type(), e.dataA(), e.dataB(), idx, chan + 1);
 
       switch(e.type()) {
             case ME_NOTEON:
