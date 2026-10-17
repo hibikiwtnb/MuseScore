@@ -96,7 +96,7 @@ jobs:
 
           echo "platforms=${{ inputs.platforms }}" | tee -a "$GITHUB_OUTPUT"
           echo "build_mode=${{ inputs.build_mode }}" | tee -a "$GITHUB_OUTPUT"
-          echo "runtest=on" | tee -a "$GITHUB_OUTPUT"
+          echo "runtest=${{ inputs.runtest }}" | tee -a "$GITHUB_OUTPUT"
           echo "publish=${{ inputs.publish }}" | tee -a "$GITHUB_OUTPUT"
 
         elif [[ "${{ github.event_name }}" == "pull_request" ]];  then
