@@ -78,6 +78,8 @@ if [ "$BUILD_MODE" == "stable" ]; then
   APP_LONGER_NAME="MuseScore $VERSION_MAJOR";
   PACKAGE_VERSION="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
 fi
+# bandscore: one app name for every mode, apart from the official MuseScore apps
+APP_LONGER_NAME="MuseScore ${VERSION_MAJOR}.${VERSION_MINOR} Bandscore"
 
 build/package_mac --longer_name "$APP_LONGER_NAME" --version "$PACKAGE_VERSION" --developer_name "$DEVELOPER_NAME"
 

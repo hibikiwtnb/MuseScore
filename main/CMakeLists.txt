@@ -28,7 +28,7 @@ endif ( MSVC )
 if (APPLE)
       set (ExecutableName mscore MACOSX_BUNDLE)
       set (MACOSX_BUNDLE_ICON_FILE      mscore.icns)
-      set (MACOSX_BUNDLE_GUI_IDENTIFIER org.musescore.MuseScore)
+      set (MACOSX_BUNDLE_GUI_IDENTIFIER io.github.hibikiwtnb.MuseScoreBandscore) # not the official id: both can be installed
       set (MACOSX_BUNDLE_LONG_VERSION_STRING ${MUSESCORE_VERSION_FULL})
       set (MACOSX_BUNDLE_BUNDLE_NAME MuseScore)
       set (MACOSX_BUNDLE_SHORT_VERSION_STRING ${MUSESCORE_VERSION})
