@@ -1,3 +1,52 @@
+# MuseScore-Bandscore (3.8 Bandscore)
+
+A fork of MuseScore 3 for opening, checking and playing band scores read by OMR with [Audiveris-Bandscore](https://github.com/hibikiwtnb/audiveris-bandscore). It is based on [MuseScore 3.7 Evolution](https://github.com/Jojo-Schmitz/MuseScore) maintained by Jojo-Schmitz; the version is named **3.8 Bandscore**.
+
+Japanese band scores write things that official MuseScore cannot show or play. The most basic one is **2x**: notes in brackets that are played only on the second pass, inside the same measure. Official MuseScore has no such notation, so it can neither display nor play it. This fork adds it, along with the other repeat structures these scores use.
+
+中文說明見 [Audiveris-Bandscore](https://github.com/hibikiwtnb/audiveris-bandscore)（兩個專案一起使用）。
+
+## Download
+
+Prebuilt versions are on the [Releases](https://github.com/hibikiwtnb/MuseScore/releases) page:
+
+- macOS: Apple Silicon and Intel `.dmg`. The app is not notarized: the first time, right-click it in Applications and choose Open, or run `xattr -dr com.apple.quarantine "/Applications/MuseScore 3.8 Bandscore.app"`.
+- Windows 64-bit: a portable `.paf.exe` and a `.7z` archive (run `bin\MuseScore3Evo.exe`).
+
+The macOS app has its own name and bundle ID, and its settings are kept apart from official MuseScore 3, so both can be installed side by side.
+
+## What is different
+
+**Repeats and passes**
+- **2x measures**: the first and second pass of a measure are shown side by side in the same measure, the second inside "2x ( … )", without adding measures; on repeat each pass plays only its own notes (MusicXML `time-only`).
+- **Notes played on one pass only**: notes marked for certain passes (e.g. "1x tacet") play by pass number; repeats, D.S. and D.C. each count as a pass.
+- **Numbered segnos and codas**: D.S.1 jumps to segno1, To Coda to coda1, so multi-part jumps follow the printed score.
+- **Measure repeats of 1, 2 and 4 measures**: imported from MusicXML, shown as repeat signs and played as repeats (MuseScore 3 ignored them on MusicXML import).
+
+**MusicXML import and display**
+- Every part's staves are shown in every system; official MuseScore hides resting parts, so each system shows different instruments.
+- Chord symbols are not played by default, so misread chords do not sound wrong (can be turned on in the style settings).
+- The hi-hat open sign (`<open/>`, MusicXML 4.0) is read.
+- Down-tuned guitars and basses keep the written spelling of the sounding pitch (A♭, not G♯).
+- The printed label of an instrument change becomes the visible instrument change, at the right measure.
+- Hundreds of meaningless import errors per score (doubled ties, valid clefs reported as invalid) are gone.
+
+**Playback**
+- **External MIDI devices**: a checkbox in the I/O preferences chooses the MIDI output device or MuseScore's own sounds. Each part channel takes its own MIDI channel when it first plays, drums on channel 10, melodic parts never on 10, and XG part mode is set to Normal, so XG sound modules no longer play melodies as drums. `-O` traces the channels and programs sent.
+- **Several soundfonts**: a program the first soundfont lacks is taken from the next soundfont that has it, instead of falling back to piano.
+
+## Build
+
+Same as MuseScore 3.x (see "Building" below). On macOS this fork also builds with Ninja or Makefiles, not only Xcode. The CI workflow "Build: All" runs by hand only and by default builds macOS (Apple, Intel) and Windows x64.
+
+## License
+
+GPL version 2.0, as upstream.
+
+---
+
+# Upstream README (MuseScore 3.x)
+
 ![MuseScore](mscore/data/musescore_logo_full.png)  
 Music notation and composition software
 
