@@ -240,7 +240,7 @@ private slots:
       void measureLength() { mxmlIoTestRef("testMeasureLength"); }
       void measureNumbers() { mxmlIoTest("testMeasureNumbers"); }
       void measureNumberOffset() { mxmlIoTest("testMeasureNumberOffset"); }
-      void measureRepeats() { mxmlMscxExportTestRef("testMeasureRepeat"); }
+      void measureRepeatExport() { mxmlMscxExportTestRef("testMeasureRepeat"); }
       void measureStyleSlash() { mxmlImportTestRef("testMeasureStyleSlash"); }
       void midiPortExport() { mxmlMscxExportTestRef("testMidiPortExport"); }
       void multiInstrumentPart1() { mxmlIoTest("testMultiInstrumentPart1"); }
@@ -275,6 +275,7 @@ private slots:
       void numberedLyrics() { mxmlIoTestRef("testNumberedLyrics"); }
       void numerals() { mxmlIoTest("testNumerals"); }
       void octaveShift() { mxmlIoTest("testOctaveShift"); }
+      void octaveShiftPartTime() { mxmlImportTestRef("testOctaveShiftPartTime"); }
       void ornaments() { mxmlIoTest("testOrnaments"); }
       void overlappingSpanners() { mxmlIoTest("testOverlappingSpanners"); }
       void pageNumbers1() { mxmlMscxExportTestRefBreaks("testPageNumbers1"); }

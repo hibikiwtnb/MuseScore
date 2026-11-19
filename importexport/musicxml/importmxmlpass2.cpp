@@ -587,6 +587,26 @@ static Fraction scoreTick(const MusicXMLParserPass1& pass1, Score* score, const 
       }
 
 //---------------------------------------------------------
+//   partTime
+//---------------------------------------------------------
+
+/**
+ Convert score tick \a tick in \a measure into the pass 1 time of a part,
+ the inverse of scoreTick(). Pass 1 data such as octave shifts is stored in part time.
+ */
+
+static Fraction partTime(const MusicXMLParserPass1& pass1, Score* score, const QString& partId, const Measure* measure, const Fraction& tick)
+      {
+      const QVector<Fraction> times = pass1.getMusicXmlPart(partId).measureTimes;
+      int i = 0;
+      for (Measure* m = score->firstMeasure(); m && i < times.size(); m = m->nextMeasure(), ++i) {
+            if (m == measure)
+                  return times.at(i) + (tick - m->tick());
+            }
+      return tick;
+      }
+
+//---------------------------------------------------------
 //   setPartInstruments
 //---------------------------------------------------------
 
@@ -7422,7 +7442,7 @@ Note* MusicXMLParserPass2::note(const QString& partId,
                   }
             note = new Note(_score);
             const int ottavaStaff = (msTrack - _pass1.trackForPart(partId)) / VOICES;
-            const int octaveShift = _pass1.octaveShift(partId, ottavaStaff, noteStartTime);
+            const int octaveShift = _pass1.octaveShift(partId, ottavaStaff, partTime(_pass1, _score, partId, measure, noteStartTime));
             const Part* part = _pass1.getPart(partId);
             const Instrument* instrument = part->instrument(noteStartTime);
             setPitch(note, _pass1, partId, instrumentId, mnp, octaveShift, instrument);
