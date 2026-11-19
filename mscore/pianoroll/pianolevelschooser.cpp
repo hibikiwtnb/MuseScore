@@ -7,6 +7,9 @@
 
 #include <limits>
 
+#include <QEvent>
+#include <QSignalBlocker>
+
 namespace Ms {
 
 //---------------------------------------------------------
@@ -30,6 +33,35 @@ PianoLevelsChooser::PianoLevelsChooser(QWidget *parent)
 
       connect(levelsCombo, SIGNAL(activated(int)), SLOT(setLevelsIndex(int)));
       connect(setEventsBn, SIGNAL(clicked(bool)), SLOT(setEventDataPressed()));
+      }
+
+//---------------------------------------------------------
+//   changeEvent
+//---------------------------------------------------------
+
+void PianoLevelsChooser::changeEvent(QEvent* event)
+      {
+      QWidget::changeEvent(event);
+
+      if (event->type() != QEvent::LanguageChange)
+            return;
+
+      // Refresh controls generated from the .ui file
+      retranslateUi(this);
+
+      // Refresh dynamically populated filter names and tooltips
+      QSignalBlocker blocker(levelsCombo);
+
+      for (int i = 0; i < levelsCombo->count(); ++i) {
+            const int index = levelsCombo->itemData(i).toInt();
+            PianoLevelsFilter* filter = PianoLevelsFilter::FILTER_LIST[index];
+
+            if (!filter)
+                  continue;
+
+            levelsCombo->setItemText(i, filter->name());
+            levelsCombo->setItemData(i, filter->tooltip(), Qt::ToolTipRole);
+            }
       }
 
 //---------------------------------------------------------

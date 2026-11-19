@@ -15,12 +15,15 @@
 
 #include <cstdint>
 
+class QAction;
 class QCheckBox;
 class QEvent;
 class QLineEdit;
 class QMenu;
 class QPlainTextEdit;
+class QPushButton;
 class QTimer;
+class QToolButton;
 
 namespace Ms {
 
@@ -41,6 +44,12 @@ class DebugLogDock : public QDockWidget {
 	  QCheckBox* _sourceCheck { nullptr };
 	  QCheckBox* _autoScrollCheck { nullptr };
 
+	  QPushButton* _clearButton { nullptr };
+	  QPushButton* _copyAllButton { nullptr };
+	  QToolButton* _findPreviousButton { nullptr };
+	  QToolButton* _findNextButton { nullptr };
+	  QAction* _copySelectionAction { nullptr };
+
 	  QTimer* _flushTimer { nullptr };
 
 	  QStringList _compactMessages;
@@ -59,7 +68,10 @@ class DebugLogDock : public QDockWidget {
 	  void refreshOutput();
 	  void setLoggingEnabled(bool enabled);
 
+	  void retranslate();
+
    protected:
+	  void changeEvent(QEvent* event) override;
 	  bool eventFilter(QObject* watched, QEvent* event) override;
 
    public:

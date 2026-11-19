@@ -1,14 +1,14 @@
 #!/bin/sh
 
 echo "TRANSLATIONS = \\"
-uis=`find $1/../../share/locale/ -name "instruments_*.ts"`
+uis=$(find "$1"/../../share/locale/ -fype f -name "instruments_*.ts")
 for a in $uis; do
       echo "    " $a \\;
       done
 echo
 
 echo "HEADERS = \\"
-uis=`find $1 -name "*.h"`
+uis=$(find "$1" -type f -name "*.h")
 for a in $uis; do
       echo "    " $a \\;
       done

@@ -38,6 +38,9 @@ class PianoLevelsChooser : public QWidget, public Ui::PianoLevelsChooser
       PianoView* _pianoView { nullptr };
       bool _playbackEditingEnabled { true };
 
+protected:
+      void changeEvent(QEvent* event) override;
+
 public:
       void setPianoView(PianoView* pianoView);
       void setPlaybackEditingEnabled(bool enabled);

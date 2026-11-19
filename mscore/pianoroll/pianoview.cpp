@@ -2492,11 +2492,7 @@ void PianoView::wheelEvent(QWheelEvent* event)
       {
       const int step = event->angleDelta().y() / 120;
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
       QPoint viewportPos = event->position().toPoint();
-#else
-      QPoint viewportPos = event->pos();
-#endif
 
       if (event->modifiers() == Qt::AltModifier) {
             const QPoint delta = event->angleDelta();
@@ -2534,7 +2530,6 @@ void PianoView::wheelEvent(QWheelEvent* event)
             }
       else if (event->modifiers() == Qt::ShiftModifier) {
             // Horizontal scroll
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
             QWheelEvent we(event->position(),
                            event->globalPosition(),
                            event->pixelDelta().transposed(),
@@ -2543,13 +2538,6 @@ void PianoView::wheelEvent(QWheelEvent* event)
                            Qt::NoModifier,
                            Qt::ScrollPhase::NoScrollPhase,
                            false);
-#else
-            QWheelEvent we(event->pos(),
-                           event->delta(),
-                           event->buttons(),
-                           0,
-                           Qt::Horizontal);
-#endif
             QGraphicsView::wheelEvent(&we);
             }
       else if (event->modifiers() == Qt::ControlModifier) {
@@ -2609,7 +2597,7 @@ void PianoView::showPopupMenu(const QPoint& posGlobal)
 
       popup.addSeparator();
 
-      act = new QAction(tr("Color..."));
+      act = new QAction(tr("Color…"));
       connect(act, &QAction::triggered, this, &PianoView::setSelectedNoteColor);
       popup.addAction(act);
 
@@ -3592,12 +3580,12 @@ void PianoView::mouseMoveEvent(QMouseEvent* event)
                               else if (!pi && _editNoteTool == PianoRollEditTool::ADD) {
                                     _dragStyle = DragStyle::DRAW_NOTE;
 
-                                    const Fraction tick =
+                                    const Fraction cTick =
                                           roundToNearestBeat(
                                                 scenePosToTick(_mouseDownPos),
                                                 true);
 
-                                    if (useOnsetDiamond(_staff, tick)) {
+                                    if (useOnsetDiamond(_staff, cTick)) {
                                           _onsetPaint.notes.clear();
                                           _onsetPaint.lastPos = _mouseDownPos;
                                           _onsetPaint.undoStartIdx =
@@ -3793,11 +3781,7 @@ QVector<Note*> PianoView::getSegmentNotes(Segment* seg, int track)
       ChordRest* cr = seg->cr(track);
       if (cr && cr->isChord()) {
             Chord* chord = toChord(cr);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
             notes.append(QVector<Note*>(chord->notes().begin(), chord->notes().end()));
-#else
-            notes.append(QVector<Note*>::fromStdVector(chord->notes()));
-#endif
             }
 
       return notes;

@@ -158,7 +158,7 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       tbMain->addSeparator();
 
       staffBox = new PianoRollComboBox;
-      staffBox->setToolTip(tr("Editable staff"));
+      staffBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Editable staff"));
       tbMain->addWidget(staffBox);
 
       connect(staffBox,
@@ -179,9 +179,9 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       // Option: Orientation Horizontal/Vertical
       tbMain->addSeparator();
       orientationBox = new QComboBox;
-      orientationBox->setToolTip(tr("View orientation"));
-      orientationBox->addItem(tr("Horizontal"), int(PianoRollOrientation::HORIZONTAL));
-      orientationBox->addItem(tr("Vertical"),   int(PianoRollOrientation::VERTICAL));
+      orientationBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "View orientation"));
+      orientationBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Horizontal"), int(PianoRollOrientation::HORIZONTAL));
+      orientationBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Vertical"),   int(PianoRollOrientation::VERTICAL));
 
       int orientationIndex = orientationBox->findData(int(_orientation));
       if (orientationIndex != -1)
@@ -202,10 +202,10 @@ PianorollEditor::PianorollEditor(QWidget* parent)
 
       // Option: Scope
       scopeBox = new PianoRollComboBox;
-      scopeBox->addItem(tr("Staff"), int(PianoRollScope::STAFF));
-      scopeBox->setToolTip(tr("Displayed scope"));
-      scopeBox->addItem(tr("Part"),  int(PianoRollScope::PART));
-      scopeBox->addItem(tr("Score"),  int(PianoRollScope::SCORE));
+      scopeBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Staff"), int(PianoRollScope::STAFF));
+      scopeBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Displayed scope"));
+      scopeBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Part"),  int(PianoRollScope::PART));
+      scopeBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Score"),  int(PianoRollScope::SCORE));
 
       int scopeIndex = scopeBox->findData(int(_scope));
       if (scopeIndex != -1)
@@ -224,7 +224,7 @@ PianorollEditor::PianorollEditor(QWidget* parent)
 
       // Option: Show levels editor
       _showPianoLevels = preferences.getBool(PREF_UI_PIANOROLL_SHOW_LEVELS_EDITOR);
-      QAction* showLevelsAction = new QAction(tr("Levels Editor"), this);
+      showLevelsAction = new QAction(QCoreApplication::translate("Ms::PianorollEditor", "Levels Editor"), this);
       showLevelsAction->setCheckable(true);
       showLevelsAction->setChecked(_showPianoLevels);
 
@@ -236,20 +236,20 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       tbMain->addSeparator();
 
       // Option: Voice coloring / Unselect preference coloring:
-      QComboBox* coloringBox = new PianoRollComboBox;
-      coloringBox->setToolTip(tr("Coloring scheme"));
-      coloringBox->addItem(tr("Voice"),   int(Coloring::VOICING));
-      coloringBox->addItem(tr("Staff"),  int(Coloring::STAFF));
-      coloringBox->addItem(tr("Instrument"), int(Coloring::INSTRUMENT));
+      _coloringBox = new PianoRollComboBox;
+      _coloringBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Coloring scheme"));
+      _coloringBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Voice"),   int(Coloring::VOICING));
+      _coloringBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Staff"),  int(Coloring::STAFF));
+      _coloringBox->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Instrument"), int(Coloring::INSTRUMENT));
 
-      tbMain->addWidget(coloringBox);
+      tbMain->addWidget(_coloringBox);
 
-      auto applyColoring = [this, coloringBox](int index) {
-            Coloring c = static_cast<Coloring>(coloringBox->itemData(index).toInt());
+      auto applyColoring = [this](int index) {
+            Coloring c = static_cast<Coloring>(_coloringBox->itemData(index).toInt());
             setColoring(c);
             };
 
-      connect(coloringBox,
+      connect(_coloringBox,
               QOverload<int>::of(&QComboBox::activated),
               this,
               applyColoring);
@@ -259,33 +259,33 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       // Option: Duration / onset note representation
       noteShapeBox = new PianoRollComboBox;
       noteShapeBox->setToolTip(
-            tr("Piano roll note representation for the editable instrument"));
+            QCoreApplication::translate("Ms::PianorollEditor", "Piano roll note representation for the editable instrument"));
 
       noteShapeBox->addItem(
-            tr("Auto"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Auto"),
             int(PianoRollNoteShape::AUTO));
 
       noteShapeBox->addItem(
-            tr("Duration"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Duration"),
             int(PianoRollNoteShape::RECTANGLE));
 
       noteShapeBox->addItem(
-            tr("Onset"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Onset"),
             int(PianoRollNoteShape::DIAMOND));
 
       noteShapeBox->setItemData(
             0,
-            tr("Automatic: rectangles for pitched instruments, diamonds for drums"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Automatic: rectangles for pitched instruments, diamonds for drums"),
             Qt::ToolTipRole);
 
       noteShapeBox->setItemData(
             1,
-            tr("Rectangle"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Rectangle"),
             Qt::ToolTipRole);
 
       noteShapeBox->setItemData(
             2,
-            tr("Diamond"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Diamond"),
             Qt::ToolTipRole);
 
       noteShapeBox->setEnabled(false);
@@ -307,8 +307,8 @@ PianorollEditor::PianorollEditor(QWidget* parent)
                     });
 
 
-      // Option: custon note color to be honored or not
-      QAction* useNoteColorsAction = new QAction(
+      // Option: custom note color to be honored or not
+      useNoteColorsAction = new QAction(
             *icons[int(Icons::noteheadColor_ICON)],
             QString(),
             this);
@@ -317,7 +317,7 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       useNoteColorsAction->setCheckable(true);
       useNoteColorsAction->setChecked(_useNoteColors);
       useNoteColorsAction->setToolTip(
-            tr("Honor user-defined note colors"));
+            QCoreApplication::translate("Ms::PianorollEditor", "Honor user-defined note colors"));
 
       connect(useNoteColorsAction,
               &QAction::toggled,
@@ -332,17 +332,17 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       tbMain->addSeparator();
 
       // Option: Show pitch names
-      QAction* showPitchNamesAction = new QAction(
+      showPitchNamesAction = new QAction(
             QIcon(":/data/icons/note-show-pitch.svg"),
-            tr("Show pitch names"),
+            QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"),
             this);
 
       showPitchNamesAction->setCheckable(true);
       showPitchNamesAction->setChecked(
             preferences.getBool(PREF_UI_PIANOROLL_SHOW_PITCH_TEXT));
 
-      showPitchNamesAction->setToolTip(tr("Show pitch names"));
-      showPitchNamesAction->setStatusTip(tr("Show pitch names"));
+      showPitchNamesAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"));
+      showPitchNamesAction->setStatusTip(QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"));
 
       connect(showPitchNamesAction,
               &QAction::toggled,
@@ -360,10 +360,10 @@ PianorollEditor::PianorollEditor(QWidget* parent)
 
       tbMain->addAction(showPitchNamesAction);
 
-      QAction* regroupVoicingAction = tbMain->addAction(tr("Regroup Voicing"));
+      regroupVoicingAction = tbMain->addAction(QCoreApplication::translate("Ms::PianorollEditor", "Regroup Voicing"));
 
       regroupVoicingAction->setToolTip(
-            tr("Regroup existing voices by pitch order"));
+            QCoreApplication::translate("Ms::PianorollEditor", "Regroup existing voices by pitch order"));
 
       connect(regroupVoicingAction, &QAction::triggered,
               this, &PianorollEditor::regroupSelectedVoicing);
@@ -385,7 +385,7 @@ PianorollEditor::PianorollEditor(QWidget* parent)
 
       controlsChevronButton = new QToolButton;
       controlsChevronButton->setText(QStringLiteral("⌃")); // "roll-up" the toolbar
-      controlsChevronButton->setToolTip(tr("Toggle piano roll controls"));
+      controlsChevronButton->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Toggle piano roll controls"));
       controlsChevronButton->setFixedSize(22, 22);
       controlsChevronButton->setAutoRaise(false);
       controlsChevronButton->setStyleSheet(
@@ -583,7 +583,7 @@ PianorollEditor::PianorollEditor(QWidget* parent)
       connect(_playbackFollowTimer, &QTimer::timeout,
               this, &PianorollEditor::updatePlaybackFollow);
 
-      connectEditorSignals(pitchLabel, coloringBox);
+      connectEditorSignals(pitchLabel, _coloringBox);
 
       readSettings();
 
@@ -610,6 +610,161 @@ PianorollEditor::~PianorollEditor()
       {
       if (_score)
             _score->removeViewer(this);
+      }
+
+//---------------------------------------------------------
+//   changeEvent
+//---------------------------------------------------------
+
+void PianorollEditor::changeEvent(QEvent* event)
+      {
+      QWidget::changeEvent(event);
+
+      if (event->type() == QEvent::LanguageChange)
+            retranslate();
+      }
+
+//---------------------------------------------------------
+//   retranslate
+//---------------------------------------------------------
+
+void PianorollEditor::retranslate()
+      {
+      staffBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Editable staff"));
+
+      {
+      QSignalBlocker blocker(veloType);
+      orientationBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "View orientation"));
+      orientationBox->setItemText(0, QCoreApplication::translate("Ms::PianorollEditor", "Horizontal"));
+      orientationBox->setItemText(1, QCoreApplication::translate("Ms::PianorollEditor", "Vertical"));
+
+      scopeBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Displayed scope"));
+      scopeBox->setItemText(0, QCoreApplication::translate("Ms::PianorollEditor", "Staff"));
+      scopeBox->setItemText(1, QCoreApplication::translate("Ms::PianorollEditor", "Part"));
+      scopeBox->setItemText(2, QCoreApplication::translate("Ms::PianorollEditor", "Score"));
+
+      showLevelsAction->setText(QCoreApplication::translate("Ms::PianorollEditor", "Levels Editor"));
+
+      _coloringBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Coloring scheme"));
+      _coloringBox->setItemText(0, QCoreApplication::translate("Ms::PianorollEditor", "Voice"));
+      _coloringBox->setItemText(1, QCoreApplication::translate("Ms::PianorollEditor", "Staff"));
+      _coloringBox->setItemText(2, QCoreApplication::translate("Ms::PianorollEditor", "Instrument"));
+
+      noteShapeBox->setItemText(0, QCoreApplication::translate("Ms::PianorollEditor", "Auto"));
+      noteShapeBox->setItemText(1, QCoreApplication::translate("Ms::PianorollEditor", "Duration"));
+      noteShapeBox->setItemText(2, QCoreApplication::translate("Ms::PianorollEditor", "Onset"));
+
+      noteShapeBox->setItemData(
+            0,
+            QCoreApplication::translate("Ms::PianorollEditor", "Automatic: rectangles for pitched instruments, diamonds for drums"),
+            Qt::ToolTipRole);
+
+      noteShapeBox->setItemData(1, QCoreApplication::translate("Ms::PianorollEditor", "Rectangle"), Qt::ToolTipRole);
+      noteShapeBox->setItemData(2, QCoreApplication::translate("Ms::PianorollEditor", "Diamond"), Qt::ToolTipRole);
+      }
+
+      // Third toolbar: static labels
+      cursorLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Cursor:"));
+      subdivLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Subdiv.:"));
+      tupletLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Tuplet:"));
+      stripePatternLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Stripe Pattern:"));
+      velocityLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Velocity:"));
+      pitchTextLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Pitch:"));
+      onTimeLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "OnTime:"));
+      lengthLabel->setText(QCoreApplication::translate("Ms::PianorollEditor", "Len:"));
+
+      // Third toolbar: editor tooltips
+      subdiv->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Subdivide the beat this many times"));
+      tuplet->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Edit notes aligned to tuplets of this many beats"));
+      barPattern->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "White stripes show the tones of this chord."));
+
+      // Stripe pattern names
+      {
+      QSignalBlocker blocker(barPattern);
+      for (int i = 0; i < barPattern->count(); ++i) {
+            const int patternIndex = barPattern->itemData(i).toInt();
+            const QString name = PianoView::barPatterns[patternIndex].name;
+            barPattern->setItemText(
+                  i, QCoreApplication::translate("BarPattern", name.toUtf8().constData()));
+            }
+      }
+
+      // Velocity type
+      {
+      QSignalBlocker blocker(veloType);
+      const int offsetIndex = veloType->findData(int(Note::ValueType::OFFSET_VAL));
+      const int userIndex = veloType->findData(int(Note::ValueType::USER_VAL));
+
+      if (offsetIndex >= 0)
+            veloType->setItemText(offsetIndex, QCoreApplication::translate("Ms::PianorollEditor", "Offset"));
+      if (userIndex >= 0)
+            veloType->setItemText(userIndex, QCoreApplication::translate("Ms::PianorollEditor", "User"));
+      }
+
+      regroupVoicingAction->setText(QCoreApplication::translate("Ms::PianorollEditor", "Regroup Voicing"));
+      regroupVoicingAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Regroup existing voices by pitch order"));
+
+      keyboardAlignedGrid->setText(QCoreApplication::translate("Ms::PianorollEditor", "Keyboard-aligned grid"));
+      keyboardAlignedGrid->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Align the vertical piano-roll pitch lanes with the keyboard"));
+
+      if (_score && staffBox) {
+            QSignalBlocker blocker(staffBox);
+
+            for (int i = 0; i < staffBox->count(); ++i) {
+                  const int staffIndex = staffBox->itemData(i).toInt();
+
+                  if (staffIndex >= 0 && staffIndex < _score->nstaves()) {
+                        staffBox->setItemText(i, staffDisplayName(_score->staff(staffIndex)));
+                        }
+                  }
+            }
+
+      // Edit-tool button tooltips
+      auto setEditToolTip = [this](PianoRollEditTool tool, const QString& text) {
+            if (QAbstractButton* button = bngrpActionBns->button(int(tool)))
+                  button->setToolTip(text);
+            };
+
+      setEditToolTip(PianoRollEditTool::SELECT, QCoreApplication::translate("Ms::PianorollEditor", "Select Notes"));
+      setEditToolTip(PianoRollEditTool::ADD, QCoreApplication::translate("Ms::PianorollEditor", "Add Note"));
+      setEditToolTip(PianoRollEditTool::PAINT, QCoreApplication::translate("Ms::PianorollEditor", "Paint Notes"));
+      setEditToolTip(PianoRollEditTool::CUT, QCoreApplication::translate("Ms::PianorollEditor", "Cut Chord"));
+      setEditToolTip(PianoRollEditTool::ERASE, QCoreApplication::translate("Ms::PianorollEditor", "Erase Note"));
+      setEditToolTip(PianoRollEditTool::EVENT_ADJUST, QCoreApplication::translate("Ms::PianorollEditor", "Change Playback Length"));
+      setEditToolTip(PianoRollEditTool::TIE, QCoreApplication::translate("Ms::PianorollEditor", "Toggle Tie"));
+
+      if (QAbstractButton* button = voiceGroup->button(0))
+            button->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Voice 1"));
+      if (QAbstractButton* button = voiceGroup->button(1))
+            button->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Voice 2"));
+      if (QAbstractButton* button = voiceGroup->button(2))
+            button->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Voice 3"));
+      if (QAbstractButton* button = voiceGroup->button(3))
+            button->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Voice 4"));
+
+      automaticVoiceAction->setText(QCoreApplication::translate("Ms::PianorollEditor", "Auto Voice"));
+      automaticVoiceAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Automatically choose a compatible voice when inserting notes"));
+
+      // Note representation
+      noteShapeBox->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Piano roll note representation for the editable instrument"));
+
+      // Note colors
+      useNoteColorsAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Honor user-defined note colors"));
+
+      // Pitch names
+      showPitchNamesAction->setText(QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"));
+      showPitchNamesAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"));
+      showPitchNamesAction->setStatusTip(QCoreApplication::translate("Ms::PianorollEditor", "Show pitch names"));
+
+      // Regroup voicing
+      regroupVoicingAction->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Regroup existing voices by pitch order"));
+
+      // Controls chevron
+      controlsChevronButton->setToolTip(
+            _controlsVisible
+                  ? QCoreApplication::translate("Ms::PianorollEditor", "Hide piano roll controls")
+                  : QCoreApplication::translate("Ms::PianorollEditor", "Show piano roll controls"));
+
       }
 
 //---------------------------------------------------------
@@ -708,31 +863,31 @@ void PianorollEditor::createEditToolbars(const QSize& iconSize)
 
       const ToolIconData toolData[] = {
             { QStringLiteral(":/data/icons/preEdit-select.svg"),
-              tr("Select Notes"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Select Notes"),
               PianoRollEditTool::SELECT,
               false },
             { QStringLiteral(":/data/icons/preEdit-insertNote.svg"),
-              tr("Add Note"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Add Note"),
               PianoRollEditTool::ADD,
               false },
             { QStringLiteral(":/data/icons/pianoroll-paint.svg"),
-              tr("Paint Notes"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Paint Notes"),
               PianoRollEditTool::PAINT,
               false },
             { QStringLiteral(":/data/icons/preEdit-cutNote.svg"),
-              tr("Cut Chord"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Cut Chord"),
               PianoRollEditTool::CUT,
               false },
             { QStringLiteral(":/data/icons/preEdit-eraseNote.svg"),
-              tr("Erase Note"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Erase Note"),
               PianoRollEditTool::ERASE,
               false },
             { QStringLiteral(":/data/icons/preEdit-changeLength.svg"),
-              tr("Change Playback Length"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Change Playback Length"),
               PianoRollEditTool::EVENT_ADJUST,
               true },
             { QStringLiteral(":/data/icons/preEdit-tie.svg"),
-              tr("Toggle Tie"),
+              QCoreApplication::translate("Ms::PianorollEditor", "Toggle Tie"),
               PianoRollEditTool::TIE,
               false },
             { QString(), QString(), PianoRollEditTool::LAST, false }
@@ -874,7 +1029,7 @@ void PianorollEditor::createEditToolbars(const QSize& iconSize)
 
       tbVoices = new QToolBar("Toolbar Voices", this);
 
-      QButtonGroup* voiceGroup = new QButtonGroup(this);
+      voiceGroup = new QButtonGroup(this);
 
       tbVoices->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
       tbVoices->setIconSize(iconSize);
@@ -887,10 +1042,10 @@ void PianorollEditor::createEditToolbars(const QSize& iconSize)
             };
 
       const VoiceIconData voiceData[] = {
-            { QStringLiteral(":/data/icons/voice-1.svg"), tr("Voice 1"), 0, true },
-            { QStringLiteral(":/data/icons/voice-2.svg"), tr("Voice 2"), 1, false },
-            { QStringLiteral(":/data/icons/voice-3.svg"), tr("Voice 3"), 2, false },
-            { QStringLiteral(":/data/icons/voice-4.svg"), tr("Voice 4"), 3, false },
+            { QStringLiteral(":/data/icons/voice-1.svg"), QCoreApplication::translate("Ms::PianorollEditor", "Voice 1"), 0, true },
+            { QStringLiteral(":/data/icons/voice-2.svg"), QCoreApplication::translate("Ms::PianorollEditor", "Voice 2"), 1, false },
+            { QStringLiteral(":/data/icons/voice-3.svg"), QCoreApplication::translate("Ms::PianorollEditor", "Voice 3"), 2, false },
+            { QStringLiteral(":/data/icons/voice-4.svg"), QCoreApplication::translate("Ms::PianorollEditor", "Voice 4"), 3, false },
             { QString(), QString(), -1, false }
             };
 
@@ -915,7 +1070,7 @@ void PianorollEditor::createEditToolbars(const QSize& iconSize)
             if (p->selected)
                   button->setChecked(true);
 
-            voiceGroup->addButton(button);
+            voiceGroup->addButton(button, voice);
             tbVoices->addWidget(button);
             }
 
@@ -924,11 +1079,11 @@ void PianorollEditor::createEditToolbars(const QSize& iconSize)
 
       automaticVoiceSeparator = tbVoices->addSeparator();
 
-      automaticVoiceAction = new QAction(tr("Auto Voice"), this);
+      automaticVoiceAction = new QAction(QCoreApplication::translate("Ms::PianorollEditor", "Auto Voice"), this);
       automaticVoiceAction->setCheckable(true);
       automaticVoiceAction->setChecked(automaticVoice);
       automaticVoiceAction->setToolTip(
-            tr("Automatically choose a compatible voice when inserting notes"));
+            QCoreApplication::translate("Ms::PianorollEditor", "Automatically choose a compatible voice when inserting notes"));
 
       tbVoices->addAction(automaticVoiceAction);
 
@@ -949,7 +1104,7 @@ Awl::PitchLabel* PianorollEditor::createTweakToolbar(const QSize& iconSize)
       tbTweak = new QToolBar("Toolbar Tweak", this);
       tbTweak->setIconSize(iconSize);
 
-      tbTweak->addWidget(new QLabel(tr("Cursor:")));
+      tbTweak->addWidget(cursorLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Cursor:")));
 
       pos = new Awl::PosLabel;
       pos->setFrameStyle(static_cast<int>(QFrame::NoFrame)
@@ -963,30 +1118,30 @@ Awl::PitchLabel* PianorollEditor::createTweakToolbar(const QSize& iconSize)
 
       tbTweak->addSeparator();
 
-      tbTweak->addWidget(new QLabel(tr("Subdiv.:")));
+      tbTweak->addWidget(subdivLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Subdiv.:")));
 
       subdiv = new QSpinBox;
-      subdiv->setToolTip(tr("Subdivide the beat this many times"));
+      subdiv->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Subdivide the beat this many times"));
       subdiv->setMinimum(0);
       subdiv->setValue(0);
       tbTweak->addWidget(subdiv);
 
-      tbTweak->addWidget(new QLabel(tr("Tuplet:")));
+      tbTweak->addWidget(tupletLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Tuplet:")));
 
       tuplet = new QSpinBox;
-      tuplet->setToolTip(tr("Edit notes aligned to tuplets of this many beats"));
+      tuplet->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "Edit notes aligned to tuplets of this many beats"));
       tuplet->setMinimum(1);
       tuplet->setValue(1);
       tbTweak->addWidget(tuplet);
 
-      tbTweak->addWidget(new QLabel(tr("Stripe Pattern:")));
+      tbTweak->addWidget(stripePatternLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Stripe Pattern:")));
 
       barPattern = new PianoRollComboBox;
-      barPattern->setToolTip(tr("White stripes show the tones of this chord."));
+      barPattern->setToolTip(QCoreApplication::translate("Ms::PianorollEditor", "White stripes show the tones of this chord."));
 
       for (int i = 0; !PianoView::barPatterns[i].name.isEmpty(); ++i) {
             barPattern->addItem(
-                  qApp->translate("BarPattern",
+                  QCoreApplication::translate("BarPattern",
                                   PianoView::barPatterns[i].name.toUtf8().data()),
                   i);
             }
@@ -996,10 +1151,10 @@ Awl::PitchLabel* PianorollEditor::createTweakToolbar(const QSize& iconSize)
       // Option: Keyboard aligned grid
       keyboardAlignedGridSeparator = tbTweak->addSeparator();
 
-      keyboardAlignedGrid = new QCheckBox(tr("Keyboard-aligned grid"));
+      keyboardAlignedGrid = new QCheckBox(QCoreApplication::translate("Ms::PianorollEditor", "Keyboard-aligned grid"));
 
       keyboardAlignedGrid->setToolTip(
-            tr("Align the vertical piano-roll pitch lanes with the keyboard"));
+            QCoreApplication::translate("Ms::PianorollEditor", "Align the vertical piano-roll pitch lanes with the keyboard"));
 
       keyboardAlignedGrid->setChecked(
             preferences.getBool(PREF_UI_PIANOROLL_VERTICAL_KEYBOARD_ALIGNED_GRID));
@@ -1022,38 +1177,39 @@ Awl::PitchLabel* PianorollEditor::createTweakToolbar(const QSize& iconSize)
       tbTweak->addSeparator();
 
       // Option: Velocity type
-      tbTweak->addWidget(new QLabel(tr("Velocity:")));
+      tbTweak->addWidget(velocityLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Velocity:")));
 
       veloType = new PianoRollComboBox;
-      veloType->addItem(tr("Offset"), int(Note::ValueType::OFFSET_VAL));
-      veloType->addItem(tr("User"), int(Note::ValueType::USER_VAL));
+      veloType->addItem(QCoreApplication::translate("Ms::PianorollEditor", "Offset"), int(Note::ValueType::OFFSET_VAL));
+      veloType->addItem(QCoreApplication::translate("Ms::PianorollEditor", "User"), int(Note::ValueType::USER_VAL));
+
       tbTweak->addWidget(veloType);
 
-      velocity = new QSpinBox;
-      velocity->setRange(-127, 127);
-      velocity->setReadOnly(true);
+      _velocity = new QSpinBox;
+      _velocity->setRange(-127, 127);
+      _velocity->setReadOnly(true);
 
-      velocity->setPrefix("+");
-      const int velocityWidth = velocity->sizeHint().width();
-      velocity->setPrefix("");
-      velocity->setMinimumWidth(velocityWidth);
+      _velocity->setPrefix("+");
+      const int velocityWidth = _velocity->sizeHint().width();
+      _velocity->setPrefix("");
+      _velocity->setMinimumWidth(velocityWidth);
 
-      tbTweak->addWidget(velocity);
+      tbTweak->addWidget(_velocity);
 
-      tbTweak->addWidget(new QLabel(tr("Pitch:")));
+      tbTweak->addWidget(pitchTextLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Pitch:")));
 
-      pitch = new Awl::PitchEdit;
-      pitch->setReadOnly(false);
-      tbTweak->addWidget(pitch);
+      _pitch = new Awl::PitchEdit;
+      _pitch->setReadOnly(false);
+      tbTweak->addWidget(_pitch);
 
-      tbTweak->addWidget(new QLabel(tr("OnTime:")));
+      tbTweak->addWidget(onTimeLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "OnTime:")));
 
       onTime = new QSpinBox;
       onTime->setRange(-60000, +60000);
       onTime->setSingleStep(50);
       tbTweak->addWidget(onTime);
 
-      tbTweak->addWidget(new QLabel(tr("Len:")));
+      tbTweak->addWidget(lengthLabel = new QLabel(QCoreApplication::translate("Ms::PianorollEditor", "Len:")));
 
       tickLen = new QSpinBox;
       tickLen->setRange(-2000, 60000);
@@ -1069,7 +1225,7 @@ Awl::PitchLabel* PianorollEditor::createTweakToolbar(const QSize& iconSize)
 
 void PianorollEditor::connectEditorSignals(
       Awl::PitchLabel* pitchLabel,
-      QComboBox* coloringBox)
+      QComboBox* colorBox)
       {
       connect(pianoView, &PianoView::onTimeDragged, this, [this](int value) {
             _previewOnTime = value;
@@ -1107,16 +1263,16 @@ void PianorollEditor::connectEditorSignals(
       connect(pianoView, &PianoView::editNoteLengthChanged,
               this, &PianorollEditor::updateNoteLengthControls);
 
-      velocity->installEventFilter(this);
-      pitch->installEventFilter(this);
+      _velocity->installEventFilter(this);
+      _pitch->installEventFilter(this);
       onTime->installEventFilter(this);
       tickLen->installEventFilter(this);
       subdiv->installEventFilter(this);
       tuplet->installEventFilter(this);
 
-      const int coloringIndex = coloringBox->currentIndex();
+      const int coloringIndex = colorBox->currentIndex();
       setColoring(static_cast<Coloring>(
-            coloringBox->itemData(coloringIndex).toInt()));
+            colorBox->itemData(coloringIndex).toInt()));
 
       pianoView->setUseNoteColors(_useNoteColors);
       pianoKbd->setUseNoteColors(_useNoteColors);
@@ -1196,7 +1352,7 @@ void PianorollEditor::connectEditorSignals(
                   restoreScoreViewFocus();
                   });
 
-      connect(pitch, &Awl::PitchEdit::returnPressed,
+      connect(_pitch, &Awl::PitchEdit::returnPressed,
               this, [this]() {
                   applyPitchEdit();
                   restoreScoreViewFocus();
@@ -1247,7 +1403,7 @@ void PianorollEditor::connectEditorSignals(
             SIGNAL(activated(int)),
             SLOT(veloTypeChanged(int)));
 
-      connect(velocity,
+      connect(_velocity,
             SIGNAL(valueChanged(int)),
             SLOT(velocityChanged(int)));
 
@@ -1348,7 +1504,7 @@ QString PianorollEditor::staffDisplayName(Staff* st) const
             const int staffIndex = part->staves()->indexOf(st);
 
             if (staffIndex >= 0)
-                  label += tr(": Staff %1").arg(staffIndex + 1);
+                  label += QCoreApplication::translate("Ms::PianorollEditor", ": Staff %1").arg(staffIndex + 1);
             }
 
       return label;
@@ -1696,7 +1852,7 @@ bool PianorollEditor::eventFilter(QObject* obj, QEvent* event)
                   }
 
             const bool pitchEnterPress =
-                  obj == pitch
+                  obj == _pitch
                   && (ke->key() == Qt::Key_Return
                       || ke->key() == Qt::Key_Enter);
 
@@ -1795,7 +1951,7 @@ void PianorollEditor::setStaff(Staff* st)
       staff = st;
 
       if (staff) {
-            setWindowTitle(tr("<%1> Staff: %2").arg(_score->masterScore()->fileInfo()->completeBaseName()).arg(st->idx()));
+            setWindowTitle(QCoreApplication::translate("Ms::PianorollEditor", "<%1> Staff: %2").arg(_score->masterScore()->fileInfo()->completeBaseName()).arg(st->idx()));
             TempoMap* tl = _score->tempomap();
             TimeSigMap*  sl = _score->sigmap();
             for (int i = 0; i < 3; ++i)
@@ -1803,7 +1959,7 @@ void PianorollEditor::setStaff(Staff* st)
             pos->setContext(tl, sl);
             }
       else
-            setWindowTitle(tr("Piano roll editor"));
+            setWindowTitle(QCoreApplication::translate("Ms::PianorollEditor", "Piano roll editor"));
 
       ruler->setScore(_score, locator);
       pianoView->setStaff(staff, locator);
@@ -1991,8 +2147,8 @@ void PianorollEditor::setControlsVisible(bool visible)
 
       controlsChevronButton->setToolTip(
             _controlsVisible
-                  ? tr("Hide piano roll controls")
-                  : tr("Show piano roll controls"));
+                  ? QCoreApplication::translate("Ms::PianorollEditor", "Hide piano roll controls")
+                  : QCoreApplication::translate("Ms::PianorollEditor", "Show piano roll controls"));
       }
 
 //---------------------------------------------------------
@@ -2447,9 +2603,9 @@ void PianorollEditor::updateSelection()
                   }
 
             if (mixed)
-                  pitch->setMixedPitch();
+                  _pitch->setMixedPitch();
             else
-                  pitch->setPitch(firstPitch, firstTpc);
+                  _pitch->setPitch(firstPitch, firstTpc);
             }
 
       // These fields only have an unambiguous value
@@ -2488,8 +2644,8 @@ void PianorollEditor::updateSelection()
                   }
             }
 
-      velocity->setEnabled(enabled && sameVeloType);
-      pitch->setEnabled(enabled);
+      _velocity->setEnabled(enabled && sameVeloType);
+      _pitch->setEnabled(enabled);
       veloType->setEnabled(enabled);
       onTime->setEnabled(enabled);
       tickLen->setEnabled(enabled);
@@ -2577,14 +2733,14 @@ void PianorollEditor::veloTypeChanged(int val)
       const Note::ValueType vt = Note::ValueType(val);
       switch (vt) {
             case Note::ValueType::USER_VAL:
-                  velocity->setRange(0, 127);
-                  velocity->setPrefix("");
+                  _velocity->setRange(0, 127);
+                  _velocity->setPrefix("");
                   break;
 
             case Note::ValueType::OFFSET_VAL:
-                  velocity->setRange(-127, 127);
-                  velocity->setPrefix(
-                        velocity->value() > 0 ? "+" : "");
+                  _velocity->setRange(-127, 127);
+                  _velocity->setPrefix(
+                        _velocity->value() > 0 ? "+" : "");
                   break;
             }
 
@@ -2719,26 +2875,26 @@ void PianorollEditor::updateVelocity(Note* note)
       const int value = note->veloOffset();
 
       QSignalBlocker typeBlocker(veloType);
-      QSignalBlocker velocityBlocker(velocity);
+      QSignalBlocker velocityBlocker(_velocity);
 
       veloType->setCurrentIndex(int(vt));
 
-      velocity->setReadOnly(false);
-      velocity->setSuffix("");
+      _velocity->setReadOnly(false);
+      _velocity->setSuffix("");
 
       switch (vt) {
             case Note::ValueType::USER_VAL:
-                  velocity->setRange(0, 127);
-                  velocity->setPrefix("");
+                  _velocity->setRange(0, 127);
+                  _velocity->setPrefix("");
                   break;
 
             case Note::ValueType::OFFSET_VAL:
-                  velocity->setRange(-127, 127);
-                  velocity->setPrefix(value > 0 ? "+" : "");
+                  _velocity->setRange(-127, 127);
+                  _velocity->setPrefix(value > 0 ? "+" : "");
                   break;
             }
 
-      velocity->setValue(value);
+      _velocity->setValue(value);
 
       if (_showPianoLevels && pianoLevels)
             pianoLevels->update();
@@ -2758,9 +2914,9 @@ void PianorollEditor::velocityChanged(int val)
             Note::ValueType(veloType->currentIndex());
 
       if (currentType == Note::ValueType::OFFSET_VAL && val > 0)
-            velocity->setPrefix("+");
+            _velocity->setPrefix("+");
       else
-            velocity->setPrefix("");
+            _velocity->setPrefix("");
 
       _score->startCmd();
       for (int i = 0; i < items.size(); i++) {
@@ -3309,8 +3465,8 @@ void PianorollEditor::applyPitchEdit()
       if (!_score)
             return;
 
-      const int newPitch = pitch->value();
-      const int tpc = pitch->typedTpc();
+      const int newPitch = _pitch->value();
+      const int tpc = _pitch->typedTpc();
 
       if (!pitchIsValid(newPitch) || !tpcIsValid(tpc))
             return;

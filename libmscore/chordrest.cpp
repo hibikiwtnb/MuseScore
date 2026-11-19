@@ -698,32 +698,32 @@ QString ChordRest::durationUserName() const
       if (tuplet()) {
               switch (tuplet()->ratio().numerator()) {
                   case 2:
-                        tupletType = QObject::tr("Duplet");
+                        tupletType = QCoreApplication::translate("QObject", "Duplet");
                         break;
                   case 3:
-                        tupletType = QObject::tr("Triplet");
+                        tupletType = QCoreApplication::translate("QObject", "Triplet");
                         break;
                   case 4:
-                        tupletType = QObject::tr("Quadruplet");
+                        tupletType = QCoreApplication::translate("QObject", "Quadruplet");
                         break;
                   case 5:
-                        tupletType = QObject::tr("Quintuplet");
+                        tupletType = QCoreApplication::translate("QObject", "Quintuplet");
                         break;
                   case 6:
-                        tupletType = QObject::tr("Sextuplet");
+                        tupletType = QCoreApplication::translate("QObject", "Sextuplet");
                         break;
                   case 7:
-                        tupletType = QObject::tr("Septuplet");
+                        tupletType = QCoreApplication::translate("QObject", "Septuplet");
                         break;
                   case 8:
-                        tupletType = QObject::tr("Octuplet");
+                        tupletType = QCoreApplication::translate("QObject", "Octuplet");
                         break;
                   case 9:
-                        tupletType = QObject::tr("Nonuplet");
+                        tupletType = QCoreApplication::translate("QObject", "Nonuplet");
                         break;
                   default:
                         //: %1 is tuplet ratio numerator (i.e. the number of notes in the tuplet)
-                        tupletType = QObject::tr("%1 note tuplet").arg(tuplet()->ratio().numerator());
+                        tupletType = QCoreApplication::translate("QObject", "%1 note tuplet").arg(tuplet()->ratio().numerator());
                   }
             }
       QString dotString = "";
@@ -732,16 +732,16 @@ QString ChordRest::durationUserName() const
 
       switch (dots()) {
             case 1:
-                  dotString += QObject::tr("Dotted %1").arg(durationType().durationTypeUserName()).trimmed();
+                  dotString += QCoreApplication::translate("QObject", "Dotted %1").arg(durationType().durationTypeUserName()).trimmed();
                   break;
             case 2:
-                  dotString += QObject::tr("Double dotted %1").arg(durationType().durationTypeUserName()).trimmed();
+                  dotString += QCoreApplication::translate("QObject", "Double dotted %1").arg(durationType().durationTypeUserName()).trimmed();
                   break;
             case 3:
-                  dotString += QObject::tr("Triple dotted %1").arg(durationType().durationTypeUserName()).trimmed();
+                  dotString += QCoreApplication::translate("QObject", "Triple dotted %1").arg(durationType().durationTypeUserName()).trimmed();
                   break;
             case 4:
-                  dotString += QObject::tr("Quadruple dotted %1").arg(durationType().durationTypeUserName()).trimmed();
+                  dotString += QCoreApplication::translate("QObject", "Quadruple dotted %1").arg(durationType().durationTypeUserName()).trimmed();
                   break;
             default:
                   dotString += durationType().durationTypeUserName();
@@ -1222,19 +1222,19 @@ QString ChordRest::accessibleExtraInfo() const
 
                   if (s->type() == ElementType::SLUR) {
                         if (s->tick() == tick() && s->track() == track())
-                              rez = QObject::tr("%1 Start of %2").arg(rez, s->screenReaderInfo());
+                              rez = QCoreApplication::translate("QObject", "%1 Start of %2").arg(rez, s->screenReaderInfo());
                         if (s->tick2() == tick() && s->track2() == track())
-                              rez = QObject::tr("%1 End of %2").arg(rez, s->screenReaderInfo());
+                              rez = QCoreApplication::translate("QObject", "%1 End of %2").arg(rez, s->screenReaderInfo());
                         }
                   else if (s->staffIdx() == staffIdx()) {
                         bool start = s->tick()  == tick();
                         bool end   = s->tick2() == tick() + ticks();
                         if (start && end)
-                              rez = QObject::tr("%1 Start and end of %2").arg(rez, s->screenReaderInfo());
+                              rez = QCoreApplication::translate("QObject", "%1 Start and end of %2").arg(rez, s->screenReaderInfo());
                         else if (start)
-                              rez = QObject::tr("%1 Start of %2").arg(rez, s->screenReaderInfo());
+                              rez = QCoreApplication::translate("QObject", "%1 Start of %2").arg(rez, s->screenReaderInfo());
                         else if (end)
-                              rez = QObject::tr("%1 End of %2").arg(rez, s->screenReaderInfo());
+                              rez = QCoreApplication::translate("QObject", "%1 End of %2").arg(rez, s->screenReaderInfo());
                         }
                   }
             }

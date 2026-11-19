@@ -10,6 +10,11 @@
 #  the file LICENSE.GPL
 #=============================================================================
 
+# Normalize destination paths
+if(POLICY CMP0177)
+      cmake_policy(SET CMP0177 NEW)
+endif(POLICY CMP0177)
+
 add_custom_target(referenceDocumentation
       ALL
       DEPENDS en/doc.html de/doc.html en/doc.qhp de/doc.qhp

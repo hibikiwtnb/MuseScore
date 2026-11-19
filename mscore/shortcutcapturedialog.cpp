@@ -197,14 +197,14 @@ void ShortcutCaptureDialog::keyPress(QKeyEvent* e)
             );
       }
 
-bool ShortcutCaptureDialog::isShiftAllowed(int key, const QString& keyStr)
+bool ShortcutCaptureDialog::isShiftAllowed(int k, const QString& keyStr)
       {
       // letter keys where Shift should not be removed
       if (keyStr.size() == 1 && keyStr.at(0).isLetter())
             return true;
 
       // non-letter keys where Shift should not be removed
-      switch (key) {
+      switch (k) {
             case Qt::Key_Up:
             case Qt::Key_Down:
             case Qt::Key_Left:
@@ -258,13 +258,13 @@ bool ShortcutCaptureDialog::isShiftAllowed(int key, const QString& keyStr)
             }
       }
 
-bool ShortcutCaptureDialog::isCtrlAltNeeded(int key, const QString& keyStr) {
+bool ShortcutCaptureDialog::isCtrlAltNeeded(int k, const QString& keyStr) {
       // key that needs AltGR (here esp. on German keyboards), but should not in shortuts
       if (keyStr.size() == 1 && (keyStr.at(0) == QChar(u'€')))
             return false;
 
       // (non-letter) keys that need AltGR (here esp. for German keyboards), but should not in shortuts
-      switch (key) {
+      switch (k) {
             case Qt::Key_twosuperior:   // default action: voice 2
             case Qt::Key_threesuperior: // default action: voice 3
             case Qt::Key_BraceLeft:     // default action: reduce strech

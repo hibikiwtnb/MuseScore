@@ -46,6 +46,9 @@ class NoteTweakerDialog : public QDialog
 
       void setStaff(Staff* s);
 
+   protected:
+      void changeEvent(QEvent* event) override;
+
    signals:
       void notesChanged();
 

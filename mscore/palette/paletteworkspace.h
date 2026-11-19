@@ -216,6 +216,7 @@ class PaletteWorkspace : public QObject {
       Q_INVOKABLE Ms::AbstractPaletteController* poolPaletteController(Ms::FilterPaletteTreeModel*, const QModelIndex& rootIndex);
 
       PaletteTreeModel* userPaletteModel() { return userPalette; }
+      void ensureVisibleChordBrackets();
 
       Q_INVOKABLE QAbstractItemModel* availableExtraPalettesModel();
       Q_INVOKABLE bool addPalette(const QPersistentModelIndex&);

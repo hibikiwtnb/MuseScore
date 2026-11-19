@@ -14,6 +14,7 @@
 #include "beam.h"
 #include "clef.h"
 #include "chord.h"
+#include "chordbracket.h"
 #include "element.h"
 #include "hairpin.h"
 #include "harmony.h"
@@ -1089,6 +1090,13 @@ bool Segment::hasElements(int minTrack, int maxTrack) const
       return false;
       }
 
+bool Segment::hasElements(int staffIdx) const
+      {
+      int startTrack = staffIdx * VOICES;
+      int endTrack = startTrack + VOICES - 1;
+      return hasElements(startTrack, endTrack);
+      }
+
 //---------------------------------------------------------
 //   allElementsInvisible
 ///  return true if all elements in the segment are invisible
@@ -1118,6 +1126,14 @@ bool Segment::hasAnnotationOrElement(ElementType type, int minTrack, int maxTrac
             if (e->type() == type && e->track() >= minTrack && e->track() <= maxTrack)
                   return true;
       return hasElements(minTrack, maxTrack);
+      }
+
+bool Segment::hasAnnotationOrElement(int staffIdx) const
+      {
+      for (const Element* e : _annotations)
+            if (e->staffIdx() == staffIdx)
+                  return true;
+      return hasElements(staffIdx);
       }
 
 //---------------------------------------------------------
@@ -2150,6 +2166,32 @@ void Segment::createShape(int staffIdx)
                   setVisible(true);
                   if (e->addToSkyline() || e->isChord())
                         s.add(e->shape().translated(e->pos()));
+                  }
+            }
+
+      // A cross-staff bracket needs horizontal room on every staff it spans,
+      // even before final staff distances are available. The following uses
+      // the existing horizontal-only general spacing so vertical gaps don't
+      // increase:
+      if (isChordRestType()) {
+            for (Element* e : _elist) {
+                  if (!e || !e->isChord())
+                        continue;
+                  Chord* owner = toChord(e);
+                  for (Element* child : owner->el()) {
+                        if (!child->isChordBracket() || !child->visible() || !child->addToSkyline())
+                              continue;
+                        ChordBracket* bracket = toChordBracket(child);
+                        Chord* end = bracket->endChord();
+                        if (!end || end->vStaffIdx() == owner->vStaffIdx())
+                              continue;
+                        const int first = qMin(owner->vStaffIdx(), end->vStaffIdx());
+                        const int last = qMax(owner->vStaffIdx(), end->vStaffIdx());
+                        if (staffIdx >= first && staffIdx <= last) {
+                              const QRectF r = bracket->bbox().translated(owner->pos() + bracket->pos());
+                              s.addHorizontalSpacing(Shape::SPACING_GENERAL, r.left(), r.right());
+                              }
+                        }
                   }
             }
 

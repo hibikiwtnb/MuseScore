@@ -17,6 +17,11 @@
 #  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #=============================================================================
 
+# Normalize destination paths
+if(POLICY CMP0177)
+      cmake_policy(SET CMP0177 NEW)
+endif(POLICY CMP0177)
+
 install(FILES
       Fugue_1.mscx
       Reunion.mscz

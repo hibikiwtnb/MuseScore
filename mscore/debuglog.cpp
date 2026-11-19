@@ -240,7 +240,7 @@ DebugLogDock::DebugLogDock(QWidget* parent)
    : QDockWidget(parent)
 	  {
 	  setObjectName("debug-log");
-	  setWindowTitle("Debug Log");
+	  // title set in MuseScore constructor
 
 	  QWidget* content = new QWidget(this);
 	  QVBoxLayout* layout = new QVBoxLayout(content);
@@ -249,8 +249,8 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 
 	  QHBoxLayout* controls = new QHBoxLayout;
 
-	  QPushButton* clearButton = new QPushButton(tr("Clear"), content);
-	  QPushButton* copyButton = new QPushButton(tr("Copy All"), content);
+	  _clearButton = new QPushButton(tr("Clear"), content);
+	  _copyAllButton = new QPushButton(tr("Copy All"), content);
 
 	  _enabledCheck = new QCheckBox(tr("Enabled"), content);
 	  _enabledCheck->setChecked(preferences.getBool(PREF_APP_DEBUG_LOG_ENABLED));
@@ -268,8 +268,8 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 	  _autoScrollCheck = new QCheckBox(tr("Autoscroll"), content);
 	  _autoScrollCheck->setChecked(_autoScroll);
 
-	  controls->addWidget(clearButton);
-	  controls->addWidget(copyButton);
+	  controls->addWidget(_clearButton);
+	  controls->addWidget(_copyAllButton);
 	  controls->addStretch();
 	  controls->addWidget(_enabledCheck);
 	  controls->addWidget(_detailsCheck);
@@ -284,17 +284,17 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 	  _searchEdit->setPlaceholderText(tr("Find in log"));
 	  _searchEdit->setClearButtonEnabled(true);
 
-	  QToolButton* findPreviousButton = new QToolButton(content);
-	  findPreviousButton->setArrowType(Qt::UpArrow);
-	  findPreviousButton->setToolTip(tr("Find previous"));
+	  _findPreviousButton = new QToolButton(content);
+	  _findPreviousButton->setArrowType(Qt::UpArrow);
+	  _findPreviousButton->setToolTip(tr("Find previous"));
 
-	  QToolButton* findNextButton = new QToolButton(content);
-	  findNextButton->setArrowType(Qt::DownArrow);
-	  findNextButton->setToolTip(tr("Find next"));
+	  _findNextButton = new QToolButton(content);;
+	  _findNextButton->setArrowType(Qt::DownArrow);
+	  _findNextButton->setToolTip(tr("Find next"));
 
 	  searchControls->addWidget(_searchEdit);
-	  searchControls->addWidget(findPreviousButton);
-	  searchControls->addWidget(findNextButton);
+	  searchControls->addWidget(_findPreviousButton);
+	  searchControls->addWidget(_findNextButton);
 
 	  layout->addLayout(searchControls);
 
@@ -311,10 +311,9 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 	  _selectionCopyMenu->setFocusPolicy(Qt::NoFocus);
 	  _selectionCopyMenu->setAttribute(Qt::WA_ShowWithoutActivating);
 
-	  QAction* copySelectionAction =
-			_selectionCopyMenu->addAction(tr("Copy"));
+	  _copySelectionAction = _selectionCopyMenu->addAction(tr("Copy"));
 
-	  connect(copySelectionAction, &QAction::triggered,
+	  connect(_copySelectionAction, &QAction::triggered,
 			  this, [this]() {
 			const QTextCursor cursor = _output->textCursor();
 
@@ -328,7 +327,7 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 	  _output->viewport()->installEventFilter(this);
 	  _searchEdit->installEventFilter(this);
 
-	  connect(clearButton, &QPushButton::clicked, this, [this]() {
+	  connect(_clearButton, &QPushButton::clicked, this, [this]() {
 			clearPendingMessages();
 
 			_compactMessages.clear();
@@ -339,7 +338,7 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 			_output->clear();
 			});
 
-	  connect(copyButton, &QPushButton::clicked, this, [this]() {
+	  connect(_copyAllButton, &QPushButton::clicked, this, [this]() {
 			QApplication::clipboard()->setText(_output->toPlainText());
 			});
 
@@ -360,11 +359,11 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 			preferences.setPreference(PREF_APP_DEBUG_LOG_AUTOSCROLL, checked);
 			});
 
-	  connect(findPreviousButton, &QToolButton::clicked, this, [this]() {
+	  connect(_findPreviousButton, &QToolButton::clicked, this, [this]() {
 			findText(true);
 			});
 
-	  connect(findNextButton, &QToolButton::clicked, this, [this]() {
+	  connect(_findNextButton, &QToolButton::clicked, this, [this]() {
 			findText(false);
 			});
 
@@ -445,6 +444,39 @@ DebugLogDock::DebugLogDock(QWidget* parent)
 
 	  // Search is the key exception:
 	  _searchEdit->setFocusPolicy(Qt::StrongFocus);
+	  }
+
+//---------------------------------------------------------
+//   changeEvent
+//---------------------------------------------------------
+
+void DebugLogDock::changeEvent(QEvent* event)
+	  {
+	  QDockWidget::changeEvent(event);
+
+	  if (event->type() == QEvent::LanguageChange)
+			retranslate();
+	  }
+
+//---------------------------------------------------------
+//   retranslate
+//---------------------------------------------------------
+
+void DebugLogDock::retranslate()
+	  {
+	  _clearButton->setText(tr("Clear"));
+	  _copyAllButton->setText(tr("Copy All"));
+
+	  _enabledCheck->setText(tr("Enabled"));
+	  _detailsCheck->setText(tr("Details"));
+	  _sourceCheck->setText(tr("Source"));
+	  _autoScrollCheck->setText(tr("Autoscroll"));
+
+	  _searchEdit->setPlaceholderText(tr("Find in log"));
+	  _findPreviousButton->setToolTip(tr("Find previous"));
+	  _findNextButton->setToolTip(tr("Find next"));
+
+	  _copySelectionAction->setText(tr("Copy"));
 	  }
 
 //---------------------------------------------------------

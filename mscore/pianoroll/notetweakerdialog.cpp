@@ -17,6 +17,8 @@
 //  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 //=============================================================================
 
+#include <QEvent>
+
 #include "notetweakerdialog.h"
 #include "pianorolledittool.h"
 
@@ -56,6 +58,17 @@ NoteTweakerDialog::~NoteTweakerDialog()
       delete ui;
       }
 
+//---------------------------------------------------------
+//   changeEvent
+//---------------------------------------------------------
+
+void NoteTweakerDialog::changeEvent(QEvent* event)
+      {
+      QDialog::changeEvent(event);
+
+      if (event->type() == QEvent::LanguageChange)
+            ui->retranslateUi(this);
+      }
 
 //---------------------------------------------------------
 //   setNoteOffTime

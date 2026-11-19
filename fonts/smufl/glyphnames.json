@@ -125,7 +125,7 @@
 	},
 	"accSagittal25SmallDiesisUp": {
 		"codepoint": "U+E306",
-		"description": "25 small diesis up, (25S, ~5:13S, ~37S, 5C\u00a0plus\u00a05C), 2\u00b0 up [53 EDO]"
+		"description": "25 small diesis up, (25S, ~5:13S, ~37S, 5C plus 5C), 2\u00b0 up [53 EDO]"
 	},
 	"accSagittal2MinasDown": {
 		"codepoint": "U+E3F7",
@@ -157,7 +157,7 @@
 	},
 	"accSagittal35MediumDiesisUp": {
 		"codepoint": "U+E308",
-		"description": "35 medium diesis up, (35M, ~13M, ~125M, 5C\u00a0plus\u00a07C), 2/9-tone up"
+		"description": "35 medium diesis up, (35M, ~13M, ~125M, 5C plus 7C), 2/9-tone up"
 	},
 	"accSagittal3TinasDown": {
 		"codepoint": "U+E3FD",
@@ -277,7 +277,7 @@
 	},
 	"accSagittal5v7KleismaUp": {
 		"codepoint": "U+E300",
-		"description": "5:7 kleisma up, (5:7k, ~11:13k, 7C\u00a0less\u00a05C)"
+		"description": "5:7 kleisma up, (5:7k, ~11:13k, 7C less 5C)"
 	},
 	"accSagittal6TinasDown": {
 		"codepoint": "U+E403",

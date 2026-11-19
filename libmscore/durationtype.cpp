@@ -792,24 +792,24 @@ bool forceRhythmicSplitSimple(bool isRest, BeatType startBeat, BeatType endBeat,
 
 QString TDuration::durationTypeUserName() const
       {
-      QString s = QObject::tr("Custom");
+      QString s = QCoreApplication::translate("QObject", "Custom");
       switch(_val) {
-            case DurationType::V_LONG:      s = QObject::tr("Longa"  ); break;
-            case DurationType::V_BREVE:     s = QObject::tr("Breve"  ); break;
-            case DurationType::V_WHOLE:     s = QObject::tr("Whole"  ); break;
-            case DurationType::V_HALF:      s = QObject::tr("Half"   ); break;
-            case DurationType::V_QUARTER:   s = QObject::tr("Quarter"); break;
-            case DurationType::V_EIGHTH:    s = QObject::tr("Eighth" ); break;
-            case DurationType::V_16TH:      s = QObject::tr("16th"   ); break;
-            case DurationType::V_32ND:      s = QObject::tr("32nd"   ); break;
-            case DurationType::V_64TH:      s = QObject::tr("64th"   ); break;
-            case DurationType::V_128TH:     s = QObject::tr("128th"  ); break;
-            case DurationType::V_256TH:     s = QObject::tr("256th"  ); break;
-            case DurationType::V_512TH:     s = QObject::tr("512th"  ); break;
-            case DurationType::V_1024TH:    s = QObject::tr("1024th" ); break;
-            case DurationType::V_ZERO:      s = QObject::tr("Zero"   ); break;
-            case DurationType::V_MEASURE:   s = QObject::tr("Measure"); break;
-            case DurationType::V_INVALID:   s = QObject::tr("Invalid"); break;
+            case DurationType::V_LONG:      s = QCoreApplication::translate("QObject", "Longa"  ); break;
+            case DurationType::V_BREVE:     s = QCoreApplication::translate("QObject", "Breve"  ); break;
+            case DurationType::V_WHOLE:     s = QCoreApplication::translate("QObject", "Whole"  ); break;
+            case DurationType::V_HALF:      s = QCoreApplication::translate("QObject", "Half"   ); break;
+            case DurationType::V_QUARTER:   s = QCoreApplication::translate("QObject", "Quarter"); break;
+            case DurationType::V_EIGHTH:    s = QCoreApplication::translate("QObject", "Eighth" ); break;
+            case DurationType::V_16TH:      s = QCoreApplication::translate("QObject", "16th"   ); break;
+            case DurationType::V_32ND:      s = QCoreApplication::translate("QObject", "32nd"   ); break;
+            case DurationType::V_64TH:      s = QCoreApplication::translate("QObject", "64th"   ); break;
+            case DurationType::V_128TH:     s = QCoreApplication::translate("QObject", "128th"  ); break;
+            case DurationType::V_256TH:     s = QCoreApplication::translate("QObject", "256th"  ); break;
+            case DurationType::V_512TH:     s = QCoreApplication::translate("QObject", "512th"  ); break;
+            case DurationType::V_1024TH:    s = QCoreApplication::translate("QObject", "1024th" ); break;
+            case DurationType::V_ZERO:      s = QCoreApplication::translate("QObject", "Zero"   ); break;
+            case DurationType::V_MEASURE:   s = QCoreApplication::translate("QObject", "Measure"); break;
+            case DurationType::V_INVALID:   s = QCoreApplication::translate("QObject", "Invalid"); break;
             };
       return s;
       }
