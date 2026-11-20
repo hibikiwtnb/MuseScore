@@ -38,6 +38,7 @@ class TestMxmlIO : public QObject, public MTest
       void mxmlIoTest(const char* file, bool exportLayout = false);
       void mxmlIoTestRef(const char* file);
       void mxmlIoTestRefBreaks(const char* file);
+      void mxmlInstrumentSequenceTest(const char* inFile, const char* refFile, const char* partId);
       void mxmlMscxExportTestRef(const char* file, bool exportLayout = false);
       void mxmlMscxExportTestRefBreaks(const char* file);
       void mxmlReadTestCompr(const char* file);
@@ -191,6 +192,7 @@ private slots:
       void inferredTempoText2() { mxmlImportTestRef("testInferredTempoText2"); }
       void inferredTransposition() { mxmlImportTestRef("testInferredTransposition"); }
       void instrumentChangeMIDIportExport() { mxmlMscxExportTestRef("testInstrumentChangeMIDIportExport"); }
+      void instrumentChangeMIDIportImport() { mxmlInstrumentSequenceTest("testInstrumentChangeMIDIportExport_ref", "testInstrumentChangeMIDIportExport_ref", "P15-"); }
       void instrumentSound() { mxmlIoTestRef("testInstrumentSound"); }
       void invalidLayout() { mxmlMscxExportTestRef("testInvalidLayout"); }
       void invalidTimesig() { mxmlIoTestRef("testInvalidTimesig"); }
@@ -464,6 +466,46 @@ void TestMxmlIO::mxmlIoTestRef(const char* file)
       score->doLayout();
       QVERIFY(saveMusicXml(score, QString(file) + ".xml"));
       QVERIFY(saveCompareMusicXmlScore(score, QString(file) + ".xml", DIR + file + "_ref.xml"));
+      delete score;
+      }
+
+//---------------------------------------------------------
+//   mxmlInstrumentSequenceTest
+//   read a MusicXML file, write to a new file and verify the instrument
+//   and MIDI port sequence of \a partId against the reference
+//---------------------------------------------------------
+
+static QStringList instrumentLines(const QString& path, const char* partId)
+      {
+      QStringList lines;
+      QFile f(path);
+      if (!f.open(QIODevice::ReadOnly))
+            return lines;
+      QTextStream in(&f);
+      while (!in.atEnd()) {
+            const QString line = in.readLine();
+            if (line.contains(partId))
+                  lines.append(line.trimmed());
+            }
+      return lines;
+      }
+
+void TestMxmlIO::mxmlInstrumentSequenceTest(const char* inFile, const char* refFile, const char* partId)
+      {
+      MScore::debugMode = true;
+      preferences.setCustomPreference<MusicxmlExportBreaks>(PREF_EXPORT_MUSICXML_EXPORTBREAKS, MusicxmlExportBreaks::MANUAL);
+      preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTLAYOUT, false);
+      preferences.setPreference(PREF_IMPORT_MUSICXML_IMPORTBREAKS, true);
+      preferences.setPreference(PREF_EXPORT_MUSICXML_EXPORTINVISIBLEELEMENTS, true);
+      preferences.setPreference(PREF_IMPORT_MUSICXML_IMPORTINFERTEXTTYPE, true);
+      MasterScore* score = readScore(DIR + inFile + ".xml");
+      QVERIFY(score);
+      fixupScore(score);
+      score->doLayout();
+      const QString out = QString(inFile) + "_roundtrip.xml";
+      QVERIFY(saveMusicXml(score, out));
+      QCOMPARE(instrumentLines(out, partId),
+               instrumentLines(root + "/" + DIR + refFile + ".xml", partId));
       delete score;
       }
 

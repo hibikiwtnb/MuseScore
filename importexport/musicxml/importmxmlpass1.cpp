@@ -2655,7 +2655,7 @@ void MusicXMLParserPass1::measure(const QString& partId,
             else if (_e.name() == "print")
                   print(measureNr);
             else if (_e.name() == "sound")
-                  _e.skipCurrentElement();  // skip but don't log
+                  sound(partId, cTime + mTime);
             else
                   skipLogCurrElem();
 
@@ -3064,6 +3064,38 @@ void MusicXMLParserPass1::direction(const QString& partId, const Fraction cTime)
                   }
             else
                   _octaveShifts.insert(desc.num, desc);
+            }
+      }
+
+//---------------------------------------------------------
+//   sound
+//---------------------------------------------------------
+
+/**
+ Parse the /score-partwise/part/measure/sound node.
+ Register an instrument change when no note carries the new instrument id,
+ e.g. when the measure after the change contains only rests.
+ */
+
+void MusicXMLParserPass1::sound(const QString& partId, const Fraction cTime)
+      {
+      while (_e.readNextStartElement()) {
+            if (_e.name() == "instrument-change") {
+                  const QString instrId = _e.attributes().value("id").toString();
+                  if (!instrId.isEmpty() && instrId != _parts[partId]._instrList.instrument(cTime)) {
+                        // no note before the change carried an instrument id: the part
+                        // starts with its first instrument, this change comes later
+                        if (_parts[partId]._instrList.empty() && cTime > Fraction(0, 1)) {
+                              const MusicXMLInstruments instrs = _instruments.value(partId);
+                              if (!instrs.isEmpty())
+                                    _parts[partId]._instrList.setInstrument(instrs.firstKey(), Fraction(0, 1));
+                              }
+                        _parts[partId]._instrList.setInstrument(instrId, cTime);
+                        }
+                  _e.skipCurrentElement();
+                  }
+            else
+                  _e.skipCurrentElement();
             }
       }
 
