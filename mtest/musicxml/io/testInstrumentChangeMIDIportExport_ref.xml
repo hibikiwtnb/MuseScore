@@ -1078,6 +1078,9 @@
           <words font-weight="bold">Voice</words>
           </direction-type>
         <staff>1</staff>
+        <sound>
+          <midi-instrument id="P15-I2"/>
+          </sound>
         </direction>
       <note>
         <rest measure="yes"/>
