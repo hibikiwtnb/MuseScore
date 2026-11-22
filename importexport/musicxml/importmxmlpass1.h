@@ -187,6 +187,7 @@ public:
       const CreditWordsList& credits() const { return _credits; }
       bool hasBeamingInfo() const { return _hasBeamingInfo; }
       bool isVocalStaff(const QString& id) const { return _parts[id].isVocalStaff(); }
+      bool skipTupletPadding(const QString& id, const int measureNr) const { return _parts.value(id).skipTupletPaddingMeasure(measureNr); }
       static VBox* createAndAddVBoxForCreditWords(Score* const score);
       int maxDiff() const { return _maxDiff; }
       void insertAdjustedDuration(Fraction key, Fraction value) { _adjustedDurations.insert(key, value); }

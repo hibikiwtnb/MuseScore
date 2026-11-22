@@ -322,7 +322,7 @@ private:
       void part();
       void measChordNote( /*, const MxmlPhase2Note note, ChordRest& currChord */);
       void measChordFlush( /*, ChordRest& currChord */);
-      void measure(const QString& partId, const Fraction time);
+      void measure(const QString& partId, const Fraction time, const int measureNr = -1);
       void attributes(const QString& partId, Measure* measure, const Fraction& tick);
       void measureStyle(const QString& partId, Measure* measure);
       void applyMeasureRepeats();
@@ -334,7 +334,7 @@ private:
       void transpose(const QString& partId, const Fraction& tick);
       Note* note(const QString& partId, Measure* measure, const Fraction sTime, const Fraction prevTime, Fraction& missingPrev,
                  Fraction& dura, Fraction& missingCurr, QString& currentVoice, GraceChordList& gcl, int& gac, Beams& currBeams,
-                 FiguredBassList& fbl, int& alt, MxmlTupletStates& tupletStates, Tuplets& tuplets);
+                 FiguredBassList& fbl, int& alt, MxmlTupletStates& tupletStates, Tuplets& tuplets, bool skipTupletPadding = false);
       void notePrintSpacingNo(Fraction& dura);
       FiguredBassItem* figure(const int idx, const bool paren);
       FiguredBass* figuredBass();

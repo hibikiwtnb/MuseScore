@@ -2601,6 +2601,9 @@ void MusicXMLParserPass1::measure(const QString& partId,
 
       Fraction mTime; // current time stamp within measure
       Fraction mDura; // current total measure duration
+      Fraction rawMTime; // current time stamp within measure without incomplete-tuplet padding
+      Fraction rawMDura; // current total measure duration without incomplete-tuplet padding
+      bool hasTupletPadding = false;
       vod.newMeasure();
       MxmlTupletStates tupletStates;
 
@@ -2617,23 +2620,33 @@ void MusicXMLParserPass1::measure(const QString& partId,
                   note(partId, cTime + mTime, missingPrev, dura, missingCurr, vod, tupletStates);
                   if (missingPrev.isValid()) {
                         mTime += missingPrev;
+                        if (missingPrev > Fraction(0, 1))
+                              hasTupletPadding = true;
                         }
                   if (dura.isValid()) {
                         mTime += dura;
+                        rawMTime += dura;
                         }
                   if (missingCurr.isValid()) {
                         mTime += missingCurr;
+                        if (missingCurr > Fraction(0, 1))
+                              hasTupletPadding = true;
                         }
                   if (mTime > mDura)
                         mDura = mTime;
+                  if (rawMTime > rawMDura)
+                        rawMDura = rawMTime;
                   }
             else if (_e.name() == "forward") {
                   Fraction dura;
                   forward(dura);
                   if (dura.isValid()) {
                         mTime += dura;
+                        rawMTime += dura;
                         if (mTime > mDura)
                               mDura = mTime;
+                        if (rawMTime > rawMDura)
+                              rawMDura = rawMTime;
                         }
                   }
             else if (_e.name() == "backup") {
@@ -2646,6 +2659,10 @@ void MusicXMLParserPass1::measure(const QString& partId,
                               _logger->logError("backup beyond measure start", &_e);
                               mTime.set(0, 1);
                               }
+                        if (dura <= rawMTime)
+                              rawMTime -= dura;
+                        else
+                              rawMTime.set(0, 1);
                         }
                   }
             else if (_e.name() == "direction")
@@ -2675,6 +2692,12 @@ void MusicXMLParserPass1::measure(const QString& partId,
 
       // measure duration fixups
       mDura.reduce();
+      rawMDura.reduce();
+      if (hasTupletPadding && _timeSigDura.isValid() && _timeSigDura > Fraction(0, 1)
+          && mDura > _timeSigDura && rawMDura <= _timeSigDura) {
+            mDura = rawMDura;
+            _parts[partId].addSkipTupletPaddingMeasure(measureNr);
+            }
 
       // fix for PDFtoMusic Pro v1.3.0d Build BF4E and PlayScore / ReadScoreLib Version 3.11
       // which sometimes generate empty measures

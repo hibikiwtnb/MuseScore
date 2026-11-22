@@ -1680,7 +1680,7 @@ static Rest* addRest(Score* score, Measure* m,
 //   resetTuplets
 //---------------------------------------------------------
 
-static void resetTuplets(Tuplets& tuplets)
+static void resetTuplets(Tuplets& tuplets, const bool skipTupletPadding = false)
       {
       for (auto& pair : tuplets) {
             Tuplet* tuplet = pair.second;
@@ -1691,15 +1691,17 @@ static void resetTuplets(Tuplets& tuplets)
                          tuplet,
                          qPrintable(tuplet->tick().print()),
                          qPrintable(actualDuration.print()), qPrintable(missingDuration.print()));
-                  if (actualDuration > Fraction(0, 1) && missingDuration > Fraction(0, 1)) {
-                        qDebug("add missing %s to previous tuplet", qPrintable(missingDuration.print()));
+                  if (!skipTupletPadding && actualDuration > Fraction(0, 1) && missingDuration > Fraction(0, 1)) {
                         const DurationElement* firstElement = tuplet->elements().at(0);
-                        // appended the rest to the current end of the tuplet (firstElement->tick() + actualDuration)
-                        Rest* const extraRest = addRest(firstElement->score(), firstElement->measure(), firstElement->tick() + actualDuration, firstElement->track(), 0,
-                                                       TDuration { missingDuration* tuplet->ratio() }, missingDuration);
-                        if (extraRest) {
-                              extraRest->setTuplet(tuplet);
-                              tuplet->add(extraRest);
+                        if (firstElement->tick() + actualDuration + missingDuration <= firstElement->measure()->endTick()) {
+                              qDebug("add missing %s to previous tuplet", qPrintable(missingDuration.print()));
+                              // appended the rest to the current end of the tuplet (firstElement->tick() + actualDuration)
+                              Rest* const extraRest = addRest(firstElement->score(), firstElement->measure(), firstElement->tick() + actualDuration, firstElement->track(), 0,
+                                                             TDuration { missingDuration* tuplet->ratio() }, missingDuration);
+                              if (extraRest) {
+                                    extraRest->setTuplet(tuplet);
+                                    tuplet->add(extraRest);
+                                    }
                               }
                         }
                   const int normalNotes = tuplet->ratio().denominator();
@@ -2845,7 +2847,7 @@ void MusicXMLParserPass2::part()
             if (_e.name() == "measure") {
                   Fraction t = _pass1.getMeasureStart(nr);
                   if (t.isValid())
-                        measure(id, t);
+                        measure(id, t, nr);
                   else {
                         _logger->logError(QString("no valid start time for measure %1").arg(nr + 1), &_e);
                         _e.skipCurrentElement();
@@ -3276,8 +3278,10 @@ static bool canAddTempoText(const TempoMap* const tempoMap, const int tick)
  */
 
 void MusicXMLParserPass2::measure(const QString& partId,
-                                  const Fraction time)
+                                  const Fraction time,
+                                  const int measureNr)
       {
+      const bool skipTupletPadding = measureNr >= 0 && _pass1.skipTupletPadding(partId, measureNr);
       // "measure numbers" don't have to be actual numbers in MusicXML
       bool isNumericMeasureNumber = false;
       int parsedMeasureNumber = 0;
@@ -3402,12 +3406,12 @@ void MusicXMLParserPass2::measure(const QString& partId,
                   // note: chord and grace note handling done in note()
                   // dura > 0 iff valid rest or first note of chord found
                   Note* n = note(partId, measure, time + mTime, time + prevTime, missingPrev, dura, missingCurr, cv, gcl, gac, beams, fbl, alt,
-                                 tupletStates, tuplets);
+                                 tupletStates, tuplets, skipTupletPadding);
                   if (n && !n->chord()->isGrace())
                         prevChord = n->chord();  // remember last non-grace chord
                   if (n && n->accidental() && n->accidental()->accidentalType() != AccidentalType::NONE)
                         alterMap.insert(n, alt);
-                  if (missingPrev.isValid()) {
+                  if (!skipTupletPadding && missingPrev.isValid()) {
                         mTime += missingPrev;
                         }
                   if (dura.isValid() && dura > Fraction(0, 1)) {
@@ -3416,7 +3420,7 @@ void MusicXMLParserPass2::measure(const QString& partId,
                         if (mTime > mDura)
                               mDura = mTime;
                         }
-                  if (missingCurr.isValid()) {
+                  if (!skipTupletPadding && missingCurr.isValid()) {
                         mTime += missingCurr;
                         }
                   //qDebug("added note %p chord %p gac %d", n, n ? n->chord() : 0, gac);
@@ -3475,7 +3479,7 @@ void MusicXMLParserPass2::measure(const QString& partId,
       addGraceChordsAfter(prevChord, gcl, gac);
 
       // prevent tuplets from crossing measure boundaries
-      resetTuplets(tuplets);
+      resetTuplets(tuplets, skipTupletPadding);
 
       // fill possible gaps in voice 1
       Part* part = _pass1.getPart(partId); // should not fail, we only get here if the part exists
@@ -7155,7 +7159,8 @@ Note* MusicXMLParserPass2::note(const QString& partId,
                                 FiguredBassList& fbl,
                                 int& alt,
                                 MxmlTupletStates& tupletStates,
-                                Tuplets& tuplets
+                                Tuplets& tuplets,
+                                bool skipTupletPadding
                                 )
       {
       if (_e.attributes().value("print-spacing") == "no") {
@@ -7376,7 +7381,7 @@ Note* MusicXMLParserPass2::note(const QString& partId,
             tupletAction = tupletState.determineTupletAction(mnd.duration(), timeMod, notations.tupletDesc().type, mnd.normalType(), missingPrev, missingCurr);
             if (tupletAction & MxmlTupletFlag::STOP_PREVIOUS) {
                   // tuplet start while already in tuplet
-                  if (missingPrev.isValid() && missingPrev > Fraction(0, 1)) {
+                  if (!skipTupletPadding && missingPrev.isValid() && missingPrev > Fraction(0, 1)) {
                         const int track = msTrack + msVoice;
                         Rest* const extraRest = addRest(_score, measure, noteStartTime, track, msMove,
                                                        TDuration { missingPrev* tuplet->ratio() }, missingPrev);
@@ -7607,7 +7612,7 @@ Note* MusicXMLParserPass2::note(const QString& partId,
                               tuplet->add(cr);
                               }
                         if (tuplet && tupletAction & MxmlTupletFlag::STOP_CURRENT) {
-                              if (missingCurr.isValid() && missingCurr > Fraction(0, 1)) {
+                              if (!skipTupletPadding && missingCurr.isValid() && missingCurr > Fraction(0, 1)) {
                                     qDebug("add missing %s to current tuplet", qPrintable(missingCurr.print()));
                                     const int track = msTrack + msVoice;
                                     Rest* const extraRest = addRest(_score, measure, noteStartTime + dura, track, msMove,

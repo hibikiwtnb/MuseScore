@@ -90,6 +90,8 @@ public:
       int maxStaff() const { return _maxStaff; }
       bool isVocalStaff() const;
       void hasLyrics(bool b) { _hasLyrics = b; }
+      void addSkipTupletPaddingMeasure(const int measureNr) { _skipTupletPaddingMeasures.insert(measureNr); }
+      bool skipTupletPaddingMeasure(const int measureNr) const { return _skipTupletPaddingMeasures.contains(measureNr); }
 private:
       QString id;
       QString name;
@@ -105,6 +107,7 @@ private:
       bool _hasLyrics = false;
       QMap<int, int> _staffNumberToIndex;       // Mapping from staff number to index in staff list.
                                                 // Only for when staves are discarded in MusicXMLParserPass1::attributes.
+      QSet<int> _skipTupletPaddingMeasures;     // Measures where incomplete-tuplet padding would exceed time signature
       };
 
 } // namespace Ms
