@@ -202,6 +202,8 @@ ScoreView::ScoreView(QWidget* parent)
 
 void ScoreView::setScore(Score* s)
       {
+      _focusPageIdx = -1;
+      _paperAnchorY = 10.0;
       if (_score) {
             if (_score->isMaster()) {
                   MasterScore* ms = static_cast<MasterScore*>(s);
@@ -3479,6 +3481,7 @@ void ScoreView::dragScoreView(QMouseEvent* ev)
             return;
 
       constraintCanvas(&dx, &dy);
+      _paperAnchorY += dy;         // dragging places the paper anew; wheel scrolling does not
 
       TourHandler::startTour("navigate-tour");
 
@@ -3719,36 +3722,32 @@ Page* ScoreView::pageAtViewport() const
       }
 
 //---------------------------------------------------------
-//   anchoredOrigin
-//    One axis of the view origin relative to a page's top-left
-//    corner, carried over to another page. rel > 0 means the
-//    paper's edge is outside the view: never carried over.
-//    A paper which fits in the view stays completely inside it.
-//---------------------------------------------------------
-
-static qreal anchoredOrigin(qreal rel, qreal pageSize, qreal viewSize)
-      {
-      rel = qMin(rel, 0.0);
-      if (pageSize <= viewSize)
-            rel = qMax(rel, pageSize - viewSize);
-      return rel;
-      }
-
-//---------------------------------------------------------
 //   setPageAnchoredOffset
-//    keep the page top-left at the same viewport position across
-//    a page change, using the real page positions, without
-//    moving the new paper out of the visible area
+//    Place the page "to" where the paper is placed in the view.
+//    X is that of the page "from". Y is the placement kept in
+//    _paperAnchorY, which vertical scrolling (wheel, tracking
+//    within a page) does not change. Where a position would put
+//    the paper's edge outside the view, the default distance of
+//    a freshly opened score is used.
 //---------------------------------------------------------
 
 void ScoreView::setPageAnchoredOffset(const Page* from, const Page* to)
       {
       const qreal z = physicalZoomLevel();
-      const QRectF view(-xoffset() / z, -yoffset() / z, width() / z, height() / z);
-      const QPointF rel = view.topLeft() - from->pos();
-      const qreal x = to->pos().x() + anchoredOrigin(rel.x(), to->bbox().width(), view.width());
-      const qreal y = to->pos().y() + anchoredOrigin(rel.y(), to->bbox().height(), view.height());
-      setConstrainedOffset(xoffset() - (x - view.x()) * z, yoffset() - (y - view.y()) * z);
+      qreal x = from->pos().x() * z + xoffset();
+      qreal y = _paperAnchorY;
+      if (score()->videoMode()) {
+            // the video frame stays centered
+            x = (width() - to->bbox().width() * z) * 0.5;
+            y = (height() - to->bbox().height() * z) * 0.5;
+            }
+      else {
+            if (x < 0.0 || x >= width())
+                  x = thinPadding;
+            if (y < 0.0 || y >= height())
+                  y = thinPadding;
+            }
+      setConstrainedOffset(x - to->pos().x() * z, y - to->pos().y() * z);
       }
 
 //---------------------------------------------------------
@@ -4176,18 +4175,32 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       if (shadowNote->visible())
             setShadowNote(p);
 
-      // When the focus crosses to another page, turn the paper first (see
-      // setPageAnchoredOffset), then track within the new page if needed.
-      // During playback a new page which is only partly visible is turned to
-      // even if the current measure can already be seen.
+      // Crossing to another page is positioned by the paper only (see
+      // setPageAnchoredOffset). Neither the decision nor the position depends
+      // on the focused note or system. Note tracking below applies within a
+      // page.
       Page* page = sys->page();
       if (score()->paginatedMode()) {
-            Page* anchor = pageAtViewport();
-            const QRectF pageRect(page->bbox().translated(page->pos()));
-            if (anchor && anchor != page && (!r.contains(showRect) || (playBack && !r.contains(pageRect)))) {
-                  setPageAnchoredOffset(anchor, page);
+            const QList<Page*>& pages = score()->pages();
+            const int idx = pages.indexOf(page);
+            const int lastIdx = _focusPageIdx;
+            _focusPageIdx = idx;
+            // The source is the page the focus comes from, unless the user has
+            // scrolled it out of view
+            Page* from = nullptr;
+            if (lastIdx >= 0 && lastIdx < pages.size()
+               && r.intersects(pages[lastIdx]->bbox().translated(pages[lastIdx]->pos())))
+                  from = pages[lastIdx];
+            else
+                  from = pageAtViewport();
+            const bool crossing = (lastIdx >= 0 && lastIdx != idx) || (from && from != page);
+            // a page which is already fully visible stays where it is
+            if (r.contains(page->bbox().translated(page->pos())))
+                  return;
+            if (crossing && from) {
+                  setPageAnchoredOffset(from, page);
                   update();
-                  r = canvasViewport();
+                  return;
                   }
             }
 

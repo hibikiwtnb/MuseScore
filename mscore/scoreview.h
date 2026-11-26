@@ -482,6 +482,8 @@ class ScoreView : public QWidget, public MuseScoreView {
       QSizeF fsize() const;
       void screenNext();
       void screenPrev();
+      int _focusPageIdx { -1 };     // page of the last tracked focus
+      qreal _paperAnchorY { 10.0 }; // placed distance from the view's top to the paper's, in pixels
       Page* pageAtViewport() const;
       void setPageAnchoredOffset(const Page* from, const Page* to);
       void pageNext();
