@@ -7722,7 +7722,8 @@ void MuseScore::switchLayoutMode(LayoutMode mode)
 
       cv->loopUpdate(getAction("loop")->isChecked());
 
-      const bool layoutModeChanged = mode != cs->layoutMode();
+      const LayoutMode oldMode = cs->layoutMode();
+      const bool layoutModeChanged = mode != oldMode;
 
       if (layoutModeChanged) {
             cs->setLayoutMode(mode);
@@ -7738,19 +7739,30 @@ void MuseScore::switchLayoutMode(LayoutMode mode)
       cv->pageTop();
 
       if (layoutModeChanged) {
-            const ZoomIndex zoomIndex = (mode == LayoutMode::VIDEO)
-                        ? ZoomIndex::ZOOM_WHOLE_PAGE
-                        : cv->zoomIndex();
-
-            if (zoomIndex == ZoomIndex::ZOOM_PAGE_WIDTH
-                || zoomIndex == ZoomIndex::ZOOM_WHOLE_PAGE
-                || zoomIndex == ZoomIndex::ZOOM_TWO_PAGES) {
-                  cv->setLogicalZoom(zoomIndex, cv->calculateLogicalZoomLevel(zoomIndex));
+            if (mode == LayoutMode::VIDEO) {
+                  cv->saveZoomBeforeVideo();
+                  cv->setLogicalZoom(ZoomIndex::ZOOM_WHOLE_PAGE,
+                                     cv->calculateLogicalZoomLevel(ZoomIndex::ZOOM_WHOLE_PAGE));
                   }
             else {
-                  // Reapply the current zoom so the page-top position is
-                  // constrained against the newly laid-out pages
-                  cv->setLogicalZoom(zoomIndex, cv->logicalZoomLevel());
+                  ZoomState savedZoom;
+                  if (oldMode == LayoutMode::VIDEO && cv->takeZoomBeforeVideo(savedZoom)) {
+                        cv->setLogicalZoom(savedZoom.index, savedZoom.level);
+                        }
+                  else {
+                        const ZoomIndex zoomIndex = cv->zoomIndex();
+
+                        if (zoomIndex == ZoomIndex::ZOOM_PAGE_WIDTH
+                            || zoomIndex == ZoomIndex::ZOOM_WHOLE_PAGE
+                            || zoomIndex == ZoomIndex::ZOOM_TWO_PAGES) {
+                              cv->setLogicalZoom(zoomIndex, cv->calculateLogicalZoomLevel(zoomIndex));
+                              }
+                        else {
+                              // Reapply the current zoom so the page-top position is
+                              // constrained against the newly laid-out pages
+                              cv->setLogicalZoom(zoomIndex, cv->logicalZoomLevel());
+                              }
+                        }
                   }
             }
 

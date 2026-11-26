@@ -179,6 +179,8 @@ class ScoreView : public QWidget, public MuseScoreView {
       QTransform _matrix, imatrix;
       ZoomIndex _zoomIndex;
       ZoomState _previousLogicalZoom { ZoomIndex::ZOOM_PAGE_WIDTH, 0.0 }; // for zoom-level toggling
+      ZoomState _zoomBeforeVideo { ZoomIndex::ZOOM_FREE, 0.0 };
+      bool _videoZoomSaved { false };
 
       QFocusFrame* focusFrame;
 
@@ -449,6 +451,24 @@ class ScoreView : public QWidget, public MuseScoreView {
       qreal physicalZoomLevel() const;
       ZoomState logicalZoom() const { return { _zoomIndex, logicalZoomLevel() }; }
       void setLogicalZoom(const ZoomState& logicalZoom) { setLogicalZoom(logicalZoom.index, logicalZoom.level); }
+
+      // Remember the zoom used before entering Video View so leaving it
+      // restores the previous view instead of keeping the forced fit.
+      void saveZoomBeforeVideo()
+            {
+            if (!_videoZoomSaved) {
+                  _zoomBeforeVideo = { _zoomIndex, logicalZoomLevel() };
+                  _videoZoomSaved  = true;
+                  }
+            }
+      bool takeZoomBeforeVideo(ZoomState& zoom)
+            {
+            if (!_videoZoomSaved)
+                  return false;
+            zoom = _zoomBeforeVideo;
+            _videoZoomSaved = false;
+            return true;
+            }
 
       ZoomIndex previousZoomIndex() const { return _previousLogicalZoom.index; }
       qreal previousLogicalZoomLevel() const { return _previousLogicalZoom.level; }

@@ -90,7 +90,8 @@ void Page::appendSystem(System* s)
 
 void Page::draw(QPainter* painter) const
       {
-      const bool shouldDraw = score()->paginatedMode() || score()->floatMode();
+      const bool shouldDraw = (score()->paginatedMode() || score()->floatMode())
+            && !score()->videoMode();
       if (!shouldDraw)
             return;
       //
