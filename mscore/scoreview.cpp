@@ -1355,7 +1355,7 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                               break;
                         }
 
-                  if (!score()->printing())
+                  if (!score()->printing() && !score()->videoMode())
                         paintPageBorder(p, page);
 
                   QList<Element*> ell = page->items(fr.translated(-page->pos()));
@@ -1816,7 +1816,16 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
       const qreal pw = _score->styleD(Sid::pageWidth);
       const qreal ph = _score->styleD(Sid::pageHeight);
 
-      qreal spreadWidth = pw * DPI;
+      // Video View lays out a 16:9 canvas, so fit zoom must use the real
+      // page size instead of the printable style page.
+      qreal videoPw = pw;
+      qreal videoPh = ph;
+      if (_score->videoMode() && !_score->pages().isEmpty()) {
+            videoPw = _score->pages().front()->bbox().width() / DPI;
+            videoPh = _score->pages().front()->bbox().height() / DPI;
+            }
+
+      qreal spreadWidth = videoPw * DPI;
       if (_score->doublePageMode()) {
             const QRectF layoutRect = _score->pageLayoutRect();
             spreadWidth = layoutRect.isEmpty()
@@ -1832,8 +1841,8 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
                   break;
 
             case ZoomIndex::ZOOM_WHOLE_PAGE: {
-                  const qreal mag1 = cw / (pw * DPI);
-                  const qreal mag2 = ch / (ph * DPI);
+                  const qreal mag1 = cw / (videoPw * DPI);
+                  const qreal mag2 = ch / (videoPh * DPI);
                   result = std::min(mag1, mag2);
                   }
                   break;
@@ -3457,6 +3466,11 @@ void ScoreView::endNoteEntry()
 
 void ScoreView::dragScoreView(QMouseEvent* ev)
       {
+      // Video View keeps the canvas fixed for recording; do not let a canvas
+      // drag expose the desktop behind the video frame.
+      if (score()->videoMode())
+            return;
+
       QPoint d = ev->pos() - _matrix.map(editData.startMove).toPoint();
       int dx   = d.x();
       int dy   = d.y();
@@ -3745,7 +3759,7 @@ void ScoreView::pageNext()
                         }
                   }
             }
-      else if (score()->pageMode()) {
+      else if (score()->pageMode() || score()->videoMode()) {
             target = curIdx + 1;
             }
       else {
@@ -3821,7 +3835,7 @@ void ScoreView::pagePrev()
             const int row = (curIdx == 0) ? 0 : (curIdx + 1) / 2;
             target = (row <= 1) ? 0 : 2 * (row - 1) - 1;
             }
-      else if (score()->pageMode()) {
+      else if (score()->pageMode() || score()->videoMode()) {
             target = curIdx - 1;
             }
       else {

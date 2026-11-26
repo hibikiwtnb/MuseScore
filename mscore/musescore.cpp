@@ -1110,6 +1110,7 @@ void MuseScore::populateFileOperations()
       viewModeCombo->addItem(tr("Double Page"), int(LayoutMode::DOUBLE_PAGE));
       viewModeCombo->addItem(tr("Continuous View"), int(LayoutMode::LINE));
       viewModeCombo->addItem(tr("Single Page"), int(LayoutMode::SYSTEM));
+      viewModeCombo->addItem(tr("Video View"), int(LayoutMode::VIDEO));
       if (enableExperimental)
             viewModeCombo->addItem(tr("Floating"), int(LayoutMode::FLOAT));
 
@@ -7737,7 +7738,9 @@ void MuseScore::switchLayoutMode(LayoutMode mode)
       cv->pageTop();
 
       if (layoutModeChanged) {
-            const ZoomIndex zoomIndex = cv->zoomIndex();
+            const ZoomIndex zoomIndex = (mode == LayoutMode::VIDEO)
+                        ? ZoomIndex::ZOOM_WHOLE_PAGE
+                        : cv->zoomIndex();
 
             if (zoomIndex == ZoomIndex::ZOOM_PAGE_WIDTH
                 || zoomIndex == ZoomIndex::ZOOM_WHOLE_PAGE

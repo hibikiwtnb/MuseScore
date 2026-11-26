@@ -2222,7 +2222,11 @@ void LayoutContext::getNextPage()
                   systems.clear();
             prevSystem = systems.empty() ? nullptr : systems.back();
             }
-      page->bbox().setRect(0.0, 0.0, score->loWidth(), score->loHeight());
+      // Video View uses a 16:9 canvas for recording, kept only for display
+      // so the printable page size stored in the score stays untouched.
+      const qreal pageWidth = score->loWidth();
+      const qreal pageHeight = score->videoMode() ? pageWidth * 9.0 / 16.0 : score->loHeight();
+      page->bbox().setRect(0.0, 0.0, pageWidth, pageHeight);
       page->setNo(curPage);
       qreal x = 0.0;
       qreal y = 0.0;

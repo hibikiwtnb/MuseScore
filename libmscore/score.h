@@ -137,7 +137,7 @@ enum class Pad : char {
 //---------------------------------------------------------
 
 enum class LayoutMode : char {
-      PAGE, FLOAT, LINE, SYSTEM, DOUBLE_PAGE
+      PAGE, FLOAT, LINE, SYSTEM, DOUBLE_PAGE, VIDEO
       };
 
 //---------------------------------------------------------
@@ -1133,7 +1133,8 @@ class Score : public QObject, public ScoreElement {
       bool floatMode() const                { return layoutMode() == LayoutMode::FLOAT; }
       bool pageMode() const                 { return layoutMode() == LayoutMode::PAGE; }
       bool doublePageMode() const           { return layoutMode() == LayoutMode::DOUBLE_PAGE; }
-      bool paginatedMode() const            { return pageMode() || doublePageMode(); }
+      bool videoMode() const                { return layoutMode() == LayoutMode::VIDEO; }
+      bool paginatedMode() const            { return pageMode() || doublePageMode() || videoMode(); }
       bool lineMode() const                 { return layoutMode() == LayoutMode::LINE; }
       bool systemMode() const               { return layoutMode() == LayoutMode::SYSTEM; }
 
