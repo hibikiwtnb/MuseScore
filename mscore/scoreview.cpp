@@ -3663,6 +3663,61 @@ constexpr qreal thinPadding  { 10.0 };
 constexpr qreal thickPadding { 25.0 };
 
 //---------------------------------------------------------
+//   pageAtViewport
+//    page shown at the viewport's top-left corner
+//---------------------------------------------------------
+
+Page* ScoreView::pageAtViewport() const
+      {
+      const QList<Page*>& pages = score()->pages();
+      if (pages.isEmpty())
+            return nullptr;
+
+      const qreal z = physicalZoomLevel();
+      const QRectF viewport = canvasViewport();
+
+      Page* best = nullptr;
+      qreal bestArea = -1.0;
+      qreal bestDist = 0.0;
+      for (Page* page : pages) {
+            const QRectF r(page->bbox().translated(page->pos()));
+            const QRectF inter = r.intersected(viewport);
+            const qreal area = inter.width() * inter.height();
+            const QPointF topLeft(-xoffset() / z, -yoffset() / z);
+            qreal dx = 0.0;
+            qreal dy = 0.0;
+            if (topLeft.x() < r.left())
+                  dx = r.left() - topLeft.x();
+            else if (topLeft.x() > r.right())
+                  dx = topLeft.x() - r.right();
+            if (topLeft.y() < r.top())
+                  dy = r.top() - topLeft.y();
+            else if (topLeft.y() > r.bottom())
+                  dy = topLeft.y() - r.bottom();
+            const qreal dist = dx * dx + dy * dy;
+            if (area > bestArea + 0.5 || (!best || (area > bestArea - 0.5 && dist < bestDist))) {
+                  best = page;
+                  bestArea = area;
+                  bestDist = dist;
+                  }
+            }
+      return best;
+      }
+
+//---------------------------------------------------------
+//   setPageAnchoredOffset
+//    keep the page top-left at the same viewport position across
+//    a page change, using the real page positions
+//---------------------------------------------------------
+
+void ScoreView::setPageAnchoredOffset(const Page* from, const Page* to)
+      {
+      const qreal z = physicalZoomLevel();
+      const QPointF delta = (to->pos() - from->pos()) * z;
+      setConstrainedOffset(xoffset() - delta.x(), yoffset() - delta.y());
+      }
+
+//---------------------------------------------------------
 //   pageNext
 //---------------------------------------------------------
 
@@ -3671,52 +3726,38 @@ void ScoreView::pageNext()
       if (score()->pages().empty())
             return;
 
-      if (score()->doublePageMode()) {
-            Page* page = score()->pages().back();
-
-            // Advance by one complete spread row
-            qreal y = yoffset() - (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
-
-            const QRectF layoutRect = score()->pageLayoutRect();
-            const qreal endY = height() - layoutRect.bottom() * physicalZoomLevel();
-
-            if (y < endY)
-                  y = endY;
-
-            // Preserve horizontal position: Double Page navigation is vertical,
-            // even if the normal page orientation is horizontal
-            setConstrainedOffset(xoffset(), y);
-            update();
-            return;
-            }
-
-      if (score()->layoutMode() != LayoutMode::PAGE) {
+      Page* cur = pageAtViewport();
+      if (!cur) {
             screenNext();
             return;
             }
 
-      Page* page = score()->pages().back();
-      qreal x, y;
-      if (MScore::verticalOrientation()) {
-            x = thinPadding;
-            y = yoffset() - (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
-
-            const QRectF layoutRect = score()->pageLayoutRect();
-            const qreal endY = height() - layoutRect.bottom() * physicalZoomLevel();
-
-            if (y < endY)
-                  y = endY;
-            }
-      else {
-            y        = thinPadding;
-            x        = xoffset() - (page->width() + thickPadding) * physicalZoomLevel();
-            qreal lx = thinPadding - page->pos().x() * physicalZoomLevel();
-            if (x <= lx - width() * scrollStep) {
-                  pageEnd();
-                  return;
+      const QList<Page*>& pages = score()->pages();
+      const int curIdx = pages.indexOf(cur);
+      const int npages = pages.size();
+      int target = -1;
+      if (score()->doublePageMode()) {
+            // Advance to the left page of the next double-page spread
+            for (int i = curIdx + 1; i < npages; ++i) {
+                  if (i & 1) {
+                        target = i;
+                        break;
+                        }
                   }
             }
-      setConstrainedOffset(x, y);
+      else if (score()->pageMode()) {
+            target = curIdx + 1;
+            }
+      else {
+            screenNext();
+            return;
+            }
+
+      if (target < 0 || target >= npages) {
+            pageEnd();
+            return;
+            }
+      setPageAnchoredOffset(cur, pages[target]);
       update();
       }
 
@@ -3766,41 +3807,33 @@ void ScoreView::pagePrev()
       if (score()->pages().empty())
             return;
 
-      if (score()->doublePageMode()) {
-            Page* page = score()->pages().front();
-
-            // Move back by one complete spread row
-            qreal y = yoffset() + (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
-
-            if (y > thinPadding)
-                  y = thinPadding;
-
-            // Preserve horizontal position as with pageNext()
-            setConstrainedOffset(xoffset(), y);
-            update();
-            return;
-            }
-
-      if (score()->layoutMode() != LayoutMode::PAGE) {
+      Page* cur = pageAtViewport();
+      if (!cur) {
             screenPrev();
             return;
             }
 
-      Page* page = score()->pages().front();
-      qreal x, y;
-      if (MScore::verticalOrientation()) {
-            x  = thinPadding;
-            y  = yoffset() + (page->height() + MScore::verticalPageGap) * physicalZoomLevel();
-            if (y > thinPadding)
-                  y = thinPadding;
+      const QList<Page*>& pages = score()->pages();
+      const int curIdx = pages.indexOf(cur);
+      int target = -1;
+      if (score()->doublePageMode()) {
+            // Move back to the left page of the previous double-page spread
+            const int row = (curIdx == 0) ? 0 : (curIdx + 1) / 2;
+            target = (row <= 1) ? 0 : 2 * (row - 1) - 1;
+            }
+      else if (score()->pageMode()) {
+            target = curIdx - 1;
             }
       else {
-            y  = thinPadding;
-            x  = xoffset() + (page->width() + thickPadding) * physicalZoomLevel();
-            if (x > thinPadding)
-                  x = thinPadding;
+            screenPrev();
+            return;
             }
-      setConstrainedOffset(x, y);
+
+      if (target < 0) {
+            pageTop();
+            return;
+            }
+      setPageAnchoredOffset(cur, pages[target]);
       update();
       }
 

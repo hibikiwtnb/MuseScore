@@ -462,6 +462,8 @@ class ScoreView : public QWidget, public MuseScoreView {
       QSizeF fsize() const;
       void screenNext();
       void screenPrev();
+      Page* pageAtViewport() const;
+      void setPageAnchoredOffset(const Page* from, const Page* to);
       void pageNext();
       void pagePrev();
       void pageTop();
