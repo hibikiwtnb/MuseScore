@@ -67,6 +67,15 @@
 
 namespace Ms {
 
+// Video View display defaults: one video canvas shows a fixed group of
+// measures per line and a fixed number of lines. Dense measures still break
+// earlier instead of overlapping, so these are upper bounds, not forced packs.
+static constexpr int VIDEO_MEASURES_PER_LINE = 4;
+static constexpr int VIDEO_SYSTEMS_PER_PAGE  = 2;
+// Widen the 16:9 canvas so two grand-staff systems fit comfortably; the
+// printed page size itself is not changed.
+static constexpr qreal VIDEO_PAGE_WIDTH_FACTOR = 1.15;
+
 // #define PAGE_DEBUG
 
 #ifdef PAGE_DEBUG
@@ -2224,7 +2233,9 @@ void LayoutContext::getNextPage()
             }
       // Video View uses a 16:9 canvas for recording, kept only for display
       // so the printable page size stored in the score stays untouched.
-      const qreal pageWidth = score->loWidth();
+      const qreal pageWidth = score->videoMode()
+            ? score->loWidth() * VIDEO_PAGE_WIDTH_FACTOR
+            : score->loWidth();
       const qreal pageHeight = score->videoMode() ? pageWidth * 9.0 / 16.0 : score->loHeight();
       page->bbox().setRect(0.0, 0.0, pageWidth, pageHeight);
       page->setNo(curPage);
@@ -4137,6 +4148,8 @@ System* Score::collectSystem(LayoutContext& lc)
       bool firstMeasure = true;
       bool createHeader = false;
       qreal systemWidth = styleD(Sid::pagePrintableWidth) * DPI;
+      if (videoMode())
+            systemWidth *= VIDEO_PAGE_WIDTH_FACTOR;
       system->setWidth(systemWidth);
 
       // save state of measure
@@ -4201,7 +4214,18 @@ System* Score::collectSystem(LayoutContext& lc)
             // check if lc.curMeasure fits, remove if not
             // collect at least one measure and the break
 
-            bool doBreak = (system->measures().size() > 1) && ((minWidth + ww) > systemWidth);
+            // Video View limits how many measures can share one line.
+            int measureCount = 0;
+            if (videoMode()) {
+                  for (MeasureBase* mb : system->measures()) {
+                        if (mb->isMeasure())
+                              ++measureCount;
+                        }
+                  }
+
+            bool doBreak = (system->measures().size() > 1)
+                  && (((minWidth + ww) > systemWidth)
+                      || (videoMode() && measureCount > VIDEO_MEASURES_PER_LINE));
             if (doBreak) {
                   breakMeasure = lc.curMeasure;
                   system->removeLastMeasure();
@@ -5298,6 +5322,16 @@ void LayoutContext::collectPage()
                         dist += qMax(margin, slb);
                         }
                   breakPage = (y + dist) >= endY && breakPages;
+                  }
+            // Video View holds a fixed number of systems per video canvas.
+            if (!breakPage && breakPages && score->videoMode()) {
+                  int musicSystems = 0;
+                  for (System* s : qAsConst(page->systems())) {
+                        if (!s->vbox())
+                              ++musicSystems;
+                        }
+                  if (musicSystems >= VIDEO_SYSTEMS_PER_PAGE)
+                        breakPage = true;
                   }
             if (breakPage) {
                   qreal dist = qMax(prevSystem->minBottom(), prevSystem->spacerDistance(false));
