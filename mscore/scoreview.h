@@ -483,11 +483,22 @@ class ScoreView : public QWidget, public MuseScoreView {
       void screenNext();
       void screenPrev();
       int _focusPageIdx { -1 };     // page of the last tracked focus
+      int _videoPageIdx { 0 };      // the only page shown in Video View
+      int _videoLowKey  { 36 };     // keyboard range of Video View: whole octaves,
+      int _videoHighKey { 96 };     // from a C to a C
+      QSet<int> _videoKeys;         // sounding pitches
+      qreal _videoWheel { 0.0 };    // wheel distance collected for a page turn
+      QRectF videoKeyboardRect() const;
+      void updateVideoKeyRange();
+      void paintVideoKeyboard(QPainter&);
       qreal _paperAnchorY { 10.0 }; // placed distance from the view's top to the paper's, in pixels
       Page* pageAtViewport() const;
       void setPageAnchoredOffset(const Page* from, const Page* to);
       void pageNext();
       void pagePrev();
+      void showVideoPage(int idx);
+      int videoPageIdx() const      { return _videoPageIdx; }
+      void setVideoKeys(const QSet<int>& pitches);
       void pageTop();
       void pageEnd();
       QPointF toLogical(const QPoint& p) const   { return imatrix.map(QPointF(p)); }

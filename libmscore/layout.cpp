@@ -74,7 +74,6 @@ static constexpr int VIDEO_MEASURES_PER_LINE = 4;
 static constexpr int VIDEO_SYSTEMS_PER_PAGE  = 2;
 // Widen the 16:9 canvas so two grand-staff systems fit comfortably; the
 // printed page size itself is not changed.
-static constexpr qreal VIDEO_PAGE_WIDTH_FACTOR = 1.15;
 
 // #define PAGE_DEBUG
 
@@ -2231,12 +2230,13 @@ void LayoutContext::getNextPage()
                   systems.clear();
             prevSystem = systems.empty() ? nullptr : systems.back();
             }
-      // Video View uses a 16:9 canvas for recording, kept only for display
-      // so the printable page size stored in the score stays untouched.
+      // Video View uses a recording canvas, kept only for display so the
+      // printable page size stored in the score stays untouched. With the
+      // keyboard under it the page makes up a 16:9 frame.
       const qreal pageWidth = score->videoMode()
-            ? score->loWidth() * VIDEO_PAGE_WIDTH_FACTOR
+            ? score->loWidth() * Score::VIDEO_PAGE_WIDTH_FACTOR
             : score->loWidth();
-      const qreal pageHeight = score->videoMode() ? pageWidth * 9.0 / 16.0 : score->loHeight();
+      const qreal pageHeight = score->videoMode() ? pageWidth * Score::VIDEO_PAGE_ASPECT : score->loHeight();
       page->bbox().setRect(0.0, 0.0, pageWidth, pageHeight);
       page->setNo(curPage);
       qreal x = 0.0;
@@ -4145,7 +4145,7 @@ System* Score::collectSystem(LayoutContext& lc)
       bool createHeader = false;
       qreal systemWidth = styleD(Sid::pagePrintableWidth) * DPI;
       if (videoMode())
-            systemWidth *= VIDEO_PAGE_WIDTH_FACTOR;
+            systemWidth *= Score::VIDEO_PAGE_WIDTH_FACTOR;
       system->setWidth(systemWidth);
 
       // save state of measure

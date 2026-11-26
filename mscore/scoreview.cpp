@@ -204,6 +204,8 @@ void ScoreView::setScore(Score* s)
       {
       _focusPageIdx = -1;
       _paperAnchorY = 10.0;
+      _videoPageIdx = 0;
+      _videoKeys.clear();
       if (_score) {
             if (_score->isMaster()) {
                   MasterScore* ms = static_cast<MasterScore*>(s);
@@ -1112,6 +1114,9 @@ void ScoreView::paintEvent(QPaintEvent* ev)
       vp.setTransform(_matrix);
       vp.setClipping(false);
 
+      if (_score->videoMode())
+            paintVideoKeyboard(vp);
+
       _curLoopIn->paint(&vp);
       _curLoopOut->paint(&vp);
       _cursor->paint(&vp);
@@ -1356,6 +1361,11 @@ void ScoreView::paint(const QRect& r, QPainter& p)
                         if (pr.left() > fr.right())
                               break;
                         }
+
+                  // Video View shows a single page, without neighbours
+                  if (!score()->printing() && score()->videoMode()
+                     && _score->pages().indexOf(page) != qBound(0, _videoPageIdx, _score->pages().size() - 1))
+                        continue;
 
                   if (!score()->printing() && !score()->videoMode())
                         paintPageBorder(p, page);
@@ -1824,7 +1834,7 @@ qreal ScoreView::calculatePhysicalZoomLevel(const ZoomIndex index, const qreal l
       qreal videoPh = ph;
       if (_score->videoMode() && !_score->pages().isEmpty()) {
             videoPw = _score->pages().front()->bbox().width() / DPI;
-            videoPh = _score->pages().front()->bbox().height() / DPI;
+            videoPh = videoPw * Score::VIDEO_FRAME_ASPECT;       // page and keyboard
             }
 
       qreal spreadWidth = videoPw * DPI;
@@ -3736,18 +3746,151 @@ void ScoreView::setPageAnchoredOffset(const Page* from, const Page* to)
       const qreal z = physicalZoomLevel();
       qreal x = from->pos().x() * z + xoffset();
       qreal y = _paperAnchorY;
-      if (score()->videoMode()) {
-            // the video frame stays centered
-            x = (width() - to->bbox().width() * z) * 0.5;
-            y = (height() - to->bbox().height() * z) * 0.5;
-            }
-      else {
-            if (x < 0.0 || x >= width())
-                  x = thinPadding;
-            if (y < 0.0 || y >= height())
-                  y = thinPadding;
-            }
+      if (x < 0.0 || x >= width())
+            x = thinPadding;
+      if (y < 0.0 || y >= height())
+            y = thinPadding;
       setConstrainedOffset(x - to->pos().x() * z, y - to->pos().y() * z);
+      }
+
+//---------------------------------------------------------
+//   showVideoPage
+//    fit the 16:9 frame (the page and the keyboard under
+//    it) into the view, centered
+//---------------------------------------------------------
+
+void ScoreView::showVideoPage(int idx)
+      {
+      if (!score()->videoMode() || score()->pages().isEmpty() || width() <= 0 || height() <= 0)
+            return;
+      _videoPageIdx = qBound(0, idx, score()->pages().size() - 1);
+      const Page* page = score()->pages()[_videoPageIdx];
+      const qreal w = page->bbox().width();
+      const qreal h = w * Score::VIDEO_FRAME_ASPECT;
+      const qreal z = qMin(width() / w, height() / h);
+      setPhysicalZoomLevel(z);
+      setOffset((width() - w * z) * .5 - page->pos().x() * z,
+                (height() - h * z) * .5 - page->pos().y() * z);
+      updateVideoKeyRange();
+      update();
+      }
+
+//---------------------------------------------------------
+//   videoKeyboardRect
+//    in canvas coordinates
+//---------------------------------------------------------
+
+QRectF ScoreView::videoKeyboardRect() const
+      {
+      const QList<Page*>& pages = _score->pages();
+      if (pages.isEmpty())
+            return QRectF();
+      const Page* page = pages[qBound(0, _videoPageIdx, pages.size() - 1)];
+      const qreal w = page->bbox().width();
+      return QRectF(page->pos().x(), page->pos().y() + page->bbox().height(),
+                    w, w * Score::VIDEO_KEYBOARD_ASPECT);
+      }
+
+//---------------------------------------------------------
+//   updateVideoKeyRange
+//    whole octaves covering the pitched notes of the score
+//---------------------------------------------------------
+
+void ScoreView::updateVideoKeyRange()
+      {
+      int low = 128;
+      int high = -1;
+      for (Segment* s = score()->firstSegment(SegmentType::ChordRest); s; s = s->next1(SegmentType::ChordRest)) {
+            for (int track = 0; track < score()->ntracks(); ++track) {
+                  Element* e = s->element(track);
+                  if (!e || !e->isChord() || e->staff()->isDrumStaff(s->tick()))
+                        continue;
+                  for (const Note* note : toChord(e)->notes()) {
+                        low  = qMin(low, note->ppitch());
+                        high = qMax(high, note->ppitch());
+                        }
+                  }
+            }
+      if (high < 0) {
+            low  = 36;
+            high = 95;
+            }
+      _videoLowKey  = low - low % 12;
+      _videoHighKey = high - high % 12 + 12;
+      }
+
+//---------------------------------------------------------
+//   setVideoKeys
+//---------------------------------------------------------
+
+void ScoreView::setVideoKeys(const QSet<int>& pitches)
+      {
+      if (pitches == _videoKeys)
+            return;
+      _videoKeys = pitches;
+      if (_score && _score->videoMode())
+            update(_matrix.mapRect(videoKeyboardRect()).toAlignedRect());
+      }
+
+//---------------------------------------------------------
+//   paintVideoKeyboard
+//    the keyboard of the piano score videos
+//---------------------------------------------------------
+
+void ScoreView::paintVideoKeyboard(QPainter& p)
+      {
+      const QRectF r = videoKeyboardRect();
+      if (r.isEmpty())
+            return;
+      auto isBlack = [](int pitch) {
+            const int n = pitch % 12;
+            return n == 1 || n == 3 || n == 6 || n == 8 || n == 10;
+            };
+      int whites = 0;
+      for (int pitch = _videoLowKey; pitch <= _videoHighKey; ++pitch) {
+            if (!isBlack(pitch))
+                  ++whites;
+            }
+      const qreal wk = r.width() / whites;
+      const qreal px = r.width() / 1920.0;           // one pixel of a 1920 wide video
+      const QColor line(0xb4, 0xac, 0xa0);
+
+      p.save();
+      p.setRenderHint(QPainter::Antialiasing, true);
+      p.fillRect(r, QColor(0xff, 0xfd, 0xfa));
+      QFont font("Edwin");
+      font.setPixelSize(qMax(1, qRound(19 * px)));
+      p.setFont(font);
+
+      qreal x = r.left();
+      for (int pitch = _videoLowKey; pitch <= _videoHighKey; ++pitch) {
+            if (isBlack(pitch))
+                  continue;
+            const QRectF key(x, r.top(), wk, r.height());
+            const bool on = _videoKeys.contains(pitch);
+            p.setPen(QPen(line, 1.5 * px));
+            p.setBrush(on ? QColor(0x5b, 0x9b, 0xe6) : QColor(0xff, 0xfd, 0xfa));
+            p.drawRect(key);
+            if (pitch % 12 == 0) {
+                  p.setPen(on ? QColor(Qt::white) : line);
+                  p.drawText(key.adjusted(0, 0, 0, -8 * px), Qt::AlignHCenter | Qt::AlignBottom,
+                     QString("C%1").arg(pitch / 12 - 1));
+                  }
+            x += wk;
+            }
+      x = r.left();
+      p.setPen(Qt::NoPen);
+      for (int pitch = _videoLowKey; pitch <= _videoHighKey; ++pitch) {
+            if (!isBlack(pitch)) {
+                  x += wk;
+                  continue;
+                  }
+            p.setBrush(_videoKeys.contains(pitch) ? QColor(0x2a, 0x64, 0xb8) : QColor(0x22, 0x22, 0x22));
+            p.drawRect(QRectF(x - wk * .3, r.top(), wk * .6, r.height() * .62));
+            }
+      p.setPen(QPen(line, 3 * px));
+      p.drawLine(r.topLeft(), r.topRight());
+      p.restore();
       }
 
 //---------------------------------------------------------
@@ -3758,6 +3901,10 @@ void ScoreView::pageNext()
       {
       if (score()->pages().empty())
             return;
+      if (score()->videoMode()) {
+            showVideoPage(_videoPageIdx + 1);
+            return;
+            }
 
       Page* cur = pageAtViewport();
       if (!cur) {
@@ -3802,6 +3949,10 @@ void ScoreView::screenNext()
       {
       if (score()->pages().empty())
             return;
+      if (score()->videoMode()) {
+            pageNext();
+            return;
+            }
       qreal x { xoffset() };
       qreal y { yoffset() };
       if (score()->layoutMode() == LayoutMode::LINE) {
@@ -3839,6 +3990,10 @@ void ScoreView::pagePrev()
       {
       if (score()->pages().empty())
             return;
+      if (score()->videoMode()) {
+            showVideoPage(_videoPageIdx - 1);
+            return;
+            }
 
       Page* cur = pageAtViewport();
       if (!cur) {
@@ -3878,6 +4033,10 @@ void ScoreView::screenPrev()
       {
       if (score()->pages().empty())
             return;
+      if (score()->videoMode()) {
+            pagePrev();
+            return;
+            }
       qreal x { xoffset() };
       qreal y { yoffset() };
       if (score()->layoutMode() == LayoutMode::LINE) {
@@ -3914,6 +4073,10 @@ void ScoreView::screenPrev()
 
 void ScoreView::pageTop()
       {
+      if (score()->videoMode()) {
+            showVideoPage(0);
+            return;
+            }
       if (score()->paginatedMode())
             setConstrainedOffset(thinPadding, thinPadding);
       else
@@ -3928,6 +4091,10 @@ void ScoreView::pageTop()
 
 void ScoreView::pageEnd()
       {
+      if (score()->videoMode()) {
+            showVideoPage(score()->pages().size() - 1);
+            return;
+            }
       if (score()->pages().empty())
             return;
       MeasureBase* lm = score()->lastMeasureMM();
@@ -4180,6 +4347,12 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       // on the focused note or system. Note tracking below applies within a
       // page.
       Page* page = sys->page();
+      if (score()->videoMode()) {
+            const int videoIdx = score()->pages().indexOf(page);
+            if (videoIdx != _videoPageIdx)
+                  showVideoPage(videoIdx);
+            return;
+            }
       if (score()->paginatedMode()) {
             const QList<Page*>& pages = score()->pages();
             const int idx = pages.indexOf(page);

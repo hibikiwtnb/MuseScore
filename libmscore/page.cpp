@@ -572,7 +572,7 @@ QList<Element*> Page::elements()
 
 qreal Page::tm() const
       {
-      return ((!score()->styleB(Sid::pageTwosided) || isOdd())
+      return ((score()->videoMode() || !score()->styleB(Sid::pageTwosided) || isOdd())
          ? score()->styleD(Sid::pageOddTopMargin) : score()->styleD(Sid::pageEvenTopMargin)) * DPI;
       }
 
@@ -582,7 +582,7 @@ qreal Page::tm() const
 
 qreal Page::bm() const
       {
-      return ((!score()->styleB(Sid::pageTwosided) || isOdd())
+      return ((score()->videoMode() || !score()->styleB(Sid::pageTwosided) || isOdd())
          ? score()->styleD(Sid::pageOddBottomMargin) : score()->styleD(Sid::pageEvenBottomMargin)) * DPI;
       }
 
@@ -592,6 +592,10 @@ qreal Page::bm() const
 
 qreal Page::lm() const
       {
+      if (score()->videoMode()) {
+            return (score()->styleD(Sid::pageWidth) - score()->styleD(Sid::pagePrintableWidth))
+               * DPI * Score::VIDEO_PAGE_WIDTH_FACTOR * .5;
+            }
       return ((!score()->styleB(Sid::pageTwosided) || isOdd())
          ? score()->styleD(Sid::pageOddLeftMargin) : score()->styleD(Sid::pageEvenLeftMargin)) * DPI;
       }
@@ -602,6 +606,8 @@ qreal Page::lm() const
 
 qreal Page::rm() const
       {
+      if (score()->videoMode())
+            return lm();
       return (score()->styleD(Sid::pageWidth) - score()->styleD(Sid::pagePrintableWidth)) * DPI - lm();
       }
 

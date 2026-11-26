@@ -38,6 +38,9 @@ The macOS app has its own name and bundle ID, and its settings are kept apart fr
 - **External MIDI devices**: a checkbox in the I/O preferences chooses the MIDI output device or MuseScore's own sounds. Each part channel takes its own MIDI channel when it first plays, drums on channel 10, melodic parts never on 10, and XG part mode is set to Normal, so XG sound modules no longer play melodies as drums. `-O` traces the channels and programs sent.
 - **Several soundfonts**: a program the first soundfont lacks is taken from the next soundfont that has it, instead of falling back to piano.
 
+**Video View**
+- A view mode for recording score videos: one page at a time in a 16:9 frame, with a piano keyboard along the bottom which lights the sounding keys during playback. The keyboard covers the whole octaves the score uses. The wheel and the page keys turn pages. It does not change the printable page.
+
 ## Build
 
 Same as MuseScore 3.x (see "Building" below). On macOS this fork also builds with Ninja or Makefiles, not only Xcode. The CI workflow "Build: All" runs by hand only and by default builds macOS (Apple, Intel) and Windows x64.

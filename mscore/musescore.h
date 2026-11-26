@@ -270,6 +270,7 @@ class MuseScore : public QMainWindow, public MuseScoreCore {
       QToolBar* workspacesTools;
       TextTools* _textTools                { 0 };
       PianoTools* _pianoTools              { 0 };
+      bool _pianoHiddenByVideo             { false };
       MediaDialog* _mediaDialog            { 0 };
       DrumTools* _drumTools                { 0 };
       QToolBar* voiceTools;

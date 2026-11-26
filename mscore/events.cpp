@@ -148,6 +148,24 @@ void ScoreView::wheelEvent(QWheelEvent* event)
       QPoint pixelsScrolled = event->pixelDelta();
       QPoint stepsScrolled  = event->angleDelta();
 
+      // Video View: the frame neither scrolls nor zooms; the wheel turns pages,
+      // one page for each gesture step
+      if (score()->videoMode()) {
+            if (event->phase() == Qt::ScrollMomentum)
+                  return;
+            if (event->phase() == Qt::ScrollBegin)
+                  _videoWheel = 0.0;
+            _videoWheel += pixelsScrolled.isNull() ? stepsScrolled.y() : pixelsScrolled.y();
+            if (qAbs(_videoWheel) >= 120.0) {
+                  if (_videoWheel < 0)
+                        pageNext();
+                  else
+                        pagePrev();
+                  _videoWheel = 0.0;
+                  }
+            return;
+            }
+
       int dx = 0, dy = 0, n = 0;
       qreal nReal = 0.0;
 
@@ -224,6 +242,11 @@ void ScoreView::resizeEvent(QResizeEvent* /*ev*/)
       setLogicalZoom(_zoomIndex, calculateLogicalZoomLevel(_zoomIndex, logicalZoomLevel()));
 
       emit sizeChanged();
+
+      if (score() && score()->videoMode()) {
+            showVideoPage(_videoPageIdx);
+            return;
+            }
 
       // The score may need to be repositioned now.
       // So figure out how far it needs to move in each direction...

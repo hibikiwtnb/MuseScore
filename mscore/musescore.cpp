@@ -7726,6 +7726,8 @@ void MuseScore::switchLayoutMode(LayoutMode mode)
       const bool layoutModeChanged = mode != oldMode;
 
       if (layoutModeChanged) {
+            if (mode == LayoutMode::VIDEO)
+                  cv->saveZoomBeforeVideo();    // before pageTop() fits the video frame
             cs->setLayoutMode(mode);
             cs->doLayout();
 
@@ -7740,11 +7742,20 @@ void MuseScore::switchLayoutMode(LayoutMode mode)
 
       if (layoutModeChanged) {
             if (mode == LayoutMode::VIDEO) {
-                  cv->saveZoomBeforeVideo();
                   cv->setLogicalZoom(ZoomIndex::ZOOM_WHOLE_PAGE,
                                      cv->calculateLogicalZoomLevel(ZoomIndex::ZOOM_WHOLE_PAGE));
+                  cv->showVideoPage(0);
+                  // Video View draws its own keyboard inside the frame
+                  if (_pianoTools && _pianoTools->isVisible()) {
+                        showPianoKeyboard(false);
+                        _pianoHiddenByVideo = true;
+                        }
                   }
             else {
+                  if (oldMode == LayoutMode::VIDEO && _pianoHiddenByVideo) {
+                        showPianoKeyboard(true);
+                        _pianoHiddenByVideo = false;
+                        }
                   ZoomState savedZoom;
                   if (oldMode == LayoutMode::VIDEO && cv->takeZoomBeforeVideo(savedZoom)) {
                         cv->setLogicalZoom(savedZoom.index, savedZoom.level);

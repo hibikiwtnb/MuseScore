@@ -570,6 +570,9 @@ void Seq::unmarkNotes()
       PianoTools* piano = mscore->pianoTools();
       if (piano && piano->isVisible())
             piano->setPlaybackNotes(markedNotes);
+
+      if (mscore->currentScoreView())
+            mscore->currentScoreView()->setVideoKeys(QSet<int>());
       }
 
 //---------------------------------------------------------
@@ -2735,6 +2738,15 @@ void Seq::heartBeatTimeout()
       PianoTools* piano = mscore->pianoTools();
       if (piano && piano->isVisible())
             piano->updateAllKeys();
+
+      if (cs->videoMode()) {
+            QSet<int> pitches;
+            for (const Note* note : qAsConst(markedNotes)) {
+                  if (!note->staff()->isDrumStaff(note->tick()))
+                        pitches.insert(note->ppitch());
+                  }
+            mscore->currentScoreView()->setVideoKeys(pitches);
+            }
 
       cv->update(cv->toPhysical(r));
       }

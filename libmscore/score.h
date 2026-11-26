@@ -1134,6 +1134,12 @@ class Score : public QObject, public ScoreElement {
       bool pageMode() const                 { return layoutMode() == LayoutMode::PAGE; }
       bool doublePageMode() const           { return layoutMode() == LayoutMode::DOUBLE_PAGE; }
       bool videoMode() const                { return layoutMode() == LayoutMode::VIDEO; }
+      // Video View: a 16:9 frame, sized like a 1920x1080 video, holding one
+      // page with a piano keyboard under it. Display only.
+      static constexpr qreal VIDEO_PAGE_WIDTH_FACTOR = 1.35;           // of the printable page width
+      static constexpr qreal VIDEO_FRAME_ASPECT      = 1080.0 / 1920.0;
+      static constexpr qreal VIDEO_KEYBOARD_ASPECT   =  156.0 / 1920.0;
+      static constexpr qreal VIDEO_PAGE_ASPECT       = VIDEO_FRAME_ASPECT - VIDEO_KEYBOARD_ASPECT;
       bool paginatedMode() const            { return pageMode() || doublePageMode() || videoMode(); }
       bool lineMode() const                 { return layoutMode() == LayoutMode::LINE; }
       bool systemMode() const               { return layoutMode() == LayoutMode::SYSTEM; }
