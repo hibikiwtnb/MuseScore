@@ -3719,16 +3719,36 @@ Page* ScoreView::pageAtViewport() const
       }
 
 //---------------------------------------------------------
+//   anchoredOrigin
+//    One axis of the view origin relative to a page's top-left
+//    corner, carried over to another page. rel > 0 means the
+//    paper's edge is outside the view: never carried over.
+//    A paper which fits in the view stays completely inside it.
+//---------------------------------------------------------
+
+static qreal anchoredOrigin(qreal rel, qreal pageSize, qreal viewSize)
+      {
+      rel = qMin(rel, 0.0);
+      if (pageSize <= viewSize)
+            rel = qMax(rel, pageSize - viewSize);
+      return rel;
+      }
+
+//---------------------------------------------------------
 //   setPageAnchoredOffset
 //    keep the page top-left at the same viewport position across
-//    a page change, using the real page positions
+//    a page change, using the real page positions, without
+//    moving the new paper out of the visible area
 //---------------------------------------------------------
 
 void ScoreView::setPageAnchoredOffset(const Page* from, const Page* to)
       {
       const qreal z = physicalZoomLevel();
-      const QPointF delta = (to->pos() - from->pos()) * z;
-      setConstrainedOffset(xoffset() - delta.x(), yoffset() - delta.y());
+      const QRectF view(-xoffset() / z, -yoffset() / z, width() / z, height() / z);
+      const QPointF rel = view.topLeft() - from->pos();
+      const qreal x = to->pos().x() + anchoredOrigin(rel.x(), to->bbox().width(), view.width());
+      const qreal y = to->pos().y() + anchoredOrigin(rel.y(), to->bbox().height(), view.height());
+      setConstrainedOffset(xoffset() - (x - view.x()) * z, yoffset() - (y - view.y()) * z);
       }
 
 //---------------------------------------------------------
@@ -4156,6 +4176,21 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       if (shadowNote->visible())
             setShadowNote(p);
 
+      // When the focus crosses to another page, turn the paper first (see
+      // setPageAnchoredOffset), then track within the new page if needed.
+      // During playback a new page which is only partly visible is turned to
+      // even if the current measure can already be seen.
+      Page* page = sys->page();
+      if (score()->paginatedMode()) {
+            Page* anchor = pageAtViewport();
+            const QRectF pageRect(page->bbox().translated(page->pos()));
+            if (anchor && anchor != page && (!r.contains(showRect) || (playBack && !r.contains(pageRect)))) {
+                  setPageAnchoredOffset(anchor, page);
+                  update();
+                  r = canvasViewport();
+                  }
+            }
+
       if (r.contains(showRect))
             return;
 
@@ -4181,20 +4216,7 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       // In Double Page view, treat the complete spread as the
       // horizontal navigation area, while retaining the physical
       // page's vertical bounds
-      Page* page = sys->page();
       QRectF navigationRect(page->bbox().translated(page->pos()));
-
-      // When the focus crosses to another page, keep that page's top-left
-      // corner at the same viewport position instead of tracking the focused
-      // system or note. In-page focus tracking still works as before.
-      if (score()->paginatedMode() && score()->pages().indexOf(page) >= 0) {
-            Page* anchor = pageAtViewport();
-            if (anchor && anchor != page) {
-                  setPageAnchoredOffset(anchor, page);
-                  update();
-                  return;
-                  }
-            }
 
       if (score()->doublePageMode()) {
             const QRectF layoutRect = score()->pageLayoutRect();
