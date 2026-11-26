@@ -32,7 +32,7 @@ The macOS app has its own name and bundle ID, and its settings are kept apart fr
 - Hundreds of meaningless import errors per score (doubled ties, valid clefs reported as invalid) are gone.
 
 **Layout**
-- **Equal measure widths**: every measure in a system gets the same width for its notes, however dense; clefs, key and time signatures at the start of a line or measure are not counted. A measure whose notes need more room keeps its minimum width and the others share the rest equally. Measure stretch (`{` `}`) still works as a multiplier on the equal share. On by default, also for existing scores; turn it off in Format > Style > Measure ("Equal measure widths within a system").
+- **Equal measure widths**: every measure in a system gets the same width for its notes, however dense; clefs, key and time signatures at the start of a line or measure are not counted. A measure whose notes need more room keeps its minimum width and the others share the rest equally. Measure stretch (`{` `}`) is ignored while the option is on; the values stay in the score and apply again when it is off. On by default, also for existing scores; turn it off in Format > Style > Measure ("Equal measure widths within a system").
 
 **Playback**
 - **External MIDI devices**: a checkbox in the I/O preferences chooses the MIDI output device or MuseScore's own sounds. Each part channel takes its own MIDI channel when it first plays, drums on channel 10, melodic parts never on 10, and XG part mode is set to Normal, so XG sound modules no longer play melodies as drums. `-O` traces the channels and programs sent.

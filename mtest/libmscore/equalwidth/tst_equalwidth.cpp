@@ -25,7 +25,7 @@ using namespace Ms;
 //    1: uneven note densities, first measure has clef/key/time
 //    2: first measure too dense for an equal share
 //    (spatium 1mm so that equal shares fit four measures)
-//    3: second measure has stretch 2
+//    3: second measure has stretch 2 (ignored)
 //    4: filler
 //---------------------------------------------------------
 
@@ -129,7 +129,8 @@ void TestEqualWidth::overflow()
 
 //---------------------------------------------------------
 //   userStretch
-//    measure stretch multiplies the equal share
+//    measure stretch is ignored while equal widths are on,
+//    and kept in the score
 //---------------------------------------------------------
 
 void TestEqualWidth::userStretch()
@@ -138,7 +139,8 @@ void TestEqualWidth::userStretch()
       QList<Measure*> ml = systemMeasures(score, 2);
       QCOMPARE(ml.size(), 4);
       qreal a0 = noteArea(ml[0]);
-      QVERIFY(qAbs(noteArea(ml[1]) - 2.0 * a0) < 0.01);
+      QCOMPARE(ml[1]->userStretch(), 2.0);
+      QVERIFY(qAbs(noteArea(ml[1]) - a0) < 0.01);
       QVERIFY(qAbs(noteArea(ml[2]) - a0) < 0.01);
       QVERIFY(qAbs(noteArea(ml[3]) - a0) < 0.01);
       checkNoOverflow(score, 2);

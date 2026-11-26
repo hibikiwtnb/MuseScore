@@ -4209,7 +4209,10 @@ qreal Measure::createEndBarLines(bool isLastMeasureInSystem)
 
 qreal Measure::basicStretch() const
       {
-      qreal stretch = userStretch() * score()->styleD(Sid::measureSpacing);
+      // equal measure widths override the measure stretch; the stored value is
+      // kept and applies again when the option is off
+      const bool ignoreStretch = score()->styleB(Sid::equalMeasureWidth) && !score()->lineMode();
+      qreal stretch = (ignoreStretch ? 1.0 : userStretch()) * score()->styleD(Sid::measureSpacing);
       if (stretch < 1.0)
             stretch = 1.0;
       return stretch;
