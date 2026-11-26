@@ -4170,6 +4170,18 @@ void ScoreView::adjustCanvasPosition(const Element* el, bool playBack, int staff
       Page* page = sys->page();
       QRectF navigationRect(page->bbox().translated(page->pos()));
 
+      // When the focus crosses to another page, keep that page's top-left
+      // corner at the same viewport position instead of tracking the focused
+      // system or note. In-page focus tracking still works as before.
+      if (score()->paginatedMode() && score()->pages().indexOf(page) >= 0) {
+            Page* anchor = pageAtViewport();
+            if (anchor && anchor != page) {
+                  setPageAnchoredOffset(anchor, page);
+                  update();
+                  return;
+                  }
+            }
+
       if (score()->doublePageMode()) {
             const QRectF layoutRect = score()->pageLayoutRect();
             navigationRect.setLeft(layoutRect.left());
