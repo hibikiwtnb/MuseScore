@@ -144,6 +144,7 @@ EditStyle::EditStyle(Score* s, QWidget* parent)
       { Sid::systemFrameDistance,     false, systemFrameDistance,     resetSystemFrameDistance },
       { Sid::frameSystemDistance,     false, frameSystemDistance,     resetFrameSystemDistance },
       { Sid::minMeasureWidth,         false, minMeasureWidth_2,       resetMinMeasureWidth },
+      { Sid::equalMeasureWidth,       false, equalMeasureWidth,       0 },
       { Sid::measureSpacing,          false, measureSpacing,          resetMeasureSpacing },
 
       { Sid::barWidth,                false, barWidth,                resetBarWidth },

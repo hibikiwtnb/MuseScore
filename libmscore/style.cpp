@@ -1451,6 +1451,8 @@ static const StyleType styleTypes[] {
       { Sid::figuredBassMinDistance,        "figuredBassMinDistance",        Spatium(0.5)  },
       { Sid::tupletMinDistance,             "tupletMinDistance",             Spatium(0.5)  },
 
+      { Sid::equalMeasureWidth,             "equalMeasureWidth",             true },
+
       { Sid::autoplaceEnabled,              "autoplaceEnabled",              true },
       { Sid::usePre_3_6_defaults,           "usePre_3_6_defaults",           false},
       { Sid::defaultsVersion,               "defaultsVersion",               Ms::MSCVERSION}

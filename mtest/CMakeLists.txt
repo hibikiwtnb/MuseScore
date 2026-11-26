@@ -157,6 +157,7 @@ subdirs (
         libmscore/durationtype
         libmscore/earlymusic
         libmscore/element
+        libmscore/equalwidth
         libmscore/exchangevoices
         libmscore/hairpin
         libmscore/implode_explode

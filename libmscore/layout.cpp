@@ -4036,6 +4036,79 @@ static void processLines(System* system, std::vector<Spanner*> lines, bool align
       }
 
 //---------------------------------------------------------
+//   measureFixedWidth
+//    Part of a measure's minimum width that is kept out of
+//    the equal share: segments before the first ChordRest
+//    (system header, clef, key and time signature changes,
+//    start repeat) and segments after the last ChordRest
+//    except the end barline (cautionary trailer, clef change
+//    for the next measure). The space between barline and
+//    first note, accidentals and the end barline belong to
+//    the shared part, so measures without such elements get
+//    exactly equal widths.
+//---------------------------------------------------------
+
+static qreal measureFixedWidth(const Measure* m)
+      {
+      Segment* firstCR = m->first(SegmentType::ChordRest);
+      if (!firstCR)
+            return m->width();
+      Segment* lastCR = firstCR;
+      for (Segment* s = firstCR->next(SegmentType::ChordRest); s; s = s->next(SegmentType::ChordRest))
+            lastCR = s;
+      Segment* fs = m->firstEnabled();
+      qreal fixed = (fs && fs != firstCR) ? firstCR->x() - fs->x() : 0.0;
+      for (Segment* s = lastCR->next(); s; s = s->next())
+            if (s->enabled() && !s->isEndBarLineType())
+                  fixed += s->width();
+      return qBound(0.0, fixed, m->width());
+      }
+
+//---------------------------------------------------------
+//   equalMeasureWidths
+//    Distribute totalWidth over the measures of a system so
+//    that every measure gets the same note area (the width
+//    without its fixed part), multiplied by the measure's
+//    user stretch. A measure whose minimum note area exceeds
+//    its share keeps its minimum; the others split the rest.
+//---------------------------------------------------------
+
+static std::vector<qreal> equalMeasureWidths(const std::vector<Measure*>& ml, qreal totalWidth)
+      {
+      size_t n = ml.size();
+      std::vector<qreal> fixed(n), content(n), weight(n), result(n);
+      std::vector<bool> pinned(n, false);
+      qreal pool = totalWidth;
+      for (size_t i = 0; i < n; ++i) {
+            fixed[i]   = measureFixedWidth(ml[i]);
+            content[i] = ml[i]->width() - fixed[i];
+            weight[i]  = qMax(0.1, ml[i]->userStretch());
+            pool      -= fixed[i];
+            }
+      qreal share = 0.0;
+      for (bool changed = true; changed;) {
+            changed = false;
+            qreal totalWeight = 0.0;
+            for (size_t i = 0; i < n; ++i)
+                  if (!pinned[i])
+                        totalWeight += weight[i];
+            if (totalWeight <= 0.0)
+                  break;
+            share = pool / totalWeight;
+            for (size_t i = 0; i < n; ++i) {
+                  if (!pinned[i] && content[i] > share * weight[i]) {
+                        pinned[i] = true;
+                        pool     -= content[i];
+                        changed   = true;
+                        }
+                  }
+            }
+      for (size_t i = 0; i < n; ++i)
+            result[i] = fixed[i] + (pinned[i] ? content[i] : qMax(content[i], share * weight[i]));
+      return result;
+      }
+
+//---------------------------------------------------------
 //   collectSystem
 //---------------------------------------------------------
 
@@ -4317,6 +4390,7 @@ System* Score::collectSystem(LayoutContext& lc)
       // stretch incomplete row
       //
       qreal rest;
+      std::vector<qreal> equalWidths;
       if (MScore::noHorizontalStretch)
             rest = 0;
       else {
@@ -4351,12 +4425,24 @@ System* Score::collectSystem(LayoutContext& lc)
                   else
                         rest = minWidth;
                   }
+            if (styleB(Sid::equalMeasureWidth)) {
+                  std::vector<Measure*> ml;
+                  qreal measuresWidth = 0.0;
+                  for (MeasureBase* mb : system->measures()) {
+                        if (mb->isMeasure()) {
+                              ml.push_back(toMeasure(mb));
+                              measuresWidth += mb->width();
+                              }
+                        }
+                  equalWidths = equalMeasureWidths(ml, measuresWidth + rest);
+                  }
             rest /= totalWeight;
             }
 
       QPointF pos;
       firstMeasure = true;
       bool createBrackets = false;
+      size_t measureIdx = 0;
       for (MeasureBase* mb : system->measures()) {
             qreal ww = mb->width();
             if (mb->isMeasure()) {
@@ -4366,9 +4452,14 @@ System* Score::collectSystem(LayoutContext& lc)
                         }
                   mb->setPos(pos);
                   Measure* m = toMeasure(mb);
-                  qreal stretch = m->basicStretch();
-                  int weight = m->layoutWeight();
-                  ww  += rest * weight * stretch;
+                  if (measureIdx < equalWidths.size())
+                        ww = equalWidths[measureIdx];
+                  else {
+                        qreal stretch = m->basicStretch();
+                        int weight = m->layoutWeight();
+                        ww  += rest * weight * stretch;
+                        }
+                  ++measureIdx;
                   m->stretchMeasure(ww);
                   m->layoutStaffLines();
                   if (createBrackets) {

@@ -1436,6 +1436,8 @@ enum class Sid : short {
       figuredBassMinDistance,
       tupletMinDistance,
 
+      equalMeasureWidth,
+
       autoplaceEnabled,
       usePre_3_6_defaults,
       defaultsVersion,
