@@ -4112,7 +4112,7 @@ By default, they will be placed such as that their right end are at the same lev
                </rect>
               </property>
               <layout class="QGridLayout" name="gridLayout_56">
-               <item row="17" column="2">
+               <item row="18" column="2">
                 <widget class="QToolButton" name="resetKeyBarlineDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4129,7 +4129,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="11" column="1">
+               <item row="12" column="1">
                 <widget class="QDoubleSpinBox" name="clefBarlineDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4139,7 +4139,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="28" column="2">
+               <item row="29" column="2">
                 <widget class="QToolButton" name="resetStaffLineWidth">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4156,7 +4156,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="1" column="1">
+               <item row="2" column="1">
                 <widget class="QDoubleSpinBox" name="measureSpacing">
                  <property name="decimals">
                   <number>3</number>
@@ -4169,7 +4169,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="7" column="0">
+               <item row="8" column="0">
                 <widget class="QLabel" name="label_61">
                  <property name="text">
                   <string>Barline to grace note distance:</string>
@@ -4179,7 +4179,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="24" column="1">
+               <item row="25" column="1">
                 <widget class="QDoubleSpinBox" name="systemHeaderTimeSigDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4189,7 +4189,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="0" column="0">
+               <item row="1" column="0">
                 <widget class="QLabel" name="label_89">
                  <property name="text">
                   <string>Minimum measure width:</string>
@@ -4199,14 +4199,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="22" column="0" colspan="3">
+               <item row="23" column="0" colspan="3">
                 <widget class="Line" name="line_14">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="28" column="0">
+               <item row="29" column="0">
                 <widget class="QLabel" name="label">
                  <property name="text">
                   <string>Staff line thickness:</string>
@@ -4219,7 +4219,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="4" column="2">
+               <item row="5" column="2">
                 <widget class="QToolButton" name="resetBarNoteDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4236,14 +4236,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="6" column="0" colspan="3">
+               <item row="7" column="0" colspan="3">
                 <widget class="Line" name="line_10">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="24" column="0">
+               <item row="25" column="0">
                 <widget class="QLabel" name="label_112">
                  <property name="text">
                   <string>System header with time signature distance:</string>
@@ -4253,7 +4253,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="0" column="3">
+               <item row="1" column="3">
                 <spacer name="horizontalSpacer_57">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
@@ -4266,7 +4266,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </spacer>
                </item>
-               <item row="20" column="1">
+               <item row="21" column="1">
                 <widget class="QDoubleSpinBox" name="timesigLeftMargin">
                  <property name="suffix">
                   <string>sp</string>
@@ -4276,7 +4276,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="8" column="1">
+               <item row="9" column="1">
                 <widget class="QDoubleSpinBox" name="barAccidentalDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4286,7 +4286,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="26" column="0">
+               <item row="27" column="0">
                 <widget class="QLabel" name="label_103">
                  <property name="text">
                   <string>Multimeasure rest margin:</string>
@@ -4296,7 +4296,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="1" column="2">
+               <item row="2" column="2">
                 <widget class="QToolButton" name="resetMeasureSpacing">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4313,7 +4313,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="26" column="1">
+               <item row="27" column="1">
                 <widget class="QDoubleSpinBox" name="multiMeasureRestMargin">
                  <property name="suffix">
                   <string>sp</string>
@@ -4323,7 +4323,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="5" column="0">
+               <item row="6" column="0">
                 <widget class="QLabel" name="label_13">
                  <property name="text">
                   <string>Note to barline distance:</string>
@@ -4333,7 +4333,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="23" column="2">
+               <item row="24" column="2">
                 <widget class="QToolButton" name="resetSystemHeaderDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4350,7 +4350,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="8" column="0">
+               <item row="9" column="0">
                 <widget class="QLabel" name="label_102">
                  <property name="text">
                   <string>Barline to accidental distance:</string>
@@ -4360,7 +4360,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="28" column="1">
+               <item row="29" column="1">
                 <widget class="QDoubleSpinBox" name="staffLineWidth">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4370,7 +4370,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="1" column="0">
+               <item row="2" column="0">
                 <widget class="QLabel" name="label_11">
                  <property name="text">
                   <string>Spacing (1=tight):</string>
@@ -4380,7 +4380,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="24" column="2">
+               <item row="25" column="2">
                 <widget class="QToolButton" name="resetSystemHeaderTimeSigDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4397,7 +4397,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="4" column="1">
+               <item row="5" column="1">
                 <widget class="QDoubleSpinBox" name="barNoteDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4407,7 +4407,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="10" column="2">
+               <item row="11" column="2">
                 <widget class="QToolButton" name="resetClefLeftMargin">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4424,7 +4424,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="0" column="2">
+               <item row="1" column="2">
                 <widget class="QToolButton" name="resetMinMeasureWidth">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4441,7 +4441,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="0" column="1">
+               <item row="1" column="1">
                 <widget class="QDoubleSpinBox" name="minMeasureWidth_2">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4451,7 +4451,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="17" column="1">
+               <item row="18" column="1">
                 <widget class="QDoubleSpinBox" name="keyBarlineDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4461,7 +4461,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="21" column="1">
+               <item row="22" column="1">
                 <widget class="QDoubleSpinBox" name="timesigBarlineDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4471,7 +4471,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="23" column="1">
+               <item row="24" column="1">
                 <widget class="QDoubleSpinBox" name="systemHeaderDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4481,7 +4481,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="5" column="1">
+               <item row="6" column="1">
                 <widget class="QDoubleSpinBox" name="noteBarDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4491,7 +4491,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="18" column="0">
+               <item row="19" column="0">
                 <widget class="QLabel" name="label_109">
                  <property name="text">
                   <string>Key to time signature distance:</string>
@@ -4501,7 +4501,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="20" column="2">
+               <item row="21" column="2">
                 <widget class="QToolButton" name="resetTimesigLeftMargin">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4518,7 +4518,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="3" column="1">
+               <item row="4" column="1">
                 <widget class="QDoubleSpinBox" name="minNoteDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4528,7 +4528,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="7" column="1">
+               <item row="8" column="1">
                 <widget class="QDoubleSpinBox" name="barGraceDistance">
                  <property name="suffix">
                   <string>sp</string>
@@ -4538,7 +4538,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="3" column="2">
+               <item row="4" column="2">
                 <widget class="QToolButton" name="resetMinNoteDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4555,7 +4555,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="21" column="2">
+               <item row="22" column="2">
                 <widget class="QToolButton" name="resetTimesigBarlineDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4572,7 +4572,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="14" column="1">
+               <item row="15" column="1">
                 <widget class="QDoubleSpinBox" name="clefTimesigDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4582,7 +4582,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="13" column="2">
+               <item row="14" column="2">
                 <widget class="QToolButton" name="resetClefKeyDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4599,7 +4599,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="3" column="0">
+               <item row="4" column="0">
                 <widget class="QLabel" name="label_14">
                  <property name="text">
                   <string>Minimum note distance:</string>
@@ -4609,7 +4609,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="12" column="1">
+               <item row="13" column="1">
                 <widget class="QDoubleSpinBox" name="clefKeyRightMargin">
                  <property name="suffix">
                   <string>sp</string>
@@ -4619,7 +4619,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="18" column="1">
+               <item row="19" column="1">
                 <widget class="QDoubleSpinBox" name="keyTimesigDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4629,7 +4629,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="18" column="2">
+               <item row="19" column="2">
                 <widget class="QToolButton" name="resetKeyTimesigDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4646,7 +4646,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="26" column="2">
+               <item row="27" column="2">
                 <widget class="QToolButton" name="resetMultiMeasureRestMargin">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4663,7 +4663,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="20" column="0">
+               <item row="21" column="0">
                 <widget class="QLabel" name="label_20">
                  <property name="text">
                   <string>Time signature left margin:</string>
@@ -4673,7 +4673,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="12" column="2">
+               <item row="13" column="2">
                 <widget class="QToolButton" name="resetClefKeyRightMargin">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4690,7 +4690,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="17" column="0">
+               <item row="18" column="0">
                 <widget class="QLabel" name="label_110">
                  <property name="text">
                   <string>Key to barline distance:</string>
@@ -4700,7 +4700,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="12" column="0">
+               <item row="13" column="0">
                 <widget class="QLabel" name="label_21">
                  <property name="text">
                   <string>Clef/Key right margin:</string>
@@ -4713,7 +4713,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="10" column="1">
+               <item row="11" column="1">
                 <widget class="QDoubleSpinBox" name="clefLeftMargin">
                  <property name="suffix">
                   <string>sp</string>
@@ -4723,7 +4723,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="16" column="0">
+               <item row="17" column="0">
                 <widget class="QLabel" name="label_19">
                  <property name="text">
                   <string>Key signature left margin:</string>
@@ -4733,7 +4733,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="13" column="0">
+               <item row="14" column="0">
                 <widget class="QLabel" name="label_94">
                  <property name="text">
                   <string>Clef to key distance:</string>
@@ -4743,7 +4743,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="16" column="1">
+               <item row="17" column="1">
                 <widget class="QDoubleSpinBox" name="keysigLeftMargin">
                  <property name="suffix">
                   <string>sp</string>
@@ -4753,7 +4753,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="14" column="2">
+               <item row="15" column="2">
                 <widget class="QToolButton" name="resetClefTimesigDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4770,7 +4770,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="7" column="2">
+               <item row="8" column="2">
                 <widget class="QToolButton" name="resetBarGraceDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4787,7 +4787,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="11" column="0">
+               <item row="12" column="0">
                 <widget class="QLabel" name="label_53">
                  <property name="text">
                   <string>Clef to barline distance:</string>
@@ -4797,14 +4797,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="2" column="0" colspan="3">
+               <item row="3" column="0" colspan="3">
                 <widget class="Line" name="line_9">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="8" column="2">
+               <item row="9" column="2">
                 <widget class="QToolButton" name="resetBarAccidentalDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4821,7 +4821,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="13" column="1">
+               <item row="14" column="1">
                 <widget class="QDoubleSpinBox" name="clefKeyDistance">
                  <property name="suffix">
                   <string extracomment="spatium unit">sp</string>
@@ -4831,7 +4831,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="4" column="0">
+               <item row="5" column="0">
                 <widget class="QLabel" name="label_12">
                  <property name="text">
                   <string>Note left margin:</string>
@@ -4841,14 +4841,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="19" column="0" colspan="3">
+               <item row="20" column="0" colspan="3">
                 <widget class="Line" name="line_13">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="21" column="0">
+               <item row="22" column="0">
                 <widget class="QLabel" name="label_113">
                  <property name="text">
                   <string>Time signature to barline distance:</string>
@@ -4858,7 +4858,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="16" column="2">
+               <item row="17" column="2">
                 <widget class="QToolButton" name="resetKeysigLeftMargin">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4875,21 +4875,21 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="25" column="0" colspan="3">
+               <item row="26" column="0" colspan="3">
                 <widget class="Line" name="line_15">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="27" column="0" colspan="3">
+               <item row="28" column="0" colspan="3">
                 <widget class="Line" name="line_16">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="14" column="0">
+               <item row="15" column="0">
                 <widget class="QLabel" name="label_108">
                  <property name="text">
                   <string>Clef to time signature distance:</string>
@@ -4899,7 +4899,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="10" column="0">
+               <item row="11" column="0">
                 <widget class="QLabel" name="label_18">
                  <property name="text">
                   <string>Clef left margin:</string>
@@ -4909,7 +4909,7 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="5" column="2">
+               <item row="6" column="2">
                 <widget class="QToolButton" name="resetNoteBarDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4926,14 +4926,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="9" column="0" colspan="3">
+               <item row="10" column="0" colspan="3">
                 <widget class="Line" name="line_11">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="23" column="0">
+               <item row="24" column="0">
                 <widget class="QLabel" name="label_111">
                  <property name="text">
                   <string>System header distance:</string>
@@ -4943,14 +4943,14 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="15" column="0" colspan="3">
+               <item row="16" column="0" colspan="3">
                 <widget class="Line" name="line_12">
                  <property name="orientation">
                   <enum>Qt::Horizontal</enum>
                  </property>
                 </widget>
                </item>
-               <item row="11" column="2">
+               <item row="12" column="2">
                 <widget class="QToolButton" name="resetClefBarlineDistance">
                  <property name="toolTip">
                   <string>Reset to default</string>
@@ -4967,17 +4967,17 @@ By default, they will be placed such as that their right end are at the same lev
                  </property>
                 </widget>
                </item>
-               <item row="29" column="0" colspan="2">
+               <item row="0" column="0" colspan="2">
                 <widget class="QCheckBox" name="equalMeasureWidth">
                  <property name="toolTip">
-                  <string>Give every measure in a system the same width for its notes; measure stretch acts as a multiplier</string>
+                  <string>Give every measure in a system the same width for its notes; measure stretch is ignored</string>
                  </property>
                  <property name="text">
                   <string>Equal measure widths within a system</string>
                  </property>
                 </widget>
                </item>
-               <item row="30" column="0">
+               <item row="31" column="0">
                 <spacer name="verticalSpacer_11">
                  <property name="orientation">
                   <enum>Qt::Vertical</enum>
